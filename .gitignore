@@ -1,0 +1,17 @@
+# Java build output
+/bin/
+*.class
+
+# Local Eclipse workspace and launch settings
+.metadata/
+*.launch
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+
+# Personal game progress and runtime logs
+/saves/
+/logs/
+*.log
