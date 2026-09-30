@@ -4,5 +4,5 @@
 /**
  * 
  */
-module ProtoRPG {
+module EndlessAdventure {
 }
