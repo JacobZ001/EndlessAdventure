@@ -21,3 +21,11 @@ The project currently uses only the Java standard library. No API key is needed 
 4. Open `src/com/endlessadventure/Driver.java`, then select **Run As → Java Application**
 
 The final course submission will include updated run instructions, the requirement-to-code mapping, and any known limitations.
+
+## LLM Development Usage
+
+The following classes are developed using GenAI coding agent:
+- com.endlessadventure.llm.LlmClient.java
+- com.endlessadventure.llm.LlmRequestException.java
+
+I hereby claim that no other parts of this project is developed by or using GenAI.
