@@ -26,6 +26,18 @@ public abstract class Entity {
 		this.name = name;
 	}
 	
+	public double getHP() {
+		return HP;
+	}
+
+	public void setHP(double HP) {
+		this.HP = HP;
+	}
+
+	public double getMaxHP() {
+		return MaxHP;
+	}
+
 	public void takeDamage(double amount) {
 		HP -= amount;
 		if(HP <= 0) {

@@ -4,7 +4,7 @@ public class Driver {
     public static void main(String[] args) {
 		UIHandler ui = new UIHandler();
 		SaveManager saveManager = new SaveManager();
-		GameDirector director = new GameDirector(ui, saveManager);
+		GameEngine director = new GameEngine(ui, saveManager);
 		
 		director.run();
     }
