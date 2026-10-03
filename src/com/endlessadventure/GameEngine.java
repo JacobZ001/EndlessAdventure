@@ -1,19 +1,31 @@
 package com.endlessadventure;
 
+import com.endlessadventure.SaveManager.SlotStatus;
+import com.endlessadventure.SaveManager.SlotSummary;
 import com.endlessadventure.entity.Player;
+import com.endlessadventure.llm.LlmClient;
+import com.endlessadventure.llm.LlmRequestException;
 
 public class GameEngine {
+	private enum GameScreen {
+	    MAIN_MENU, CHARACTER_CREATION, WRITE_SAVE, LOAD_SAVE, ADVENTURE, INVENTORY, COMBAT, HELP
+	}
 	private final UIHandler ui;
 	private final SaveManager saveManager;
+	private final LlmClient llm;
+	
     private static boolean running;
     private GameScreen currentScreen;
+    private SlotSummary[] slotSummaries;
     private GameState gameState;
 
-	public GameEngine(UIHandler ui, SaveManager saveManager) {
+	public GameEngine(UIHandler ui, SaveManager saveManager, LlmClient llm) {
 		this.ui = ui;
 		this.saveManager = saveManager;
+		this.llm = llm;
 	}
 	
+	/** core game loop */
 	public void run() {
 		currentScreen = GameScreen.MAIN_MENU;
 	    running = true;
@@ -30,9 +42,20 @@ public class GameEngine {
 		    };
 		}
 	}
-
+	
+	/** read through all save slots, return true if any slot has an existing readable save */
+	private boolean hasSave() {
+		slotSummaries = saveManager.readAllSummaries();
+		for(SlotSummary s : slotSummaries) {
+			if(s.status() == SlotStatus.READABLE) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	private GameScreen handleMainMenu() {
-    	ui.renderMainMenuUI();
+    	ui.renderMainMenuUI(hasSave());
 		String command = ui.prompt();
 		
 	    return switch(command) {
@@ -40,7 +63,7 @@ public class GameEngine {
 	        case "2","load" -> GameScreen.LOAD_SAVE;
 	        case "3","help" -> GameScreen.HELP;
 	        case "4", "exit" -> {
-			    ui.print("\nGame Exited. Thank you for playing.");
+			    UIHandler.print("\nGame Exited. Thank you for playing.");
 			    running = false;
 			    yield null;
 	        }
@@ -59,14 +82,23 @@ public class GameEngine {
 		String command = ui.prompt();
 		
     	return switch(command) {
-    		case "c","continue" -> GameScreen.WRITE_SAVE;
+    		case "c","continue" -> {
+    			gameState = new GameState(player);
+    			if(hasSave()) {
+        			yield GameScreen.WRITE_SAVE;
+    			}
+    			else {
+    				saveManager.writeSave(1, gameState);
+    				yield GameScreen.ADVENTURE;
+    			}
+    		}
 			case "b","back" -> GameScreen.MAIN_MENU;
 			default -> unknownCommand();
     	};
 	}
     
     private GameScreen handleWriteSave() {
-    	ui.renderWriteSaveUI();
+    	ui.renderWriteSaveUI(slotSummaries);
     	String command = ui.prompt();
     	
     	return switch(command) {
@@ -78,7 +110,7 @@ public class GameEngine {
     
     private GameScreen handleLoadSave() {
     	//TODO create handle load save
-    	ui.renderLoadSaveUI();
+    	ui.renderLoadSaveUI(slotSummaries);
 		String command = ui.prompt();
 		
     	return switch(command) {
@@ -89,6 +121,14 @@ public class GameEngine {
     }
     
 	private GameScreen handleAdventure() {
+		String systemInstruction = ""; //TODO implement system instruction for llm client
+		String userContent = ""; //TODO implement user content for llm client
+		try {
+			String response = llm.generate(systemInstruction, userContent);//TDO implement llm IO 
+		} catch (LlmRequestException e) {
+			ui.print(e.getMessage());
+			running = false;
+		}
 		ui.renderAdventureUI();
 		//TODO create handle adventure
 		String command = ui.prompt();
@@ -121,13 +161,9 @@ public class GameEngine {
 		};
     }
     
+    /** print status message for unknown command on next UI render */
     private GameScreen unknownCommand() {
-    	try {
-			ui.setStatusMsg("Unknown Command, please try again.",ui.RED);
-		} catch (InvalidColorException e) {
-			ui.print(e.getMessage());
-			e.printStackTrace();
-		}
+		ui.setStatusMsg("Unknown Command, please try again.",UIHandler.RED);
     	return currentScreen;
     }
 }

@@ -16,5 +16,6 @@
 /logs/
 *.log
 
-# Local architecture notes; keep in the working tree, do not publish
-ENDLESS_ADVENTURE_ARCHITECTURE.md
+# Local design notes
+ARCHITECTURE.md
+DESIGN.md
