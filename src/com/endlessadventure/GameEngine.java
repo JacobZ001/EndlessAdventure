@@ -1,7 +1,9 @@
 package com.endlessadventure;
 
+import java.io.IOException;
+
 import com.endlessadventure.SaveManager.SlotStatus;
-import com.endlessadventure.SaveManager.SlotSummary;
+import com.endlessadventure.SaveManager.SlotOverview;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.llm.LlmRequestException;
@@ -16,7 +18,7 @@ public class GameEngine {
 	
     private static boolean running;
     private GameScreen currentScreen;
-    private SlotSummary[] slotSummaries;
+    private SlotOverview[] slotOverviews;
     private GameState gameState;
 
 	public GameEngine(UIHandler ui, SaveManager saveManager, LlmClient llm) {
@@ -43,10 +45,11 @@ public class GameEngine {
 		}
 	}
 	
-	/** read through all save slots, return true if any slot has an existing readable save */
+	/** read through all save slots, return true if any slot has an existing readable save.
+	 *  Used for controlling display of load game option in main menu */
 	private boolean hasSave() {
-		slotSummaries = saveManager.readAllSummaries();
-		for(SlotSummary s : slotSummaries) {
+		slotOverviews = saveManager.readAllSummaries();
+		for(SlotOverview s : slotOverviews) {
 			if(s.status() == SlotStatus.READABLE) {
 				return true;
 			}
@@ -63,7 +66,7 @@ public class GameEngine {
 	        case "2","load" -> GameScreen.LOAD_SAVE;
 	        case "3","help" -> GameScreen.HELP;
 	        case "4", "exit" -> {
-			    UIHandler.print("\nGame Exited. Thank you for playing.");
+			    System.out.println((Object) "\nGame Exited. Thank you for playing.");
 			    running = false;
 			    yield null;
 	        }
@@ -88,7 +91,12 @@ public class GameEngine {
         			yield GameScreen.WRITE_SAVE;
     			}
     			else {
-    				saveManager.writeSave(1, gameState);
+    				try {
+						saveManager.writeSave(1, gameState);
+					} catch (IOException e) {
+						System.out.println("Cannot write to save 1:" + e.getMessage());
+						e.printStackTrace();
+					}
     				yield GameScreen.ADVENTURE;
     			}
     		}
@@ -98,7 +106,7 @@ public class GameEngine {
 	}
     
     private GameScreen handleWriteSave() {
-    	ui.renderWriteSaveUI(slotSummaries);
+    	ui.renderWriteSaveUI(slotOverviews);
     	String command = ui.prompt();
     	
     	return switch(command) {
@@ -110,7 +118,7 @@ public class GameEngine {
     
     private GameScreen handleLoadSave() {
     	//TODO create handle load save
-    	ui.renderLoadSaveUI(slotSummaries);
+    	ui.renderLoadSaveUI(slotOverviews);
 		String command = ui.prompt();
 		
     	return switch(command) {
@@ -126,7 +134,7 @@ public class GameEngine {
 		try {
 			String response = llm.generate(systemInstruction, userContent);//TDO implement llm IO 
 		} catch (LlmRequestException e) {
-			ui.print(e.getMessage());
+			System.out.println((Object) e.getMessage());
 			running = false;
 		}
 		ui.renderAdventureUI();

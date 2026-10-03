@@ -1,30 +1,31 @@
 package com.endlessadventure;
 
 public class PropertyNotFoundException extends RuntimeException {
+	private final String propertyName;
 
-	public PropertyNotFoundException() {
-		// TODO Auto-generated constructor stub
+	public PropertyNotFoundException(String propertyName) {
+		super("Property not found: " + propertyName);
+		this.propertyName = propertyName;
 	}
 
-	public PropertyNotFoundException(String message) {
+	public PropertyNotFoundException(String propertyName, String message) {
 		super(message);
-		// TODO Auto-generated constructor stub
+		this.propertyName = propertyName;
 	}
 
-	public PropertyNotFoundException(Throwable cause) {
-		super(cause);
-		// TODO Auto-generated constructor stub
-	}
-
-	public PropertyNotFoundException(String message, Throwable cause) {
+	public PropertyNotFoundException(String propertyName, String message, Throwable cause) {
 		super(message, cause);
-		// TODO Auto-generated constructor stub
+		this.propertyName = propertyName;
 	}
 
-	public PropertyNotFoundException(String message, Throwable cause, boolean enableSuppression,
+	public PropertyNotFoundException(String propertyName, String message, Throwable cause, boolean enableSuppression,
 			boolean writableStackTrace) {
 		super(message, cause, enableSuppression, writableStackTrace);
-		// TODO Auto-generated constructor stub
+		this.propertyName = propertyName;
+	}
+
+	public String getPropertyName() {
+		return propertyName;
 	}
 
 }
