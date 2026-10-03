@@ -10,7 +10,7 @@ public class GameState {
 	public GameState(Player player, Scene scene, int turn) {
 		this.player = player;
 		this.scene = scene;
-		this.turn = turn;
+		setTurn(turn);
 	}
 	
 	public GameState(Player player) {
@@ -40,8 +40,12 @@ public class GameState {
 	public int getTurn() {
 		return turn;
 	}
-
+	
+	/** @throws IllegalArgumentException */
 	public void setTurn(int turn) {
+		if(turn < 1) {
+			throw new IllegalArgumentException("Invalid turn: " + turn);
+		}
 		this.turn = turn;
 	}
 }

@@ -1,27 +1,27 @@
 package com.endlessadventure;
 
-public class InvalidColorException extends Exception {
+public class PropertyNotFoundException extends RuntimeException {
 
-	public InvalidColorException() {
+	public PropertyNotFoundException() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public InvalidColorException(String message) {
+	public PropertyNotFoundException(String message) {
 		super(message);
 		// TODO Auto-generated constructor stub
 	}
 
-	public InvalidColorException(Throwable cause) {
+	public PropertyNotFoundException(Throwable cause) {
 		super(cause);
 		// TODO Auto-generated constructor stub
 	}
 
-	public InvalidColorException(String message, Throwable cause) {
+	public PropertyNotFoundException(String message, Throwable cause) {
 		super(message, cause);
 		// TODO Auto-generated constructor stub
 	}
 
-	public InvalidColorException(String message, Throwable cause, boolean enableSuppression,
+	public PropertyNotFoundException(String message, Throwable cause, boolean enableSuppression,
 			boolean writableStackTrace) {
 		super(message, cause, enableSuppression, writableStackTrace);
 		// TODO Auto-generated constructor stub
