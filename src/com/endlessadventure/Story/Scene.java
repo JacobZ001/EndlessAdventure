@@ -13,8 +13,8 @@ public class Scene {
 	}
 
 	public Scene(String location, String description, String[] options) {
-		this.location = Objects.requireNonNull(location);
-		this.description = Objects.requireNonNull(description);
+		this.location = location;
+		this.description = description;
 		this.options = options.clone();
 	}
 

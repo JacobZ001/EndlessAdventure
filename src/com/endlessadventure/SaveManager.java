@@ -75,7 +75,16 @@ public class SaveManager {
 		props.setProperty("energy", String.valueOf(player.getEnergy()));
 		props.setProperty("maxEnergy", String.valueOf(player.getMaxEnergy()));
 		props.setProperty("turn", String.valueOf(state.getTurn()));
-		//TODO Reserved for later: scene id, items, journal (item.0.template=..., etc.)
+		
+		Scene scene = state.getScene();
+		props.setProperty("location", String.valueOf(scene.getLocation()));
+		props.setProperty("description", String.valueOf(scene.getDescription()));
+		String[] options = scene.getOptions();
+		props.setProperty("option_count", String.valueOf(options.length));
+		for(int i=0;i<options.length;i++) {
+			props.setProperty("options."+i, String.valueOf(options[i]));
+		}
+		//TODO Reserved for later: items, journal (item.0.template=..., etc.)
 		
 		Files.createDirectories(saveDir);
 		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
@@ -103,9 +112,18 @@ public class SaveManager {
 			int turn = getIntProperty(props, "turn");
 
 			Player player = new Player(name, maxHp, hp, level, attack, armor, maxEnergy, energy, exp);
-			//TODO Scene / inventory / journal: load when those systems exist.
+			
+			String location = getStringProperty(props, "location");
+			String description = getStringProperty(props, "description");
+			int option_count = getIntProperty(props, "option_count");
+			String[] options = new String[option_count];
+			for(int i=0; i<option_count;i++) {
+				options[i] = getStringProperty(props, "options." + i);
+			}
+			Scene scene = new Scene(location, description, options);
+			//TODO inventory / journal: load when those systems exist.
 
-			return new GameState(player, new Scene(), turn);
+			return new GameState(player, scene, turn);
 		} catch (IllegalArgumentException | PropertyNotFoundException e) {
 			throw new BadSaveException(slot, e);
 		}

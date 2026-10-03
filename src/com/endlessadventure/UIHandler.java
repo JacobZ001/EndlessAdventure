@@ -148,7 +148,7 @@ public class UIHandler {
 		sb.append(buildBoxText(CYAN + "[4]" + RESET + " Exit"));
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxBottomRich());
-		render(sb.toString(),new String[]{"Enter [1][2][3][4] to select an option"});
+		render(sb.toString(),new String[]{"Enter [1-4] to select an option"});
 	}
 	
 	public void renderCharacterCreationUI(Player player) {
@@ -170,28 +170,39 @@ public class UIHandler {
 	
 	public void renderLoadSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("LOAD GAME", slots);
-		String[] ins = {"Enter [1][2][3] to load a game","Enter [b] or [back] to return to the main menu"};
+		String[] ins = {"Enter [1-3] to load a game","Enter [b] or [back] to return to the main menu"};
 		render(sb.toString(),ins);
 	}
 	
 	public void renderWriteSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("SAVE GAME", slots);
-		String[] ins = {"Enter [1][2][3] to select a slot","Enter [b] or [back] to return to the previous screen"};
+		String[] ins = {"Enter [1-3] to select a slot","Enter [b] or [back] to return to the previous screen"};
 		render(sb.toString(),ins);
 	}
 	
 	public void renderAdventureUI(GameState gameState) {
-		//TODO render the actual scene when the adventure loop is implemented.
 		Scene scene = gameState.getScene();
 		sb.append(buildBoxTop("ADVENTURE"));
-		sb.append(buildBoxText("Location: " + scene.getLocation(),true));
-		sb.append(buildBoxDivider());
+		sb.append(buildBoxText("Location: " + CYAN + scene.getLocation() + RESET));
+		sb.append(buildBoxText("Turn " + gameState.getTurn()));
+		sb.append(buildBoxEmptyRow());	
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxText(scene.getDescription()));
 		sb.append(buildBoxEmptyRow());
-
+		sb.append(buildBoxDivider());
+		sb.append(buildBoxText(gameState.getPlayer().getName() + ", what will you do next?"));
+		sb.append(buildBoxEmptyRow());
+		
+		String[] options = scene.getOptions();
+		for(int i=0; i<options.length;i++) {
+			sb.append(buildBoxText("[%d] %s".formatted(i+1,options[i])));
+		}
+		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxBottomRich());
-		render(sb.toString(), new String[]{"Enter [s] or [save] to save your game", "Enter [b] or [back] to return to the main menu"});
+		render(sb.toString(), new String[]{
+				"Enter [1-%d] to choose an action".formatted(options.length),
+				"Enter [s] or [save] to save your game",
+				"Enter [b] or [back] to return to the main menu"});
 	}
 
 	public void renderInventoryUI() {
@@ -329,7 +340,7 @@ public class UIHandler {
 
 	/** build horizontal line with Title */
 	private String buildHLineTitle(String title) {
-		String center = " %s ".formatted(YELLOW + title + RESET);
+		String center = "%s %s %s".formatted(LINE_CAPS[0], YELLOW + title + RESET, LINE_CAPS[1]);
 		return buildHLineRich(center);
 	}
 	

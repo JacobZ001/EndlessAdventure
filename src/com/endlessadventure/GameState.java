@@ -19,7 +19,7 @@ public class GameState {
 	}
 	
 	public GameState() {
-		this(null, null, 1);
+		this(null, new Scene(), 1);
 	}
 
 	public Player getPlayer() {
