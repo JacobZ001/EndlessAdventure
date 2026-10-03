@@ -10,10 +10,11 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 import com.endlessadventure.entity.Player;
+import com.endlessadventure.Story.Scene;
 
 public class SaveManager {
 	public enum SlotStatus{
-		EMPTY, READABLE
+		EMPTY, READABLE, CORRUPT
 	}
 	public static final int SLOT_COUNT = 3;
 	private static final String COMMENT = "EndlessAdventure save v1";
@@ -30,25 +31,16 @@ public class SaveManager {
 	/** Summary record for a save slot containing the slot number, status, player name, level, and turn count. */
 	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn) {}
 
-	/** Lightweight read for UI to display the summary of a save slot. */
+	/** Validate the save before presenting it as readable in the UI. */
 	public SlotOverview readSummary(int slot) {
-		Path path = getSlotPath(slot);
-		
 		try {
-			Properties props = loadProps(path);
-			String name = getStringProperty(props,"name");
-			int level = getIntProperty(props, "level");
-			int turn = getIntProperty(props, "turn");
-			
-			if (level < 1 || level > Player.MAX_LEVEL || turn < 1) {
-			    throw new IllegalArgumentException("Invalid level or turn");
-			}
-			
-			return new SlotOverview(slot, SlotStatus.READABLE, name, level, turn);
+			GameState state = loadSave(slot);
+			Player player = state.getPlayer();
+			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getTurn());
 		} catch (NoSuchFileException e) {
 			return new SlotOverview(slot, SlotStatus.EMPTY, null, 0, 0);
-		} catch(IOException | IllegalArgumentException | PropertyNotFoundException e) {
-			throw new BadSaveException(slot, e);
+		} catch(IOException | BadSaveException e) {
+			return new SlotOverview(slot, SlotStatus.CORRUPT, null, 0, 0);
 		}
 	}
 	
@@ -63,6 +55,7 @@ public class SaveManager {
 
 	/** Write the current game into a slot (overwrites if present). */
 	public void writeSave(int slot, GameState state) throws IOException{
+		Path path = getSlotPath(slot);
 		if (state == null) {
 			throw new IllegalArgumentException("Cannot write to save: game state is null");
 		}
@@ -74,7 +67,7 @@ public class SaveManager {
 		Player player = state.getPlayer();
 		props.setProperty("name", player.getName());
 		props.setProperty("level", String.valueOf(player.getLevel()));
-		props.setProperty("EXP", String.valueOf((int) player.getExp()));
+		props.setProperty("EXP", String.valueOf(player.getExp()));
 		props.setProperty("hp", String.valueOf(player.getHp()));
 		props.setProperty("maxHp", String.valueOf(player.getMaxHp()));
 		props.setProperty("attack", String.valueOf(player.getAttack()));
@@ -85,34 +78,37 @@ public class SaveManager {
 		//TODO Reserved for later: scene id, items, journal (item.0.template=..., etc.)
 		
 		Files.createDirectories(saveDir);
-		Path path = getSlotPath(slot);
-		
 		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
 			props.store(writer, COMMENT);
 		}
 	}
 
-	/** Loads a slot into a new GameState. 
-	 * @throws NoSuchFileException
-	 * @throws PropertyNotFoundException */
+	/** Load a new state without modifying the running game.
+	 * @throws IOException if the file cannot be read
+	 * @throws BadSaveException if its contents are invalid */
 	public GameState loadSave(int slot) throws IOException{
-		Properties props = loadProps(getSlotPath(slot));
+		Path path = getSlotPath(slot);
+		try {
+			Properties props = loadProps(path);
 
-		String name = getStringProperty(props, "name");
-		double maxHp = getDoubleProperty(props, "maxHp");
-		double hp = getDoubleProperty(props, "hp");
-		double attack = getDoubleProperty(props, "attack");
-		double armor = getDoubleProperty(props, "armor");
-		int maxEnergy = getIntProperty(props, "maxEnergy");
-		int energy = getIntProperty(props, "energy");
-		int level = getIntProperty(props, "level");
-		int exp = getIntProperty(props, "EXP");
-		int turn = getIntProperty(props, "turn");
-		
-		Player player = new Player(name, maxHp, hp, level, attack, armor, maxEnergy, energy, exp);
-		//TODO Scene / inventory / journal: load when those systems exist.
+			String name = getStringProperty(props, "name");
+			double maxHp = getDoubleProperty(props, "maxHp");
+			double hp = getDoubleProperty(props, "hp");
+			double attack = getDoubleProperty(props, "attack");
+			double armor = getDoubleProperty(props, "armor");
+			int maxEnergy = getIntProperty(props, "maxEnergy");
+			int energy = getIntProperty(props, "energy");
+			int level = getIntProperty(props, "level");
+			int exp = getIntProperty(props, "EXP");
+			int turn = getIntProperty(props, "turn");
 
-		return new GameState(player, new Scene(), turn);
+			Player player = new Player(name, maxHp, hp, level, attack, armor, maxEnergy, energy, exp);
+			//TODO Scene / inventory / journal: load when those systems exist.
+
+			return new GameState(player, new Scene(), turn);
+		} catch (IllegalArgumentException | PropertyNotFoundException e) {
+			throw new BadSaveException(slot, e);
+		}
 	}
 
 	/** load properties from selected slot file */

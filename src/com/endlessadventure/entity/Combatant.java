@@ -27,7 +27,7 @@ public abstract class Combatant extends Entity {
 	
 	/** @throws IllegalArgumentException */
 	public void setAttack(double attack) {
-		if(attack < 0) {
+		if(!Double.isFinite(attack) || attack < 0) {
 			throw new IllegalArgumentException("Invalid attack: " + attack);
 		}
 		this.attack = attack;
@@ -38,6 +38,9 @@ public abstract class Combatant extends Entity {
 	}
 
 	public void setArmor(double armor) {
+		if (!Double.isFinite(armor)) {
+			throw new IllegalArgumentException("Invalid armor: " + armor);
+		}
 		this.armor = armor; //can be set to negative, which instead increases the damage taken
 	}
 
@@ -46,7 +49,11 @@ public abstract class Combatant extends Entity {
 	}
 	
 	public void setMaxEnergy(int maxEnergy) {
+		if (maxEnergy < 0) {
+			throw new IllegalArgumentException("Invalid maxEnergy: " + maxEnergy);
+		}
 		this.maxEnergy = maxEnergy;
+		energy = Math.min(energy, maxEnergy);
 	}
 	
 	public int getEnergy() {

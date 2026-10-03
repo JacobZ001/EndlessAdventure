@@ -34,15 +34,20 @@ public class Player extends Combatant {
 		return exp;
 	}
 
-	/** set the exp to value, return true if the level-up requirement is met */
+	/** Set valid within-level progress, for example when loading a save. */
 	public void setExp(int exp) {
 		if(exp < 0 || (getLevel() == MAX_LEVEL && exp != 0) || (getLevel() < MAX_LEVEL && exp >= xpToNext(getLevel()))) {
 			throw new IllegalArgumentException("Invalid exp for level: Lv " + getLevel() + ": " + exp);
 		}
 		this.exp = exp;
 	}
-	
-	public void levelUp(int levels) {
-		setExp(xpToNext(getLevel()));
+
+	/** direct level change, does not leave incompatible EXP behind. */
+	@Override
+	public void setLevel(int level) {
+		if ((level == MAX_LEVEL && exp != 0) || (level < MAX_LEVEL && exp >= xpToNext(level))) {
+			throw new IllegalArgumentException("Current EXP is invalid for level: " + level);
+		}
+		super.setLevel(level);
 	}
 }

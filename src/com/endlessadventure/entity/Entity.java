@@ -24,20 +24,26 @@ public abstract class Entity {
 		return name;
 	}
 	
+	/** @throws IllegalArgumentException */
 	public void setName(String name) {
-		this.name = name;
+		if (name == null || name.isBlank() || name.strip().length() > 40
+				|| name.chars().anyMatch(Character::isISOControl)) {
+			throw new IllegalArgumentException("Name must contain 1 to 40 characters without control characters");
+		}
+		this.name = name.strip();
 	}
 	
 	public double getMaxHp() {
 		return maxHp;
 	}
 
-	/** @throws IllegalArgumentException */
+	/* @throws IllegalArgumentException */
 	public void setMaxHp(double maxHp) {
-		if(maxHp < 0) {
+		if(!Double.isFinite(maxHp) || maxHp <= 0) {
 			throw new IllegalArgumentException("Invalid maxHp: " + maxHp);
 		}
 		this.maxHp = maxHp;
+		hp = Math.min(hp, maxHp);
 	}
 	
 	public double getHp() {
@@ -46,7 +52,7 @@ public abstract class Entity {
 	
 	/** @throws IllegalArgumentException */
 	public void setHp(double hp) {
-		if(hp < 0 ||  hp > maxHp) {
+		if(!Double.isFinite(hp) || hp < 0 || hp > maxHp) {
 			throw new IllegalArgumentException("Invalid hp: " + hp);
 		}
 		this.hp = hp;
@@ -64,20 +70,23 @@ public abstract class Entity {
 		this.level = level;
 	}
 
-	/** take the amount as damage and subtract from hp; return true if the entity is still alive afterwards */
+	/** take the amount as damage and subtract from hp; return true if the entity is still alive afterwards
+	 *  @throws IllegalArgumenException */
 	public boolean takeDamage(double amount) {
-		hp -= amount;
-		if(hp <= 0) {
-			hp = 0;
+		if (!Double.isFinite(amount) || amount < 0) {
+			throw new IllegalArgumentException("Invalid damage: " + amount);
 		}
+		hp = Math.max(0, hp - amount);
 		return isAlive();
 	}
 
+	/** take the amount as restoration and add it to hp
+	 *  @throws IllegalArgumenException */
 	public void RestoreHP(double amount) {
-		hp += amount;
-		if(hp > maxHp) {
-			hp = maxHp;
+		if (!Double.isFinite(amount) || amount < 0) {
+			throw new IllegalArgumentException("Invalid healing: " + amount);
 		}
+		hp = Math.min(maxHp, hp + amount);
 	}
 	
 	public boolean isAlive() {

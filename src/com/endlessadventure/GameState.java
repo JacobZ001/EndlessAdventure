@@ -1,6 +1,7 @@
 package com.endlessadventure;
 
 import com.endlessadventure.entity.Player;
+import com.endlessadventure.Story.Scene;
 
 public class GameState {
 	private Player player;
@@ -18,7 +19,7 @@ public class GameState {
 	}
 	
 	public GameState() {
-		this(null);
+		this(null, null, 1);
 	}
 
 	public Player getPlayer() {
