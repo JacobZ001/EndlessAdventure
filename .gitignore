@@ -6,6 +6,10 @@
 .metadata/
 *.launch
 
+# Local editor settings and document-review artifacts
+/.vscode/
+/.codex_doc_review/
+
 # Local credentials and configuration
 .env
 .env.*
