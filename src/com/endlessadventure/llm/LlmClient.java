@@ -1,13 +1,18 @@
 package com.endlessadventure.llm;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Properties;
 
 /** LLM client for interacting with the Gemini API
  * This class is developed by Cursor AI and modified by me to fit my needs.
@@ -24,9 +29,13 @@ public final class LlmClient {
 	private final String endpointOverride;
 
 	public LlmClient() {
-		this(System.getenv("ENDLESS_ADVENTURE_API_KEY"),
-				System.getenv("ENDLESS_ADVENTURE_MODEL"),
-				System.getenv("ENDLESS_ADVENTURE_API_URL"));
+		this(readLocalConfig());
+	}
+
+	private LlmClient(Properties config) {
+		this(config.getProperty("ENDLESS_ADVENTURE_API_KEY", System.getenv("ENDLESS_ADVENTURE_API_KEY")),
+				config.getProperty("ENDLESS_ADVENTURE_MODEL", System.getenv("ENDLESS_ADVENTURE_MODEL")),
+				config.getProperty("ENDLESS_ADVENTURE_API_URL", System.getenv("ENDLESS_ADVENTURE_API_URL")));
 	}
 
 	LlmClient(String apiKey, String model, String endpointOverride) {
@@ -34,6 +43,49 @@ public final class LlmClient {
 		this.apiKey = apiKey == null ? "" : apiKey.trim();
 		this.model = model == null || model.isBlank() ? DEFAULT_MODEL : model.trim();
 		this.endpointOverride = endpointOverride == null ? "" : endpointOverride.trim();
+	}
+
+	/** Read project-local settings without changing the operating system environment. */
+	private static Properties readLocalConfig() {
+		Properties config = new Properties();
+		Path path = Path.of(".env");
+		if (Files.notExists(path)) {
+			return config;
+		}
+		// ponytail: single-line NAME=VALUE only; add expansion or multiline syntax when actually needed.
+		try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			String line;
+			int lineNumber = 0;
+			while ((line = reader.readLine()) != null) {
+				lineNumber++;
+				if (lineNumber == 1 && line.startsWith("\uFEFF")) {
+					line = line.substring(1);
+				}
+				line = line.strip();
+				if (line.isEmpty() || line.startsWith("#")) {
+					continue;
+				}
+				int separator = line.indexOf('=');
+				if (separator <= 0) {
+					throw new IllegalArgumentException("Invalid .env entry at line " + lineNumber + "; expected NAME=VALUE");
+				}
+				String name = line.substring(0, separator).strip();
+				if (!name.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+					throw new IllegalArgumentException("Invalid .env variable name at line " + lineNumber);
+				}
+				String value = line.substring(separator + 1).strip();
+				if (value.startsWith("\"") || value.startsWith("'")) {
+					if (value.length() < 2 || value.charAt(value.length() - 1) != value.charAt(0)) {
+						throw new IllegalArgumentException("Unclosed .env quote at line " + lineNumber);
+					}
+					value = value.substring(1, value.length() - 1);
+				}
+				config.setProperty(name, value);
+			}
+		} catch (IOException e) {
+			throw new UncheckedIOException("Cannot read .env in the working directory", e);
+		}
+		return config;
 	}
 
 	/** Generate a response from the LLM
@@ -45,7 +97,7 @@ public final class LlmClient {
 	public String generate(String systemInstruction, String userContent) throws LlmRequestException {
 		if (apiKey.isEmpty()) {
 			throw new LlmRequestException(LlmRequestException.Stage.MISSING_KEY,
-					"ENDLESS_ADVENTURE_API_KEY is not set");
+					"ENDLESS_ADVENTURE_API_KEY is not set in .env or the process environment");
 		}
 		if (userContent == null || userContent.isBlank()) {
 			throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE, "User content is empty");
