@@ -79,7 +79,7 @@ public class GameEngine {
 				yield GameScreen.CHARACTER_CREATION;
 	        }
 	        case "2","[2]","load" -> GameScreen.LOAD_SAVE;
-	        case "3","[3]","h","help" -> GameScreen.HELP;
+	        case "3","[3]","help" -> GameScreen.HELP;
 	        case "4","[4]", "exit" -> {
 			    System.out.println("\nGame Exited. Thank you for playing.");
 			    running = false;
@@ -107,8 +107,8 @@ public class GameEngine {
 
 		String command = ui.prompt();
     	return switch(command) {
-    		case "b","back" -> GameScreen.MAIN_MENU;
-    		case "c","continue" -> GameScreen.ADVENTURE;
+    		case "b","[b]" -> GameScreen.MAIN_MENU;
+    		case "c","[c]" -> GameScreen.ADVENTURE;
 			default -> handleGeneralCommand(command);
     	};
 	}
@@ -124,7 +124,7 @@ public class GameEngine {
 			case "1","[1]" -> loadSave(1);
 			case "2","[2]" -> loadSave(2);
 			case "3","[3]" -> loadSave(3);
-			case "b","back" -> GameScreen.MAIN_MENU;
+			case "b","[b]" -> GameScreen.MAIN_MENU;
 			default -> handleGeneralCommand(command);
     	};
     }
@@ -136,7 +136,7 @@ public class GameEngine {
 			ui.showSuccess("Loaded slot " + slot + ".");
 			return GameScreen.ADVENTURE;
 		} catch (IOException e) {
-			ui.showError("cannot load save " + slot + ": " + e.getMessage());
+			ui.showError("Cannot load save " + slot + ": " + e.getMessage());
 			return GameScreen.LOAD_SAVE;
 		} catch (BadSaveException e) {
 			ui.showError("Save " + e.getSlot() + " is invalid: " + e.getCause().getMessage());
@@ -155,7 +155,7 @@ public class GameEngine {
 			case "1","[1]" -> writeSave(1);
 			case "2","[2]" -> writeSave(2);
 			case "3","[3]" -> writeSave(3);
-			case "b","back" -> GameScreen.ADVENTURE;
+			case "b","[b]" -> GameScreen.ADVENTURE;
 			default -> handleGeneralCommand(command);
     	};
     }
@@ -166,10 +166,10 @@ public class GameEngine {
 		if(status != SlotStatus.EMPTY) {
 			String message;
 			if (status == SlotStatus.CORRUPT) {
-				message = "This slot contains an unreadable save. Overwrite it? (y/n)";
+				message = "This slot contains an unreadable save. Overwrite it? [Y/N]";
 			}
 			else {
-				message = "There is an existing save in this slot. Overwrite it? (y/n)";
+				message = "There is an existing save in this slot. Overwrite it? [Y/N]";
 			}
 			String confirm = ui.prompt(message);
 			if(!confirm.equals("y") && !confirm.equals("yes")) {
@@ -181,7 +181,7 @@ public class GameEngine {
 			ui.showSuccess("Saved to slot " + slot + ".");
 			return GameScreen.WRITE_SAVE;
 		} catch (IOException e) {
-			ui.showError("cannot write save " + slot + ": " + e.getMessage());
+			ui.showError("Cannot write save " + slot + ": " + e.getMessage());
 			return GameScreen.WRITE_SAVE;
 		}
 	}
@@ -192,7 +192,7 @@ public class GameEngine {
 			try {
 				gameState.setScene(storyGenerator.generateOpening(gameState));
 			} catch (LlmRequestException e) {
-				ui.showError("cannot process LLM request: " + e.getMessage());
+				ui.showError("Cannot process LLM request: " + e.getMessage());
 				return GameScreen.MAIN_MENU;
 			}
 		}
@@ -207,17 +207,17 @@ public class GameEngine {
 				gameState.setTurn(gameState.getTurn() + 1);
 				return GameScreen.ADVENTURE;
 			} catch (LlmRequestException e) {
-				ui.showError("cannot process LLM request: " + e.getMessage());
+				ui.showError("Cannot process LLM request: " + e.getMessage());
 				return GameScreen.MAIN_MENU;
 			}
 		}
     	return switch(command) {
     		//TODO implement inventory and other adventure general commands
-    		case "b","back" -> {
-				String confirm = ui.prompt("Return to the main menu? Unsaved progress may be lost. (y/n)");
-				yield confirm.equals("y") || confirm.equals("yes") ? GameScreen.MAIN_MENU : currentScreen;
+    		case "b","[b]" -> {
+				String confirm = ui.prompt("Are you sure to return to the main menu? Unsaved progress may be lost. (y/n)");
+				yield confirm.equals("y") || confirm.equals("yes") ? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
     		}
-	    	case "s","save" -> GameScreen.WRITE_SAVE; 
+	    	case "s","[s]" -> GameScreen.WRITE_SAVE; 
 			default -> handleGeneralCommand(command);
 		};
 	}
@@ -250,7 +250,7 @@ public class GameEngine {
     	ui.renderHelpUI();
 		String command = ui.prompt();
     	return switch(command) {
-			case "b","back" -> GameScreen.MAIN_MENU;
+			case "b","[b]" -> GameScreen.MAIN_MENU;
 			default -> handleGeneralCommand(command);
 		};
     }

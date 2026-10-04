@@ -122,7 +122,7 @@ public class UIHandler {
 		System.out.println();
 		System.out.println(content);
 		for(String ins : instructions) {
-			System.out.println(CYAN + "▽ " + ins + RESET);
+			System.out.println(CYAN + /*"▽ " +*/ ins + RESET);
 		}
 		sb.setLength(0);
 
@@ -161,8 +161,8 @@ public class UIHandler {
 			sb.append(buildBoxText("HP %.0f / %.0f".formatted(player.getHp(),player.getMaxHp())));
 			sb.append(buildBoxText("Attack %-10.0f | Armor %10.0f".formatted(player.getAttack(),player.getArmor())));
 	    	sb.append(buildBoxEmptyRow());
-			ins = new String[]{"Enter [c] or [continue] to continue",
-					"Enter [b] or [back] to return to the main menu"};
+			ins = new String[]{"[C] Continue",
+					"[B] Return to Main Menu"};
 		}
 		sb.append(buildBoxBottomRich());
 		render(sb.toString(),ins);
@@ -170,13 +170,13 @@ public class UIHandler {
 	
 	public void renderLoadSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("LOAD GAME", slots);
-		String[] ins = {"Enter [1-3] to load a game","Enter [b] or [back] to return to the main menu"};
+		String[] ins = {"[1-3] Load Game","[B] Return to Main Menu"};
 		render(sb.toString(),ins);
 	}
 	
 	public void renderWriteSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("SAVE GAME", slots);
-		String[] ins = {"Enter [1-3] to select a slot","Enter [b] or [back] to return to the previous screen"};
+		String[] ins = {"[1-3] Save to Slot","[B] Return to Adventure"};
 		render(sb.toString(),ins);
 	}
 	
@@ -200,13 +200,54 @@ public class UIHandler {
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxBottomRich());
 		render(sb.toString(), new String[]{
-				"Enter [1-%d] to choose an action".formatted(options.length),
-				"Enter [s] or [save] to save your game",
-				"Enter [b] or [back] to return to the main menu"});
+				"[1-%d] Choose an action".formatted(options.length),
+				"[S] Save",
+				"[B] Return to Main Menu"});
 	}
 
 	public void renderInventoryUI() {
 		//TODO create inventory UI
+	}
+
+	/** render a twelve-slot inventory for the standalone keyboard prototype */
+	public void renderInventoryPrototypeUI(String[] names, String[] descriptions, int selectedIndex) {
+		int columns = 4;
+		int rows = 3;
+		int canvasWidth = UI_WIDTH - 2 * TEXT_PADDING - 2;
+		int cellWidth = (canvasWidth - columns - 1) / columns;
+		String top = "┌" + ("─".repeat(cellWidth) + "┬").repeat(columns - 1) + "─".repeat(cellWidth) + "┐";
+		String divider = "├" + ("─".repeat(cellWidth) + "┼").repeat(columns - 1) + "─".repeat(cellWidth) + "┤";
+		String bottom = "└" + ("─".repeat(cellWidth) + "┴").repeat(columns - 1) + "─".repeat(cellWidth) + "┘";
+
+		sb.append(buildBoxTop("INVENTORY"));
+		sb.append(buildBoxText("Backpack | 12 slots"));
+		sb.append(buildBoxEmptyRow());
+		sb.append(buildRow(top, canvasWidth, false, COL_BORDER));
+		for (int row = 0; row < rows; row++) {
+			StringBuilder gridRow = new StringBuilder("│");
+			for (int column = 0; column < columns; column++) {
+				int index = row * columns + column;
+				String name = names[index].isEmpty() ? "Empty" : names[index];
+				String label = (index == selectedIndex ? "> " : "  ") + name;
+				label = label.substring(0, Math.min(label.length(), cellWidth));
+				label += " ".repeat(cellWidth - visibleLength(label));
+				if (index == selectedIndex) {
+					label = "\033[7m" + label + RESET;
+				}
+				gridRow.append(label).append("│");
+			}
+			sb.append(buildRow(gridRow.toString(), canvasWidth, false, COL_BORDER));
+			sb.append(buildRow(row == rows - 1 ? bottom : divider, canvasWidth, false, COL_BORDER));
+		}
+		sb.append(buildBoxEmptyRow());
+		sb.append(buildBoxDivider());
+		sb.append(buildBoxEmptyRow());
+		String selectedName = names[selectedIndex].isEmpty() ? "Empty slot" : names[selectedIndex];
+		sb.append(buildBoxText(YELLOW + selectedName + RESET));
+		sb.append(buildBoxText(descriptions[selectedIndex].isEmpty() ? "This slot is empty." : descriptions[selectedIndex]));
+		sb.append(buildBoxEmptyRow());
+		sb.append(buildBoxBottomRich());
+		render(sb.toString(), new String[]{"[Arrow keys] Select item   [B] Back"});
 	}
 
 	public void renderCombatUI() {
@@ -230,15 +271,15 @@ public class UIHandler {
 		sb.append(buildBoxEmptyRow());
 		for(SlotOverview slot : slots) {
 			if(slot.status() == SlotStatus.EMPTY) {
-				sb.append(buildBoxText("[%d] Empty Slot".formatted(slot.slot())));
+				sb.append(buildBoxText("%s[%d]%s Empty Slot".formatted(CYAN, slot.slot(),RESET)));
 				sb.append(buildBoxEmptyRow());
 			}
 			else if (slot.status() == SlotStatus.CORRUPT) {
-				sb.append(buildBoxText("[%d] Unreadable Save".formatted(slot.slot())));
+				sb.append(buildBoxText("%s[%d]%s Unreadable Save".formatted(CYAN,slot.slot(),RESET)));
 				sb.append(buildBoxEmptyRow());
 			}
 			else {
-				sb.append(buildBoxText("[%d] Lv %-5d %s".formatted(slot.slot(),slot.level(),slot.name())));
+				sb.append(buildBoxText("%s[%d]%s LV %-5d %s".formatted(CYAN,slot.slot(),RESET,slot.level(),slot.name())));
 				sb.append(buildBoxText("     Last Turn %d".formatted(slot.turn())));
 				sb.append(buildBoxEmptyRow());
 			}
