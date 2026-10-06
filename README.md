@@ -4,21 +4,33 @@ A console-based Java RPG course project for CMP 358L at the American University 
 
 ## Current status
 
-Development has just started. The planned game combines turn-based combat, character growth, items and equipment, saved progress, and LLM-generated story developments within supported game rules.
+As of October 6, 2026, the narrative adventure loop is implemented in source.
+
+- **Narrative gameplay:** character creation, LLM-generated opening and continuation scenes, 1–3 suggested choices, and custom text actions. Successful continuation replaces the current scene and records the previous scene with the player's action. Java assigns scene turn numbers; the model receives the current scene, player facts, and accumulated history.
+- **Player and persistence foundation:** validated player attributes and an EXP table, plus three save slots with overwrite confirmation. Save code includes player attributes, current scene, choices, and turn, but does not yet persist story history; loading still needs the constructor integration noted above.
+- **Console presentation:** a 120-column colored text interface with wrapping and screen redraws. Input is line-based and requires Enter. Use a terminal wide enough for the interface.
+- **Not implemented:** playable combat, inventory and equipment, usable skills, mechanical rewards, and automatic leveling. Story generation is currently narrative-only; mentioning an item or enemy does not create a gameplay object.
+
+### Known integration gaps
+
+Adventure input currently treats every nonblank value other than a matching choice number as a custom action. This also captures `S` and `B` before save/back routing, so those advertised commands do not currently open their intended screens. Custom actions are also lowercased by the shared input method.
+
+History is kept in memory and sent in full with each continuation; there is no persisted summary or context-size limit yet. Save writes directly replace the target file without an atomic temporary-file step. Model failures return to the main menu with an error; there is no automatic retry, offline story fallback, or main-menu Continue option.
 
 ## Requirements
 
 - JDK 21
 - Eclipse IDE with Java development support, or another Java development environment
 
-The project currently uses only the Java standard library. No API key is needed to run the current version.
+The current source uses only the Java standard library. Narrative generation requires network access and a Gemini API key; opening the menus does not require a key. Fix the compilation blocker above before launching the game.
 
 ## Run in Eclipse
 
 1. Clone this repository or download and extract it.
 2. In Eclipse, select **File → Import → General → Existing Projects into Workspace** and choose the repository folder. When using Git, leave **Copy projects into workspace** unchecked so Eclipse works on the same files as the repository.
 3. Make sure the project uses a JDK 21 installation for its **JavaSE-21** environment.
-4. Open `src/com/endlessadventure/Driver.java`, then select **Run As → Java Application**
+4. Create the local `.env` file described below and set the run configuration's working directory to the repository root.
+5. Once the project builds successfully, open `src/com/endlessadventure/Driver.java`, then select **Run As → Java Application**.
 
 The final course submission will include updated run instructions, the requirement-to-code mapping, and any known limitations.
 
@@ -42,7 +54,7 @@ Both launch methods must use the project root as the working directory:
 - **Eclipse Java Application:** Run Configurations → Arguments → Working directory → Other: `${workspace_loc:/EndlessAdventure}`.
 - **Eclipse External Tools:** set Working Directory to `${workspace_loc:/EndlessAdventure}` and retain `wt.exe -d "${workspace_loc:/EndlessAdventure}"` in the terminal launch arguments. The terminal then runs `java --module-path bin --module EndlessAdventure/com.endlessadventure.Driver` from that directory.
 
-The file is read by Java; it does not change Windows environment settings. `.env` is ignored by Git, while `.env.example` contains no credentials. LLM requests require a real key; this change does not call Gemini automatically.
+The file is read by Java; it does not change Windows environment settings. `.env` is ignored by Git, while `.env.example` contains no credentials. Starting an adventure or submitting a story action triggers a model request.
 
 ### Offline configuration check
 
@@ -68,19 +80,19 @@ try {
 }
 ```
 
-## Core regression check
+## Verification status
 
-Run `.\tests\check-core.ps1` from PowerShell. It compiles the project with JDK 21 and checks save/load, corrupt saves, failed writes, overwrite confirmation, navigation, input validation, and attribute bounds. Test saves and compiled classes stay in a fresh temporary directory; the check does not use personal saves or call the LLM.
+The outdated core regression check and its launcher have been removed. LLM configuration and story-generation checks remain. Core gameplay is currently checked manually; automated core checks can be added when the relevant features and interfaces stabilize.
 
-Adventure scenes, combat, rewards, and automatic leveling are still pending; these checks cover the current menu and player-state implementation.
+The earlier full-source compilation check on October 6, 2026 failed at the `SaveManager` constructor call described above. Removing the core tests does not resolve that source error; compilation and real-model gameplay were not rechecked during this cleanup.
 
-## Story generation prototype
+## Story generation
 
-`com.endlessadventure.Story` contains `Scene` and `StoryGenerator`. Construct the generator with an existing `LlmClient`, then call `generateOpening(gameState)` or `generateNext(gameState, playerAction)`. Pass the chosen option's text, not its number. Each method makes one request and returns a validated new `Scene`; the caller commits it with `gameState.setScene(scene)`. Generation does not change player stats, advance turns, or write saves. These classes are not yet connected to the adventure screen, and scene persistence is not implemented.
+`com.endlessadventure.story` contains the abstract `Scene`, `CurrentScene` with choices, `SceneRecord` with a completed action, and `StoryGenerator`. The generator is connected to `GameEngine`. `generateOpening(gameState)` returns turn 1; `generateNext(gameState, playerAction)` returns the next turn using the selected option's text or a custom action. Each method makes one request and returns a validated `CurrentScene` without mutating the supplied state. The engine commits the scene and appends the completed scene/action to history only after successful generation. Generation does not alter player stats or write saves.
 
-The body protocol uses `protocol.version=1`, `location`, `description`, `option.count`, and zero-based `option.0.text` through `option.3.text`. Text values are single-line and preserve literal equals signs and backslashes. Invalid required fields report `LlmRequestException.Stage.INVALID_RESPONSE` without retries or offline story generation.
+The body protocol uses `protocol.version=2`, `location`, `description`, `option.count`, and consecutive zero-based `option.N.text` fields. The game retains 1–3 choices; extra supplied choices are validated before being discarded. Location length is capped at 30 characters; descriptions and choices are truncated to 500 and 120 characters respectively. Text values are single-line printable ASCII after cleanup and preserve literal equals signs and backslashes. Invalid required fields report `LlmRequestException.Stage.INVALID_RESPONSE` without retries or offline story generation. Turn numbers are assigned locally, not supplied by the model.
 
-Run the offline story check from the project root in PowerShell. It uses dummy credentials and a local HTTP server, without reading `.env` or using personal saves:
+The offline story check uses dummy credentials and a local HTTP server, without reading `.env` or using personal saves. The command below compiles all source files, so it is currently blocked by the full-source compilation error. After that integration issue is resolved, run it from the project root in PowerShell:
 
 ```powershell
 $storyCheckDirectory = Join-Path ([IO.Path]::GetTempPath()) ('endless-story-check-' + [guid]::NewGuid())
@@ -94,11 +106,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 
 ## Development assistance
 
-The following LLM classes and verification code are developed using GenAI coding agent:
+The following LLM classes and verification code were developed with a GenAI coding agent:
+
 - com.endlessadventure.llm.LlmClient.java
 - com.endlessadventure.llm.LlmRequestException.java
 - tests/LlmConfigCheck.java (LLM configuration verification only)
-- com.endlessadventure.Story.StoryGenerator.java
+- com.endlessadventure.story.StoryGenerator.java
 - tests/StoryGeneratorCheck.java (offline story-generation verification)
 
-The core game code was initially written by the author. On 2026-10-03, AI-assisted bug fixes were applied to `GameEngine`, `SaveManager`, `UIHandler`, `Entity`, `Combatant`, and `Player`. `tests/CoreGameCheck.java` and `tests/check-core.ps1` were also added with AI assistance to verify those fixes.
+The core game code were written by the author.
