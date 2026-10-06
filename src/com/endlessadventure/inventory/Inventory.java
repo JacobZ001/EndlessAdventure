@@ -1,4 +1,4 @@
-package com.endlessadventure;
+package com.endlessadventure.inventory;
 
 import java.util.ArrayList;
 import java.util.List;

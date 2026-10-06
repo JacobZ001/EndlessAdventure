@@ -1,4 +1,4 @@
-package com.endlessadventure;
+package com.endlessadventure.inventory;
 
 public abstract class Item {
 	private static int nextId = 1;

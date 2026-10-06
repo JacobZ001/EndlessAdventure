@@ -1,5 +1,7 @@
 package com.endlessadventure.entity;
 
+import com.endlessadventure.inventory.Inventory;
+
 public class Player extends Combatant {
 	private static final int[] XP_TO_NEXT = { //index = current level; value = amount of exp required for leveling up
 			48, 64, 80, 96,				//1-4
@@ -12,6 +14,8 @@ public class Player extends Combatant {
 	private static final double DEFAULT_ARMOR = 1.0;
 	private static final int DEFAULT_MAX_ENERGY = 5;
 	private int exp;
+	
+	private final Inventory inventory = new Inventory();
 	
 	/** constructor for fully defined player */
 	public Player(String name, double maxHp, double hp, int level, double attack, double armor, int maxEnergy, int energy, int exp) {
@@ -49,5 +53,9 @@ public class Player extends Combatant {
 			throw new IllegalArgumentException("Current EXP is invalid for level: " + level);
 		}
 		super.setLevel(level);
+	}
+	
+	public Inventory getInventory() {
+		return inventory;
 	}
 }
