@@ -1,6 +1,6 @@
 package com.endlessadventure;
 
-public class Item {
+public abstract class Item {
 	private static int nextId = 1;
 	private final int id;
 	private final String name;
@@ -27,4 +27,13 @@ public class Item {
 	public String getDescription() {
 		return description;
 	}
+	
+	@Override
+	public abstract String toString();
+
+	@Override
+	public abstract int hashCode();
+
+	@Override
+	public abstract boolean equals(Object obj);	
 }
