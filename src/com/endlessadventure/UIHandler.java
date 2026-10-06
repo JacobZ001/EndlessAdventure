@@ -6,13 +6,14 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.endlessadventure.SaveManager.SlotOverview;
-import com.endlessadventure.SaveManager.SlotStatus;
-import com.endlessadventure.Story.Scene;
 import com.endlessadventure.entity.Player;
+import com.endlessadventure.save.SaveManager;
+import com.endlessadventure.save.SaveManager.SlotOverview;
+import com.endlessadventure.save.SaveManager.SlotStatus;
+import com.endlessadventure.story.CurrentScene;
 
 public class UIHandler {
-	public static final int UI_WIDTH = 100;
+	public static final int UI_WIDTH = 120        ;
 	public static final int TEXT_PADDING = 2;
 	public static final int NARRATIVE_LINES = 25;
 	
@@ -54,7 +55,7 @@ public class UIHandler {
 	//show messages
 	/** show warning message */
 	public void showWarning(String msg) {
-		setStatusMsg("? " +msg,YELLOW);
+		setStatusMsg(msg,YELLOW);
 	}
 	
 	/** show error message */
@@ -65,16 +66,6 @@ public class UIHandler {
 	/** show success message */
 	public void showSuccess(String msg) {
 		setStatusMsg(msg,GREEN);
-	}
-
-	/** show info message */
-	public void showInfo(String msg) {
-		setStatusMsg(msg,CYAN);
-	}
-
-	/** show message */
-	public void showMessage(String msg) {
-		setStatusMsg(msg,WHITE);
 	}
 
 	/** set status message and color to be shown, throws InvalidColorException if the color is invalid */
@@ -147,7 +138,7 @@ public class UIHandler {
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxText(CYAN + "[4]" + RESET + " Exit"));
 		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxBottomRich());
+		sb.append(buildBoxBottom());
 		render(sb.toString(),new String[]{"Enter [1-4] to select an option"});
 	}
 	
@@ -162,43 +153,51 @@ public class UIHandler {
 			sb.append(buildBoxText("Attack %-10.0f | Armor %10.0f".formatted(player.getAttack(),player.getArmor())));
 	    	sb.append(buildBoxEmptyRow());
 			ins = new String[]{"[C] Continue",
-					"[B] Return to Main Menu"};
+					"[B] Return to Main Menu",
+					"[R] Reset"};
 		}
-		sb.append(buildBoxBottomRich());
+		sb.append(buildBoxBottom());
 		render(sb.toString(),ins);
 	}
 	
 	public void renderLoadSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("LOAD GAME", slots);
-		String[] ins = {"[1-3] Load Game","[B] Return to Main Menu"};
+		String[] ins = {
+				"[1-%d] Load Game".formatted(SaveManager.SLOT_COUNT),
+				"[B] Return to Main Menu",
+				"[D 1-%d] Delete Save".formatted(SaveManager.SLOT_COUNT)};
 		render(sb.toString(),ins);
 	}
 	
 	public void renderWriteSaveUI(SlotOverview[] slots) {
 		buildSaveSlotUI("SAVE GAME", slots);
-		String[] ins = {"[1-3] Save to Slot","[B] Return to Adventure"};
+		String[] ins = {
+				"[1-%d] Save to Slot".formatted(SaveManager.SLOT_COUNT),
+				"[B] Return to Adventure",
+				"[D 1-%d] Delete Save".formatted(SaveManager.SLOT_COUNT)};
 		render(sb.toString(),ins);
 	}
 	
 	public void renderAdventureUI(GameState gameState) {
-		Scene scene = gameState.getScene();
+		CurrentScene currentScene = gameState.getCurrentScene();
 		sb.append(buildBoxTop("ADVENTURE"));
-		sb.append(buildBoxText("Location: " + CYAN + scene.getLocation() + RESET));
-		sb.append(buildBoxText("Turn " + gameState.getTurn()));
+		sb.append(buildBoxText("Location: " + CYAN + currentScene.getLocation() + RESET));
+		sb.append(buildBoxText("Turn " + gameState.getCurrentScene().getTurn()));
 		sb.append(buildBoxEmptyRow());	
 		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxText(scene.getDescription()));
+		sb.append(buildBoxText(currentScene.getDescription()));
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxDivider());
 		sb.append(buildBoxText(gameState.getPlayer().getName() + ", what will you do next?"));
 		sb.append(buildBoxEmptyRow());
 		
-		String[] options = scene.getOptions();
+		String[] options = currentScene.getOptions();
 		for(int i=0; i<options.length;i++) {
 			sb.append(buildBoxText("[%d] %s".formatted(i+1,options[i])));
 		}
+		sb.append(buildBoxText("speak your intention"));
 		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxBottomRich());
+		sb.append(buildBoxBottom());
 		render(sb.toString(), new String[]{
 				"[1-%d] Choose an action".formatted(options.length),
 				"[S] Save",
@@ -207,47 +206,6 @@ public class UIHandler {
 
 	public void renderInventoryUI() {
 		//TODO create inventory UI
-	}
-
-	/** render a twelve-slot inventory for the standalone keyboard prototype */
-	public void renderInventoryPrototypeUI(String[] names, String[] descriptions, int selectedIndex) {
-		int columns = 4;
-		int rows = 3;
-		int canvasWidth = UI_WIDTH - 2 * TEXT_PADDING - 2;
-		int cellWidth = (canvasWidth - columns - 1) / columns;
-		String top = "┌" + ("─".repeat(cellWidth) + "┬").repeat(columns - 1) + "─".repeat(cellWidth) + "┐";
-		String divider = "├" + ("─".repeat(cellWidth) + "┼").repeat(columns - 1) + "─".repeat(cellWidth) + "┤";
-		String bottom = "└" + ("─".repeat(cellWidth) + "┴").repeat(columns - 1) + "─".repeat(cellWidth) + "┘";
-
-		sb.append(buildBoxTop("INVENTORY"));
-		sb.append(buildBoxText("Backpack | 12 slots"));
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildRow(top, canvasWidth, false, COL_BORDER));
-		for (int row = 0; row < rows; row++) {
-			StringBuilder gridRow = new StringBuilder("│");
-			for (int column = 0; column < columns; column++) {
-				int index = row * columns + column;
-				String name = names[index].isEmpty() ? "Empty" : names[index];
-				String label = (index == selectedIndex ? "> " : "  ") + name;
-				label = label.substring(0, Math.min(label.length(), cellWidth));
-				label += " ".repeat(cellWidth - visibleLength(label));
-				if (index == selectedIndex) {
-					label = "\033[7m" + label + RESET;
-				}
-				gridRow.append(label).append("│");
-			}
-			sb.append(buildRow(gridRow.toString(), canvasWidth, false, COL_BORDER));
-			sb.append(buildRow(row == rows - 1 ? bottom : divider, canvasWidth, false, COL_BORDER));
-		}
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxDivider());
-		sb.append(buildBoxEmptyRow());
-		String selectedName = names[selectedIndex].isEmpty() ? "Empty slot" : names[selectedIndex];
-		sb.append(buildBoxText(YELLOW + selectedName + RESET));
-		sb.append(buildBoxText(descriptions[selectedIndex].isEmpty() ? "This slot is empty." : descriptions[selectedIndex]));
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxBottomRich());
-		render(sb.toString(), new String[]{"[Arrow keys] Select item   [B] Back"});
 	}
 
 	public void renderCombatUI() {
@@ -279,12 +237,11 @@ public class UIHandler {
 				sb.append(buildBoxEmptyRow());
 			}
 			else {
-				sb.append(buildBoxText("%s[%d]%s LV %-5d %s".formatted(CYAN,slot.slot(),RESET,slot.level(),slot.name())));
-				sb.append(buildBoxText("     Last Turn %d".formatted(slot.turn())));
+				sb.append(buildBoxText("%s[%d]%s LV %-5d %s | Turn %d".formatted(CYAN,slot.slot(),RESET,slot.level(),slot.name(),slot.turn())));
 				sb.append(buildBoxEmptyRow());
 			}
 		}
-		sb.append(buildBoxBottomRich());
+		sb.append(buildBoxBottom());
 	}
 	
 	
@@ -333,18 +290,8 @@ public class UIHandler {
 		return buildBoxTop(title,true);
 	}
 	
-	/** overload of buildBoxTop with no title */
-	private String buildBoxTop() {
-		return CORNERS[0] + ROW_BORDER.repeat(UI_WIDTH - CORNERS[0].length() - CORNERS[1].length()) + CORNERS[1] + "\n";
-	}
-	
-	/** build bottom border */
-	private String buildBoxBottom() {
-		return CORNERS[2] + ROW_BORDER.repeat(UI_WIDTH - CORNERS[2].length() - CORNERS[3].length()) + CORNERS[3] + "\n"; 
-	}
-	
 	/** build bottom border with default center design */
-	private String buildBoxBottomRich() {
+	private String buildBoxBottom() {
 		int canvasWidth = UI_WIDTH - CENTER.length() - CORNERS[2].length() - CORNERS[3].length();
 		int left = Math.floorDiv(canvasWidth, 2);
 		int right = canvasWidth - left;

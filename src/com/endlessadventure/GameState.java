@@ -1,25 +1,25 @@
 package com.endlessadventure;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.endlessadventure.entity.Player;
-import com.endlessadventure.Story.Scene;
+import com.endlessadventure.story.CurrentScene;
+import com.endlessadventure.story.SceneRecord;
 
 public class GameState {
 	private Player player;
-	private Scene scene;
-	private int turn;
+	private CurrentScene currentScene;
+	private List<SceneRecord> history;
 	
-	public GameState(Player player, Scene scene, int turn) {
-		this.player = player;
-		this.scene = scene;
-		setTurn(turn);
-	}
-	
-	public GameState(Player player) {
-		this(player,new Scene(), 1);
+	public GameState(Player player, CurrentScene currentScene, List<SceneRecord> history) {
+		setPlayer(player);
+		setCurrentScene(currentScene);
+		setHistory(history);
 	}
 	
 	public GameState() {
-		this(null, new Scene(), 1);
+		this(null, null, new ArrayList<SceneRecord>());
 	}
 
 	public Player getPlayer() {
@@ -30,23 +30,23 @@ public class GameState {
 		this.player = player;
 	}
 
-	public Scene getScene() {
-		return scene;
+	public CurrentScene getCurrentScene() {
+		return currentScene;
 	}
 	
-	public void setScene(Scene scene) {
-		this.scene = scene;
+	public void setCurrentScene(CurrentScene currentScene) {
+		this.currentScene = currentScene;
 	}
 
-	public int getTurn() {
-		return turn;
+	public List<SceneRecord> getHistory() {
+		return history;
+	}
+
+	public void setHistory(List<SceneRecord> history) {
+		this.history = history;
 	}
 	
-	/** @throws IllegalArgumentException */
-	public void setTurn(int turn) {
-		if(turn < 1) {
-			throw new IllegalArgumentException("Invalid turn: " + turn);
-		}
-		this.turn = turn;
+	public void addRecord(SceneRecord record) {
+		history.add(record);
 	}
 }

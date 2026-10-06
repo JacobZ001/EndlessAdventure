@@ -1,6 +1,8 @@
-package com.endlessadventure;
+package com.endlessadventure.save;
 
 public class PropertyNotFoundException extends RuntimeException {
+
+	private static final long serialVersionUID = 1L;
 	private final String propertyName;
 
 	public PropertyNotFoundException(String propertyName) {

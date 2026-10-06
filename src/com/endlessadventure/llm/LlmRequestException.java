@@ -1,6 +1,8 @@
 package com.endlessadventure.llm;
 
 public class LlmRequestException extends Exception {
+	private static final long serialVersionUID = 1L;
+
 	public enum Stage {
 		MISSING_KEY, TIMEOUT, HTTP_ERROR, INVALID_RESPONSE
 	}

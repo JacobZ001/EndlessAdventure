@@ -1,4 +1,4 @@
-package com.endlessadventure;
+package com.endlessadventure.save;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -7,17 +7,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import com.endlessadventure.entity.Player;
-import com.endlessadventure.Story.Scene;
+import com.endlessadventure.story.CurrentScene;
+import com.endlessadventure.story.SceneRecord;
+import com.endlessadventure.GameState;
 
 public class SaveManager {
 	public enum SlotStatus{
 		EMPTY, READABLE, CORRUPT
 	}
 	public static final int SLOT_COUNT = 3;
-	private static final String COMMENT = "EndlessAdventure save v1";
+	private static final String COMMENT = "EndlessAdventure save v2";
 	private final Path saveDir = Path.of("saves");
 	
 	/** get the file path corresponding to the slot number */
@@ -36,7 +40,7 @@ public class SaveManager {
 		try {
 			GameState state = loadSave(slot);
 			Player player = state.getPlayer();
-			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getTurn());
+			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getCurrentScene().getTurn());
 		} catch (NoSuchFileException e) {
 			return new SlotOverview(slot, SlotStatus.EMPTY, null, 0, 0);
 		} catch(IOException | BadSaveException e) {
@@ -54,7 +58,7 @@ public class SaveManager {
 	}
 
 	/** Write the current game into a slot (overwrites if present). */
-	public void writeSave(int slot, GameState state) throws IOException{
+	public void writeSave(int slot, GameState state) throws IOException, BadSaveException{
 		Path path = getSlotPath(slot);
 		if (state == null) {
 			throw new IllegalArgumentException("Cannot write to save: game state is null");
@@ -63,6 +67,7 @@ public class SaveManager {
 			throw new IllegalArgumentException("Cannot write to save: player is null");
 		}
 		
+		//write player stats
 		Properties props = new Properties();
 		Player player = state.getPlayer();
 		props.setProperty("name", player.getName());
@@ -74,17 +79,42 @@ public class SaveManager {
 		props.setProperty("armor", String.valueOf(player.getArmor()));
 		props.setProperty("energy", String.valueOf(player.getEnergy()));
 		props.setProperty("maxEnergy", String.valueOf(player.getMaxEnergy()));
-		props.setProperty("turn", String.valueOf(state.getTurn()));
 		
-		Scene scene = state.getScene();
-		props.setProperty("location", String.valueOf(scene.getLocation()));
-		props.setProperty("description", String.valueOf(scene.getDescription()));
-		String[] options = scene.getOptions();
+		//write current scene
+		CurrentScene currentScene = state.getCurrentScene();
+		if(currentScene == null) {
+			throw new BadSaveException(slot, "Generate an opening scene before saving");
+		}
+		props.setProperty("location", currentScene.getLocation());
+		props.setProperty("description", currentScene.getDescription());
+		
+		String[] options = currentScene.getOptions();
 		props.setProperty("option_count", String.valueOf(options.length));
 		for(int i=0;i<options.length;i++) {
 			props.setProperty("options."+i, String.valueOf(options[i]));
 		}
-		//TODO Reserved for later: items, journal (item.0.template=..., etc.)
+		
+		//write history
+		List<SceneRecord> history = state.getHistory();
+		int historyCount = history.size();
+		int expectedHC = currentScene.getTurn()-1;
+		if(historyCount != expectedHC) {
+			throw new BadSaveException(slot, "The history size does not match the current turn." + "Got " + historyCount + ", expected: " + expectedHC);
+		}
+		props.setProperty("history.count", String.valueOf(historyCount));
+		for(int i=0;i<history.size();i++) {
+			SceneRecord record = history.get(i);
+			if(record.getTurn() != i + 1) {
+				throw new BadSaveException(slot, "Invalid Record order at history[%d]. Got %d, expected %d".formatted(i, record.getTurn(), i+1));
+			}
+			
+			String prefix = "history." + i + ".";
+			props.setProperty(prefix + "location", record.getLocation());
+			props.setProperty(prefix + "description", record.getDescription());
+			props.setProperty(prefix + "action", record.getPlayerAction());
+		}
+		
+		//TODO implement write save for inventory
 		
 		Files.createDirectories(saveDir);
 		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
@@ -95,11 +125,12 @@ public class SaveManager {
 	/** Load a new state without modifying the running game.
 	 * @throws IOException if the file cannot be read
 	 * @throws BadSaveException if its contents are invalid */
-	public GameState loadSave(int slot) throws IOException{
+	public GameState loadSave(int slot) throws IOException, BadSaveException{
 		Path path = getSlotPath(slot);
 		try {
 			Properties props = loadProps(path);
 
+			//load player stats
 			String name = getStringProperty(props, "name");
 			double maxHp = getDoubleProperty(props, "maxHp");
 			double hp = getDoubleProperty(props, "hp");
@@ -109,24 +140,56 @@ public class SaveManager {
 			int energy = getIntProperty(props, "energy");
 			int level = getIntProperty(props, "level");
 			int exp = getIntProperty(props, "EXP");
-			int turn = getIntProperty(props, "turn");
 
 			Player player = new Player(name, maxHp, hp, level, attack, armor, maxEnergy, energy, exp);
 			
+			//load history
+			int historyCount = getIntProperty(props,"history.count");
+			
+			if (historyCount < 0) {
+			    throw new IllegalArgumentException(
+			            "Illegal history count: " + historyCount);
+			}
+			
+			List<SceneRecord> history = new ArrayList<>();
+			
+			for(int i=0; i< historyCount; i++) {
+				String prefix = "history." + i + ".";
+				
+				SceneRecord record = new SceneRecord(
+						getStringProperty(props, prefix + "location"),
+						getStringProperty(props, prefix + "description"),
+						i+1,
+						getStringProperty(props, prefix + "action"));
+				history.add(record);
+			}
+			
+			//load current scene
 			String location = getStringProperty(props, "location");
 			String description = getStringProperty(props, "description");
-			int option_count = getIntProperty(props, "option_count");
-			String[] options = new String[option_count];
-			for(int i=0; i<option_count;i++) {
+			
+			int optionCount = getIntProperty(props, "option_count");
+			if(optionCount < CurrentScene.MIN_OPTION_COUNT || optionCount > CurrentScene.MAX_OPTION_COUNT) {
+				throw new IllegalArgumentException("Illegal option count: " + optionCount);
+			}
+			String[] options = new String[optionCount];
+			for(int i=0; i<optionCount;i++) {
 				options[i] = getStringProperty(props, "options." + i);
 			}
-			Scene scene = new Scene(location, description, options);
-			//TODO inventory / journal: load when those systems exist.
 
-			return new GameState(player, scene, turn);
+			CurrentScene currentScene = new CurrentScene(location, description, historyCount + 1, options);
+			
+			//TODO implement load save for inventory
+
+			return new GameState(player, currentScene, history);
 		} catch (IllegalArgumentException | PropertyNotFoundException e) {
 			throw new BadSaveException(slot, e);
 		}
+	}
+	
+	/** Deletes the slot file; returns false if it does not exist. */
+	public boolean deleteSave(int slot) throws IOException{
+		return Files.deleteIfExists(getSlotPath(slot));
 	}
 
 	/** load properties from selected slot file */
