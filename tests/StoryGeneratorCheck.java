@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Offline story check using dummy credentials and a local HTTP server. Developed with GenAI assistance. */
 public final class StoryGeneratorCheck {
 	private static final String VALID = """
-			protocol.version=2
 			location=Old Gate
 			description=A sign reads C:\\road. Runes a=b. The gate is locked.
 			option.count=2
@@ -106,16 +105,22 @@ public final class StoryGeneratorCheck {
 
 			for (String invalid : new String[] {
 					VALID.replace("location=Old Gate\n", ""),
+					VALID.replace("location=Old Gate", "hp=999"),
 					VALID + "description=Duplicate\n",
 					VALID + "hp=999\n",
 					VALID + "turn=999\n",
 					"```\n" + VALID + "```",
+					VALID.replace("option.count=2", "option.count=0"),
+					VALID.replace("option.count=2", "option.count=two"),
 					VALID.replace("option.count=2", "option.count=2147483647"),
+					VALID.replace("option.1.text", "option.01.text"),
+					VALID.replace("option.1.text", "option.2.text"),
 					VALID.replace("option.1.text=Follow the Road", "option.1.text="),
 					VALID.replace("Follow the Road", "inspect the runes"),
+					VALID.replace("Inspect the Runes", "x".repeat(120) + "A")
+							.replace("Follow the Road", "x".repeat(120) + "B"),
 					VALID.replace("Old Gate", "x".repeat(31)),
-					VALID.replace("The gate is locked.", "\u001b[31mThe gate is locked."),
-					VALID.replace("protocol.version=2", "protocol.version=1")}) {
+					VALID.replace("The gate is locked.", "\u001b[31mThe gate is locked.")}) {
 				reply.set(invalid);
 				int before = calls.get();
 				try {
