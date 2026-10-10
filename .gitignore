@@ -20,9 +20,5 @@
 /logs/
 *.log
 
-# Local design notes
-ARCHITECTURE.md
-DESIGN.md
-
 # Local coursework instructions for coding agents
 /AGENTS.md

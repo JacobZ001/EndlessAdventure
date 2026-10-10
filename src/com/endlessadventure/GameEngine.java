@@ -24,12 +24,11 @@ public class GameEngine {
 	private boolean running;
 	private GameScreen currentScreen; // current screen to be displayed
 	private SlotOverview[] slotOverviews;
-	private GameState gameState;
+	private GameState gameState = new GameState();
 
 	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator) {
 		this.ui = ui;
 		this.saveManager = saveManager;
-		this.gameState = new GameState();
 		this.storyGenerator = storyGenerator;
 	}
 
@@ -114,7 +113,7 @@ public class GameEngine {
 		return switch (command) {
 		case "b", "[b]" -> GameScreen.MAIN_MENU;
 		case "c", "[c]" -> {
-			ui.showSuccess("Starting your adventure...");
+			System.out.println("Starting your adventure...");
 			yield GameScreen.ADVENTURE;
 		}
 		case "r", "[r]" -> {

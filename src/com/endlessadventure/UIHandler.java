@@ -1,21 +1,31 @@
 package com.endlessadventure;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Scanner;
+import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
 import com.endlessadventure.entity.Player;
+import com.endlessadventure.inventory.Inventory;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 
-public class UIHandler {
-	public static final int UI_WIDTH = 120        ;
+public class UIHandler implements AutoCloseable {
+	public static final int UI_WIDTH = Canvas.WIDTH;
+	public static final int UI_HEIGHT = Canvas.HEIGHT;
 	public static final int TEXT_PADDING = 2;
-	public static final int NARRATIVE_LINES = 25;
+	public static final int[] INV_DIMENSIONS = {3,4};
 	
 	//ANSI codes	
 	private static final String BLACK = "\033[30m";
@@ -31,7 +41,13 @@ public class UIHandler {
 	private static final String RESET = "\033[0m";
 	private static final Pattern ANSI_COLOR_PATTERN = Pattern.compile("\033\\[[0-9;]*m");
 	
-	//UI ASCII UI components symbols
+	//Canvas component symbols
+	public static final char[] CANVAS_CORNERS = {'┌','┐',
+			   							         '└','┘'};
+	public static final char CANVAS_ROW_BORDER = '─';
+	public static final char CANVAS_COL_BORDER = '│';
+	
+	//UI ASCII components symbols
 	private static final String[] CORNERS = {"┌<o+<",">+o>┐",
 	                                         "└<o+<",">+o>┘"};
 	private static final String ROW_BORDER = "═";
@@ -40,16 +56,44 @@ public class UIHandler {
 	private static final String[] LINE_CAPS = {"<o+<",">+o>"};
 	private static final String CENTER = "<-+<\\o/>+->";
 
-	private Scanner sc;
-	private String statusMsg;
-	private String color;
-	private StringBuilder sb;
+	private Terminal terminal;
+	private LineReader reader;
+	private Canvas canvas = new Canvas();
+	private StringBuilder sb = new StringBuilder();
 
-	public UIHandler() {
-		sc = new Scanner(System.in);
-		sb = new StringBuilder();
-		statusMsg = null;
-		color = null;
+	private String statusMsg = null;
+	private String color = null;
+
+	public UIHandler() throws IOException {
+		try {
+			terminal = TerminalBuilder.builder().system(true).dumb(false).build();
+		} catch (IllegalStateException e) {
+			throw new IOException("No interactive terminal. Launch the game in Windows Terminal.", e);
+		}
+		reader = LineReaderBuilder.builder()
+		        .terminal(terminal)
+		        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
+		        .build();
+	}
+	
+	@Override
+	public void close() throws IOException {
+		terminal.close();		
+	}
+	
+	public void renderFrame() {
+		terminal.writer().print(canvas.toAnsi());
+		terminal.writer().flush();
+	}
+	
+	private void present() {
+	    if (terminal.getColumns() < Canvas.WIDTH || terminal.getRows() < Canvas.HEIGHT + 2) {
+	        System.out.println("Please maximize the window.");
+	        return;
+	    }
+	    System.out.flush();
+	    terminal.writer().print(canvas.toAnsi());
+	    terminal.writer().flush();
 	}
 	
 	//show messages
@@ -78,15 +122,20 @@ public class UIHandler {
 			this.color = color;
 		}
 	}
-	
-	
+
 	//prompt user for input
 	/** prints the message and returns the user input on the same line */
 	public String prompt(String message, boolean raw) {
-		System.out.println((Object) "");
-		System.out.print(message + "> ");
-		if(raw) return sc.nextLine().strip();
-	    return sc.nextLine().strip().toLowerCase(Locale.ROOT);
+		System.out.println();
+		System.out.flush();
+		String line;
+		try {
+			line = reader.readLine(message + "> ");
+		} catch (EndOfFileException | UserInterruptException e) {
+			throw new NoSuchElementException("Input closed");
+		}
+		if(raw) return line.strip();
+	    return line.strip().toLowerCase(Locale.ROOT);
 	}
 	
 	/** overload of prompt with default raw = false */
@@ -195,16 +244,23 @@ public class UIHandler {
 		for(int i=0; i<options.length;i++) {
 			sb.append(buildBoxText("[%d] %s".formatted(i+1,options[i])));
 		}
-		sb.append(buildBoxText("speak your intention"));
 		sb.append(buildBoxEmptyRow());
 		sb.append(buildBoxBottom());
 		render(sb.toString(), new String[]{
-				"[1-%d] Choose an action".formatted(options.length),
+				"[1-%d] Choose an action, or enter your own intention.".formatted(options.length),
 				"[S] Save",
 				"[B] Return to Main Menu"});
 	}
 
-	public void renderInventoryUI() {
+	public void renderInventoryUI(Player player, int selectedIndex) {
+		canvas.clear(0);
+		Inventory inventory = player.getInventory();
+		
+		int page = selectedIndex / 12;
+		int localIndex = selectedIndex % 12;
+		
+		int row = localIndex / 4;
+		int column = localIndex % 4;
 		//TODO create inventory UI
 	}
 
@@ -245,7 +301,7 @@ public class UIHandler {
 	}
 	
 	
-	//UI component building
+	//UI component string building
 	/** calculate the visible length of a text, ignoring ANSI escape codes */
 	private int visibleLength(String text) {
 		return ANSI_COLOR_PATTERN.matcher(text).replaceAll("").length();
