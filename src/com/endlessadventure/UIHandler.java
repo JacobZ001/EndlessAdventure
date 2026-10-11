@@ -1,8 +1,10 @@
 package com.endlessadventure;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,12 +43,6 @@ public class UIHandler implements AutoCloseable {
 	private static final String RESET = "\033[0m";
 	private static final Pattern ANSI_COLOR_PATTERN = Pattern.compile("\033\\[[0-9;]*m");
 	
-	//Canvas component symbols
-	public static final char[] CANVAS_CORNERS = {'┌','┐',
-			   							         '└','┘'};
-	public static final char CANVAS_ROW_BORDER = '─';
-	public static final char CANVAS_COL_BORDER = '│';
-	
 	//UI ASCII components symbols
 	private static final String[] CORNERS = {"┌<o+<",">+o>┐",
 	                                         "└<o+<",">+o>┘"};
@@ -56,10 +52,40 @@ public class UIHandler implements AutoCloseable {
 	private static final String[] LINE_CAPS = {"<o+<",">+o>"};
 	private static final String CENTER = "<-+<\\o/>+->";
 
-	private Terminal terminal;
-	private LineReader reader;
-	private Canvas canvas = new Canvas();
-	private StringBuilder sb = new StringBuilder();
+	//Canvas palette (rgb), shared by all canvas screens
+	private static final int BG = 0x0C1017;
+	private static final int MUTED = 0x5A6274; //frames, hints and disabled options
+	private static final int TEXT = 0xD8DEE9;
+	private static final int GOLD = 0xE8C268; //keys and highlights
+	private static final int EMBER = 0xD96F2B;
+	
+	private static final int OPTION_KEY = GOLD;
+	private static final int TITLE_TOP = GOLD;
+	private static final int TITLE_BOT = EMBER;
+
+	//Main menu title bitmaps, each '#' is drawn as 2x2 pixels
+	private static final String[] TITLE_ENDLESS = {
+			"#####.#...#.####..#.....#####..####..####",
+			"#.....##..#.#...#.#.....#.....#.....#....",
+			"#.....##..#.#...#.#.....#.....#.....#....",
+			"####..#.#.#.#...#.#.....####...###...###.",
+			"#.....#..##.#...#.#.....#.........#.....#",
+			"#.....#..##.#...#.#.....#.........#.....#",
+			"#####.#...#.####..#####.#####.####..####."};
+	private static final String[] TITLE_ADVENTURE = {
+			".###..####..#...#.#####.#...#.#####.#...#.####..#####",
+			"#...#.#...#.#...#.#.....##..#...#...#...#.#...#.#....",
+			"#...#.#...#.#...#.#.....##..#...#...#...#.#...#.#....",
+			"#####.#...#.#...#.####..#.#.#...#...#...#.####..####.",
+			"#...#.#...#..#.#..#.....#..##...#...#...#.#.#...#....",
+			"#...#.#...#..#.#..#.....#..##...#...#...#.#..#..#....",
+			"#...#.####....#...#####.#...#...#....###..#...#.#####"};
+
+	private final Terminal terminal;
+	private final PrintWriter writer;
+	private final LineReader reader;
+	private final Canvas canvas = new Canvas();
+	private final StringBuilder sb = new StringBuilder();
 
 	private String statusMsg = null;
 	private String color = null;
@@ -70,33 +96,33 @@ public class UIHandler implements AutoCloseable {
 		} catch (IllegalStateException e) {
 			throw new IOException("No interactive terminal. Launch the game in Windows Terminal.", e);
 		}
+		writer = terminal.writer();
 		reader = LineReaderBuilder.builder()
 		        .terminal(terminal)
 		        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
 		        .build();
+		
+		canvas.clear(BG);
+		
+		//switch to the alternate screen; the original terminal content comes back on close
+		writer.print("\033[?1049h");
+		writer.flush();
 	}
 	
+	
+
 	@Override
+	/** override close method for AutoCloseable
+	 *  used for try-with-resource in driver */
 	public void close() throws IOException {
-		terminal.close();		
+		writer.print("\033[?1049l"); //switch back to original terminal content
+		writer.flush();
+		terminal.close();
 	}
 	
-	public void renderFrame() {
-		terminal.writer().print(canvas.toAnsi());
-		terminal.writer().flush();
-	}
 	
-	private void present() {
-	    if (terminal.getColumns() < Canvas.WIDTH || terminal.getRows() < Canvas.HEIGHT + 2) {
-	        System.out.println("Please maximize the window.");
-	        return;
-	    }
-	    System.out.flush();
-	    terminal.writer().print(canvas.toAnsi());
-	    terminal.writer().flush();
-	}
 	
-	//show messages
+	//show messages on next screen render
 	/** show warning message */
 	public void showWarning(String msg) {
 		setStatusMsg(msg,YELLOW);
@@ -122,11 +148,13 @@ public class UIHandler implements AutoCloseable {
 			this.color = color;
 		}
 	}
+	
+	
 
 	//prompt user for input
 	/** prints the message and returns the user input on the same line */
 	public String prompt(String message, boolean raw) {
-		System.out.println();
+		System.out.print("\033[" + (Canvas.HEIGHT + 2) + ";1H\033[K"); //input row: second row below the canvas
 		System.out.flush();
 		String line;
 		try {
@@ -149,7 +177,25 @@ public class UIHandler implements AutoCloseable {
 	}
 
 
+	
 	//render UI
+	/** print the canvas, then the status message on the row below it */
+	private void renderCanvas() {
+	    if (terminal.getColumns() < Canvas.WIDTH || terminal.getRows() < Canvas.HEIGHT + 2) {
+	        System.out.println("Please maximize the window.");
+	        return;
+	    }
+	    System.out.flush();
+	    writer.print(canvas);
+	    writer.print("\033[" + (Canvas.HEIGHT + 1) + ";1H\033[J"); //clear status and input rows below the canvas
+	    if (statusMsg != null) {
+	    	writer.print("  " + color + statusMsg + RESET);
+	    	statusMsg = null;
+	    	color = null;
+	    }
+	    writer.flush();
+	}
+	
 	/** clears the console to render new UIHandler */
 	private void clearScreen() {
 	    System.out.print(CLEAR_SCREEN);
@@ -174,21 +220,90 @@ public class UIHandler implements AutoCloseable {
 		}
 	}
 	
-	public void renderMainMenuUI(boolean hasSave) {
-		sb.append(buildBoxTop("ENDLESS ADVENTURE"));
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxText(CYAN + "[1]" + RESET + " New Game"));
-		sb.append(buildBoxEmptyRow());
-		if(hasSave) {
-			sb.append(buildBoxText(CYAN + "[2]" + RESET + " Load Game"));
-			sb.append(buildBoxEmptyRow());
+	/** draw a title word centered horizontally at pixel row py0, with a shadow one pixel down-right */
+	private void drawTitle(String[] bitmap, int py0) {
+		int px0 = (Canvas.WIDTH - bitmap[0].length() * 2) / 2;
+		int shadow = mixColor(TITLE_BOT, BG, 0.75); 
+		drawBitmap(bitmap, px0 + 1, py0 + 1, shadow, shadow); //render the title drop shadow
+		drawBitmap(bitmap, px0, py0, TITLE_TOP, TITLE_BOT); //render the title text
+	}
+
+	/** draw each '#' of the bitmap as 2x2 pixels, colored from top to bottom as a vertical gradient */
+	private void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor) {
+		for (int row = 0; row < bitmap.length; row++) {
+			for (int col = 0; col < bitmap[row].length(); col++) {
+				if (bitmap[row].charAt(col) != '#') {
+					continue;
+				}
+				for (int dy = 0; dy < 2; dy++) {
+					for (int dx = 0; dx < 2; dx++) {
+						int py = row * 2 + dy;
+						double ratio = py / (bitmap.length * 2 - 1); //ratio of current pixel y to last row
+						canvas.drawPixel(px0 + col * 2 + dx, py0 + py, mixColor(topColor, bottomColor, ratio));
+					}
+				}
+			}
 		}
-		sb.append(buildBoxText(CYAN + "[3]" + RESET + " How to Play"));
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxText(CYAN + "[4]" + RESET + " Exit"));
-		sb.append(buildBoxEmptyRow());
-		sb.append(buildBoxBottom());
-		render(sb.toString(),new String[]{"Enter [1-4] to select an option"});
+	}
+	
+	/** blend two rgb colors, t = 0 gives a, t = 1 gives b */
+	private static int mixColor(int a, int b, double ratio) {
+		int red = (int) Math.round(((a >> 16) & 0xFF) * (1 - ratio) + ((b >> 16) & 0xFF) * ratio);
+		int green = (int) Math.round(((a >> 8) & 0xFF) * (1 - ratio) + ((b >> 8) & 0xFF) * ratio);
+		int blue = (int) Math.round((a & 0xFF) * (1 - ratio) + (b & 0xFF) * ratio);
+		return (red << 16) | (green << 8) | blue;
+	}
+	
+	private void drawInstruction(List<Map.Entry<String, String>> ins) {
+		int x = 2;
+		for(Map.Entry<String, String> entry : ins) {
+			String key = " [" + entry.getKey() + "] ";
+			String value = entry.getValue() + "   ";
+			canvas.drawText(x, Canvas.HEIGHT - 1, key, OPTION_KEY, BG);
+			canvas.drawText(x+key.length(), Canvas.HEIGHT - 1, value, MUTED, BG);
+			x += key.length() + value.length();
+		}
+	}
+
+	private void drawFrame() {
+		canvas.drawBox(0, 0, Canvas.WIDTH, Canvas.HEIGHT, MUTED, BG);
+	}
+
+	
+	
+	
+	//public methods for rendering specific screens
+	public void renderMainMenuUI(boolean hasSave) {
+		canvas.clear(BG);
+		
+		int row = 17;
+		drawTitle(TITLE_ENDLESS, row);
+		drawTitle(TITLE_ADVENTURE, row + 16);
+		
+		row += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
+		canvas.drawTextCentered(row, "────────────────────  +  ────────────────────", MUTED,BG);
+
+		String[] labels = {
+				"New Game",
+				"Load Game",
+				"How to Play",
+				"Exit"};
+		
+		int x = (Canvas.WIDTH / 2) - 7;
+		row += 5;
+		for (int i = 0; i < labels.length; i++) {
+			boolean enabled = i != 1 || hasSave; //Load Game is dimmed without saves
+			int y = row + i * 2;
+			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? OPTION_KEY : MUTED, BG);
+			canvas.drawText(x + 5, y, labels[i], enabled ? TEXT : MUTED, BG);
+		}
+
+		drawFrame();
+		drawInstruction(List.of(
+				Map.entry("1-4","selection"),
+				Map.entry("ENTER","confirm")
+		));
+		renderCanvas();
 	}
 	
 	public void renderCharacterCreationUI(Player player) {
@@ -253,7 +368,9 @@ public class UIHandler implements AutoCloseable {
 	}
 
 	public void renderInventoryUI(Player player, int selectedIndex) {
-		canvas.clear(0);
+		canvas.clear(BG);
+		drawFrame();
+		canvas.drawText(2, 0, "INVENTORY", GOLD, BG);
 		Inventory inventory = player.getInventory();
 		
 		int page = selectedIndex / 12;
@@ -261,7 +378,6 @@ public class UIHandler implements AutoCloseable {
 		
 		int row = localIndex / 4;
 		int column = localIndex % 4;
-		//TODO create inventory UI
 	}
 
 	public void renderCombatUI() {
@@ -364,11 +480,6 @@ public class UIHandler implements AutoCloseable {
 	    return DIVIDERS[0] + ROW_BORDER.repeat(UI_WIDTH - DIVIDERS[0].length() - DIVIDERS[1].length()) + DIVIDERS[1] + "\n";
 	}
 	
-	/** build horizontal line */
-	private String buildHLine() {
-	    return LINE_CAPS[0] + ROW_BORDER.repeat(UI_WIDTH - LINE_CAPS[0].length() - LINE_CAPS[1].length()) + LINE_CAPS[1] + "\n";
-	}
-	
 	/** build horizontal line using center design */
 	private String buildHLineRich(String center) {
 		int canvasWidth = UI_WIDTH - visibleLength(center) - LINE_CAPS[0].length() - LINE_CAPS[1].length();
@@ -440,19 +551,9 @@ public class UIHandler implements AutoCloseable {
 		return border + " ".repeat(TEXT_PADDING) + content + " ".repeat(canvasWidth - contentWidth + TEXT_PADDING) + border + "\n";
 	}
 	
-	/** overload of buildText with default boxed = false */
-	private String buildText(String text, boolean centered) {
-		return buildText(text, centered, false);
-	}
-	
 	/** overload of buildText with default centered = false, boxed = false */
 	private String buildText(String text) {
 		return buildText(text, false, false);
-	}
-	
-	/** variant of buildText with default boxed = true */
-	private String buildBoxText(String text, boolean centered) {
-		return buildText(text,centered,true);
 	}
 	
 	/** overload of buildBoxText with default centered = false */
