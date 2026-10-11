@@ -124,9 +124,9 @@ public class Canvas {
 	/** helper function to append color from a rgb value
 	 *  sets the following characters to this color */
 	private void appendColor(StringBuilder sb, int type, int color) {
-		int r = (color >> 16) & 0xFF;
-		int g = (color >> 8) & 0xFF;
-		int b = color & 0xFF;
-		sb.append(ESC).append(type).append(";2;%d;%d;%dm".formatted(r, g, b));
+		sb.append(ESC).append(type).append(";2;")
+				.append(Palette.red(color)).append(';')
+				.append(Palette.green(color)).append(';')
+				.append(Palette.blue(color)).append('m');
 	}
 }

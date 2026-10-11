@@ -52,16 +52,10 @@ public class UIHandler implements AutoCloseable {
 	private static final String[] LINE_CAPS = {"<o+<",">+o>"};
 	private static final String CENTER = "<-+<\\o/>+->";
 
-	//Canvas palette (rgb), shared by all canvas screens
-	private static final int BG = 0x0C1017;
-	private static final int MUTED = 0x5A6274; //frames, hints and disabled options
-	private static final int TEXT = 0xD8DEE9;
-	private static final int GOLD = 0xE8C268; //keys and highlights
-	private static final int EMBER = 0xD96F2B;
-	
-	private static final int OPTION_KEY = GOLD;
-	private static final int TITLE_TOP = GOLD;
-	private static final int TITLE_BOT = EMBER;
+	//screen-specific color roles, see Palette for the shared colors
+	private static final int OPTION_KEY = Palette.GOLD;
+	private static final int TITLE_TOP = Palette.GOLD;
+	private static final int TITLE_BOT = Palette.EMBER;
 
 	//Main menu title bitmaps, each '#' is drawn as 2x2 pixels
 	private static final String[] TITLE_ENDLESS = {
@@ -102,7 +96,7 @@ public class UIHandler implements AutoCloseable {
 		        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
 		        .build();
 		
-		canvas.clear(BG);
+		canvas.clear(Palette.BG);
 		
 		//switch to the alternate screen; the original terminal content comes back on close
 		writer.print("\033[?1049h");
@@ -223,7 +217,7 @@ public class UIHandler implements AutoCloseable {
 	/** draw a title word centered horizontally at pixel row py0, with a shadow one pixel down-right */
 	private void drawTitle(String[] bitmap, int py0) {
 		int px0 = (Canvas.WIDTH - bitmap[0].length() * 2) / 2;
-		int shadow = mixColor(TITLE_BOT, BG, 0.75); 
+		int shadow = Palette.mix(TITLE_BOT, Palette.BG, 0.75);
 		drawBitmap(bitmap, px0 + 1, py0 + 1, shadow, shadow); //render the title drop shadow
 		drawBitmap(bitmap, px0, py0, TITLE_TOP, TITLE_BOT); //render the title text
 	}
@@ -238,20 +232,12 @@ public class UIHandler implements AutoCloseable {
 				for (int dy = 0; dy < 2; dy++) {
 					for (int dx = 0; dx < 2; dx++) {
 						int py = row * 2 + dy;
-						double ratio = py / (bitmap.length * 2 - 1); //ratio of current pixel y to last row
-						canvas.drawPixel(px0 + col * 2 + dx, py0 + py, mixColor(topColor, bottomColor, ratio));
+						double ratio = (double) py / (bitmap.length * 2 - 1); //ratio of current pixel y to last row
+						canvas.drawPixel(px0 + col * 2 + dx, py0 + py, Palette.mix(topColor, bottomColor, ratio));
 					}
 				}
 			}
 		}
-	}
-	
-	/** blend two rgb colors, t = 0 gives a, t = 1 gives b */
-	private static int mixColor(int a, int b, double ratio) {
-		int red = (int) Math.round(((a >> 16) & 0xFF) * (1 - ratio) + ((b >> 16) & 0xFF) * ratio);
-		int green = (int) Math.round(((a >> 8) & 0xFF) * (1 - ratio) + ((b >> 8) & 0xFF) * ratio);
-		int blue = (int) Math.round((a & 0xFF) * (1 - ratio) + (b & 0xFF) * ratio);
-		return (red << 16) | (green << 8) | blue;
 	}
 	
 	private void drawInstruction(List<Map.Entry<String, String>> ins) {
@@ -259,14 +245,14 @@ public class UIHandler implements AutoCloseable {
 		for(Map.Entry<String, String> entry : ins) {
 			String key = " [" + entry.getKey() + "] ";
 			String value = entry.getValue() + "   ";
-			canvas.drawText(x, Canvas.HEIGHT - 1, key, OPTION_KEY, BG);
-			canvas.drawText(x+key.length(), Canvas.HEIGHT - 1, value, MUTED, BG);
+			canvas.drawText(x, Canvas.HEIGHT - 1, key, OPTION_KEY, Palette.BG);
+			canvas.drawText(x+key.length(), Canvas.HEIGHT - 1, value, Palette.MUTED, Palette.BG);
 			x += key.length() + value.length();
 		}
 	}
 
 	private void drawFrame() {
-		canvas.drawBox(0, 0, Canvas.WIDTH, Canvas.HEIGHT, MUTED, BG);
+		canvas.drawBox(0, 0, Canvas.WIDTH, Canvas.HEIGHT, Palette.MUTED, Palette.BG);
 	}
 
 	
@@ -274,14 +260,14 @@ public class UIHandler implements AutoCloseable {
 	
 	//public methods for rendering specific screens
 	public void renderMainMenuUI(boolean hasSave) {
-		canvas.clear(BG);
+		canvas.clear(Palette.BG);
 		
 		int row = 17;
 		drawTitle(TITLE_ENDLESS, row);
 		drawTitle(TITLE_ADVENTURE, row + 16);
 		
 		row += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
-		canvas.drawTextCentered(row, "────────────────────  +  ────────────────────", MUTED,BG);
+		canvas.drawTextCentered(row, "────────────────────  +  ────────────────────", Palette.MUTED, Palette.BG);
 
 		String[] labels = {
 				"New Game",
@@ -294,8 +280,8 @@ public class UIHandler implements AutoCloseable {
 		for (int i = 0; i < labels.length; i++) {
 			boolean enabled = i != 1 || hasSave; //Load Game is dimmed without saves
 			int y = row + i * 2;
-			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? OPTION_KEY : MUTED, BG);
-			canvas.drawText(x + 5, y, labels[i], enabled ? TEXT : MUTED, BG);
+			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? OPTION_KEY : Palette.MUTED, Palette.BG);
+			canvas.drawText(x + 5, y, labels[i], enabled ? Palette.TEXT : Palette.MUTED, Palette.BG);
 		}
 
 		drawFrame();
@@ -368,9 +354,9 @@ public class UIHandler implements AutoCloseable {
 	}
 
 	public void renderInventoryUI(Player player, int selectedIndex) {
-		canvas.clear(BG);
+		canvas.clear(Palette.BG);
 		drawFrame();
-		canvas.drawText(2, 0, "INVENTORY", GOLD, BG);
+		canvas.drawText(2, 0, "INVENTORY", Palette.GOLD, Palette.BG);
 		Inventory inventory = player.getInventory();
 		
 		int page = selectedIndex / 12;
