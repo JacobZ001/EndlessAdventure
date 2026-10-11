@@ -1,6 +1,6 @@
 # Endless Adventure 游戏设计
 
-更新日期：2026-10-10。本文记录功能目标与确认状态，实现细节见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+更新日期：2026-10-11。本文记录功能目标与确认状态，实现细节见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 - **已确认**：用户确认的决定。
 - **建议**：助手提出、尚未确认的方案。
@@ -451,12 +451,13 @@ D&D（Recharge 5–6）与 PF2e（“1d4 轮内不能再用”）的核心规则
 - **武器与护甲（已确认）。** 参考 D&D 2024 与 PF2e：武器 = 类别 × 品质档，类别决定基础倍率与一个特性，类别间差距适中，品质档（普通／精良／大师／传奇）随阶段提升。护甲分轻／中／重，重甲带潜行减值与移速 −1。盾牌在举盾时增加 G。数值见 §4.5；各类别的特性内容待定。
 - **v0 只做近战武器（已确认）。** 长剑（单手，STR）、大剑（双手，STR）、短剑（轻，DEX）。远程须先定贴身时的规则，随 v1 加入。
 - **预设内容（已确认）。** 生成装备与技能延后，首版必须先有预设目录：先定义物品、技能、敌人的模板字段与各等级的数值区间，具体条目由 AI 离线生成为数据文件（讲师未要求数据内容手写），Java 读取时按区间校验，README 注明 AI 生成的数据。首版目录：每种缩放属性至少一把近战或远程武器、轻／中／重护甲、盾、恢复药水、约三个主动技能、一到两种敌人模板。战利品由 LLM 从目录中选择 ID，Java 校验。
-- **数据文件格式（建议，待确认）。** 用 Gson 读取 JSON，取代 Properties：
-  - 敌人模板这类嵌套数据（属性表、装备、特殊行动列表）若用 Properties，要写成 `enemy.bandit.attr.STR=4`、`enemy.bandit.action.0.id=...` 这类带索引的扁平键，并为每种数据手写解析循环与类型转换，规模与现有 SaveManager 相当；AI 生成扁平键也更容易出错。
-  - Gson 可把 JSON 直接映射到 Java record（2.10 起支持），加载每类数据只需一两行，数据文件的结构与类定义一一对应，可读性更好；校验代码两种方案都要写，不会减少。
-  - Gson 是单个 jar、无传递依赖，带模块描述（`com.google.gson`）；需在 module-info 中 `requires com.google.gson`，并把存放数据 record 的包 `opens` 给它，以便反射。加入时锁定具体版本，README 补充依赖说明。
-  - Jackson 需要三个 jar、功能远超所需；YAML（SnakeYAML）可读性好但映射 record 更麻烦，均不推荐。LLM 剧情协议继续用已验证的 key=value 文本，不改为 JSON。
-  - 可选：LlmClient 中手写的 API JSON 提取以后也可改用 Gson（属 LLM 模块，须另行授权）；存档是否改为 JSON 由学生决定。
+- **数据文件格式（已确认，2026-10-11）。** 用 Gson 读取 JSON。
+  - 理由：敌人模板等嵌套数据若用 Properties，要写成带索引的扁平键，并为每类数据手写解析循环与类型转换，AI 生成也容易写错序号；Gson 把 JSON 直接映射到 Java record，加载每类数据只需一两行，文件结构与类定义一一对应。校验代码两种方案都要写。
+  - 版本用 2.13.2 或更新（该版修复了 Eclipse 认不出 `com.google.gson` 模块名的问题）。运行时只需这一个 jar（约 290 KB），模块描述中的其他依赖均为 `static`。
+  - 接入改动：`lib/` 加 jar 并提交；`.classpath` 照 JLine 的写法加 module 条目；`module-info` 加 `requires com.google.gson`，并把存放数据定义的包 `opens` 给 Gson（实测缺少时读取报 `JsonIOException`）；README 补依赖说明（用途、版本、Apache 2.0 许可证）。启动时模块路径已含 `lib`，无需再改。
+  - 结构：数据定义集中在一个包（如 `com.endlessadventure.data`），每类一个文件（`weapons.json`、`armor.json`、`enemies.json` 等）对应各自的 record，不做多态反序列化；启动时由一个目录类读入并按 ID 建索引，由 Driver 创建后传给 GameEngine。运行时对象按 ID 引用定义，存档只保存定义 ID；现有 `Item` 的进程内自增 ID 须改为定义 ID（不论数据格式都要改）。
+  - 校验：Gson 对缺失字段填 null 或 0、忽略未知字段、把未知枚举值变成 null，都不报错；在 record 的紧凑构造器中检查必填字段与数值区间（Gson 会调用它，实测有效），出错时连同文件名报启动错误。
+  - 不变：存档继续用 Properties；LLM 剧情协议继续用 key=value。LlmClient 手写的 JSON 读写（约 350 行）以后可改用 Gson，属 LLM 模块，须另行授权。
 
 ## 7. 首版范围与计划
 
@@ -517,7 +518,6 @@ D&D（Recharge 5–6）与 PF2e（“1d4 轮内不能再用”）的核心规则
 
 | 事项 | 所属 | 时机 |
 |---|---|---|
-| 预设数据格式：Gson＋JSON 还是 Properties | §6 | v0 开工前 |
 | 训练超过 T3 时不高于属性阶段 | §4.4 | 建议，待确认 |
 | 武器各类别的特性内容 | §6 | v0 可先不带特性 |
 | 重劈倍率与冷却；普通敌人强度 | §5.5、§5.8 | v0 试玩校准 |
