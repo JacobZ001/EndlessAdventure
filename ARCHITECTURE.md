@@ -4,7 +4,7 @@
 
 ## 1. 运行与职责
 
-Java 21、Eclipse 项目、模块 EndlessAdventure。module-info 依赖 java.net.http、org.jline.reader、org.jline.terminal。`lib/` 中有 JLine 4.4.6 的四个 jar（terminal、reader、terminal-jni、native），已在 `.classpath` 中以模块方式登记；命令行启动时模块路径须包含 `lib`。工作目录为项目根目录，配置与存档使用相对路径。
+Java 21、Eclipse 项目、模块 EndlessAdventure。module-info 依赖 java.net.http、org.jline.reader、org.jline.terminal、com.google.gson。`lib/` 中有 JLine 4.4.6 的四个 jar（terminal、reader、terminal-jni、native）与 Gson 2.13.2，均在 `.classpath` 中以模块方式登记；命令行启动时模块路径须包含 `lib`。Gson 已声明依赖但源码尚未使用；读取数据 record 时须另把所在包 `opens` 给 com.google.gson（包建立后再加，空包无法 opens）。工作目录为项目根目录，配置与存档使用相对路径。
 
 Driver 用 try-with-resources 创建 UIHandler（AutoCloseable），再创建 SaveManager、StoryGenerator(new LlmClient())，交给 GameEngine.run。没有可交互终端时 UIHandler 构造抛出 IOException，Driver 打印 “Terminal error” 后退出。
 
@@ -89,6 +89,6 @@ saves/slot1.txt 至 slot3.txt，UTF-8 Properties；注释为 EndlessAdventure sa
 
 ## 6. 验证边界
 
-2026-10-11 核对：全部 src 以 JDK 21、`--module-path lib` 编译通过。未运行游戏，未访问真实模型、个人存档或进行交互游玩；编译通过不等于上述路径已验收。
+2026-10-11 核对：加入 Gson 后，全部 src 以 JDK 21、`--module-path lib` 编译通过。未运行游戏，未访问真实模型、个人存档或进行交互游玩；编译通过不等于上述路径已验收。
 
-现有检查为 tests/LlmConfigCheck.java、tests/StoryGeneratorCheck.java，本次未执行。README 中故事检查的编译命令使用 `-cp` 且未包含 `lib`，接入 JLine 后会因找不到 JLine 类而编译失败（本次按该命令方式复现）；配置检查只编译 LlmClient 相关文件，不受影响。README 中“仅依赖标准库”等表述也已过时。
+现有检查为 tests/LlmConfigCheck.java、tests/StoryGeneratorCheck.java。2026-10-11 按 README 命令的等效方式执行，两项均通过；故事检查编译全部源码，须把 `lib/*` 加入 classpath（README 已更新）。

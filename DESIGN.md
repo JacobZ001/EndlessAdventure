@@ -454,7 +454,7 @@ D&D（Recharge 5–6）与 PF2e（“1d4 轮内不能再用”）的核心规则
 - **数据文件格式（已确认，2026-10-11）。** 用 Gson 读取 JSON。
   - 理由：敌人模板等嵌套数据若用 Properties，要写成带索引的扁平键，并为每类数据手写解析循环与类型转换，AI 生成也容易写错序号；Gson 把 JSON 直接映射到 Java record，加载每类数据只需一两行，文件结构与类定义一一对应。校验代码两种方案都要写。
   - 版本用 2.13.2 或更新（该版修复了 Eclipse 认不出 `com.google.gson` 模块名的问题）。运行时只需这一个 jar（约 290 KB），模块描述中的其他依赖均为 `static`。
-  - 接入改动：`lib/` 加 jar 并提交；`.classpath` 照 JLine 的写法加 module 条目；`module-info` 加 `requires com.google.gson`，并把存放数据定义的包 `opens` 给 Gson（实测缺少时读取报 `JsonIOException`）；README 补依赖说明（用途、版本、Apache 2.0 许可证）。启动时模块路径已含 `lib`，无需再改。
+  - 接入（2026-10-11 已完成）：`lib/gson-2.13.2.jar`、`.classpath` 的 module 条目、`module-info` 的 `requires com.google.gson`、README 依赖说明。建立数据定义包时还须在 `module-info` 中把它 `opens` 给 Gson（实测缺少时读取报 `JsonIOException`；空包不能 opens，故未预先添加）。
   - 结构：数据定义集中在一个包（如 `com.endlessadventure.data`），每类一个文件（`weapons.json`、`armor.json`、`enemies.json` 等）对应各自的 record，不做多态反序列化；启动时由一个目录类读入并按 ID 建索引，由 Driver 创建后传给 GameEngine。运行时对象按 ID 引用定义，存档只保存定义 ID；现有 `Item` 的进程内自增 ID 须改为定义 ID（不论数据格式都要改）。
   - 校验：Gson 对缺失字段填 null 或 0、忽略未知字段、把未知枚举值变成 null，都不报错；在 record 的紧凑构造器中检查必填字段与数值区间（Gson 会调用它，实测有效），出错时连同文件名报启动错误。
   - 不变：存档继续用 Properties；LLM 剧情协议继续用 key=value。LlmClient 手写的 JSON 读写（约 350 行）以后可改用 Gson，属 LLM 模块，须另行授权。
