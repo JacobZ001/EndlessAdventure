@@ -18,7 +18,7 @@ import java.util.Properties;
  * This class is developed by Cursor AI and modified by me to fit my needs.
  */
 public final class LlmClient {
-	static final String DEFAULT_MODEL = "gemini-3.5-flash-lite";
+	private static final String DEFAULT_MODEL = "gemini-3.5-flash-lite";
 	private static final String MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);

@@ -94,7 +94,7 @@ public class GameEngine {
 		if (gameState.getPlayer() == null) {
 			String name = ui.prompt("", true);
 			try {
-				player = new Player(name);
+				//player = new Player();
 				gameState.setPlayer(player);
 			} catch (IllegalArgumentException e) {
 				ui.showWarning(e.getMessage());

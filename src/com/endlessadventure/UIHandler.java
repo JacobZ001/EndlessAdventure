@@ -24,10 +24,10 @@ import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 
 public class UIHandler implements AutoCloseable {
-	public static final int UI_WIDTH = Canvas.WIDTH;
-	public static final int UI_HEIGHT = Canvas.HEIGHT;
-	public static final int TEXT_PADDING = 2;
-	public static final int[] INV_DIMENSIONS = {3,4};
+	private static final int UI_WIDTH = Canvas.WIDTH;
+	private static final int UI_HEIGHT = Canvas.HEIGHT;
+	private static final int TEXT_PADDING = 2;
+	private static final int[] INV_DIMENSIONS = {3,4};
 	
 	//ANSI codes	
 	private static final String BLACK = "\033[30m";

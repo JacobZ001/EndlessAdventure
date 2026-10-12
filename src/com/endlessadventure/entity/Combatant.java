@@ -7,4 +7,5 @@ public class Combatant extends GameCharacter {
 		// TODO Auto-generated constructor stub
 	}
 
+	
 }

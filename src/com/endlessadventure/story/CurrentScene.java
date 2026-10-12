@@ -20,6 +20,6 @@ public class CurrentScene extends Scene {
 	}
 	
 	public SceneRecord toRecord(String option) {
-		return new SceneRecord(location, description, turn, option);
+		return new SceneRecord(getLocation(), getDescription(), getTurn(), option);
 	}
 }

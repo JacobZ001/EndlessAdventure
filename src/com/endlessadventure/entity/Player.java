@@ -1,15 +1,10 @@
 package com.endlessadventure.entity;
 
+import java.util.EnumMap;
+
 import com.endlessadventure.inventory.Inventory;
 
-public class Player extends Combatant {
-	private class CharacterBuild{
-		private static final int ATTRIBUTE_BUDGET = 8;
-		private static final int ATTRIBUTE_START_CAP = 4;
-		private static final int COMBAT_BUDGET = 8;
-		private static final int GENERAL_BUDGET = 12;
-	}
-	
+public class Player extends Combatant {	
 	private static final int[] XP_TO_NEXT = { //index = current level; value = amount of exp required for leveling up
 			48, 64, 80, 96,				//1-4
 			196, 224, 252, 280, 308,	//5-9
