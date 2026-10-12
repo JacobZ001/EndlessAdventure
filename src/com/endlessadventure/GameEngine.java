@@ -33,26 +33,20 @@ public class GameEngine {
 	}
 
 	/** main game loop */
-	public void run() {
+	public void run() throws NoSuchElementException{
 		currentScreen = GameScreen.MAIN_MENU;
 		running = true;
-		try {
-			while (running) {
-				currentScreen = switch (currentScreen) {
-				case MAIN_MENU -> handleMainMenu();
-				case CHARACTER_CREATION -> handleCharacterCreation();
-				case LOAD_SAVE -> handleLoadSave();
-				case WRITE_SAVE -> handleWriteSave();
-				case ADVENTURE -> handleAdventure();
-				case INVENTORY -> handleInventory();
-				case COMBAT -> handleCombat();
-				case HELP -> handleHelp();
-				};
-			}
-		} catch (NoSuchElementException e) {
-			System.out.println("Input closed. Game exited.");
-		} finally {
-			running = false;
+		while (running) {
+			currentScreen = switch (currentScreen) {
+			case MAIN_MENU -> handleMainMenu();
+			case CHARACTER_CREATION -> handleCharacterCreation();
+			case LOAD_SAVE -> handleLoadSave();
+			case WRITE_SAVE -> handleWriteSave();
+			case ADVENTURE -> handleAdventure();
+			case INVENTORY -> handleInventory();
+			case COMBAT -> handleCombat();
+			case HELP -> handleHelp();
+			};
 		}
 	}
 
@@ -85,7 +79,6 @@ public class GameEngine {
 		case "2", "[2]", "load" -> GameScreen.LOAD_SAVE;
 		case "3", "[3]", "help" -> GameScreen.HELP;
 		case "4", "[4]", "exit" -> {
-			System.out.println("\nGame Exited. Thank you for playing.");
 			running = false;
 			yield GameScreen.MAIN_MENU;
 		}

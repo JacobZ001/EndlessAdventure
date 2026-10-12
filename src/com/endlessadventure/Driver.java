@@ -1,6 +1,7 @@
 package com.endlessadventure;
 
 import java.io.IOException;
+import java.util.NoSuchElementException;
 
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.save.SaveManager;
@@ -14,6 +15,8 @@ public class Driver {
 			new GameEngine(ui, saveManager, storyGenerator).run();
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());
+		} catch (NoSuchElementException e) {
+			System.out.println("Input closed. Game exited.");
 		}
     }
 }

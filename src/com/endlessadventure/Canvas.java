@@ -2,21 +2,23 @@ package com.endlessadventure;
 
 public class Canvas {
 	public static final int HEIGHT = 48;
-	public static final int WIDTH = 204;
+	public static final int WIDTH = 207;
+	
+	//ANSI escape codes
+	private static final String ESC = "\033[";
+	
+	//Canvas component ASCII	
+	private static final char[] CORNERS = {'┌','┐',
+		         						   '└','┘'};
+	private static final char ROW_BORDER = '─';
+	private static final char COL_BORDER = '│';
+	
 	private final char[][] characters = new char[HEIGHT][WIDTH];
 	private final int[][] foreground = new int[HEIGHT][WIDTH];
 	private final int[][] background = new int[HEIGHT][WIDTH];
-	
-	private static final char[] CORNERS = UIHandler.CANVAS_CORNERS;
-	private static final char ROW_BORDER = UIHandler.CANVAS_ROW_BORDER;
-	private static final char COL_BORDER = UIHandler.CANVAS_COL_BORDER;
 
-	public Canvas() {
-		clear(0);
-	}
-
-	/** set one character in canvas grid at x,y */
-	public void set(int x, int y, char c, int fg, int bg) {
+	/** local helper method to set one character in canvas grid at x,y */
+	private void set(int x, int y, char c, int fg, int bg) {
 		if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) {
 			return;
 		}
@@ -25,7 +27,7 @@ public class Canvas {
 		background[y][x] = bg;
 	}
 
-	/** set the whole canvas to whitespace with bg as foreground and background */
+	/** clear the whole canvas with whitespace with bg as foreground and background */
 	public void clear(int bg) {
 		for (int i = 0; i < HEIGHT; i++) {
 			for (int j = 0; j < WIDTH; j++) {
@@ -35,16 +37,21 @@ public class Canvas {
 	}
 
 	/**
-	 * set the given string in the canvas grid at x,y cut off at edge
+	 * draw the given string in the canvas grid at x,y cut off at edge
 	 */
-	public void text(int x, int y, String s, int fg, int bg) {
+	public void drawText(int x, int y, String s, int fg, int bg) {
 		for (int i = 0; i < s.length() && x + i < WIDTH; i++) {
 			set(x + i, y, s.charAt(i), fg, bg);
 		}
 	}
+	
+	/** write text centered horizontally on canvas row y */
+	public void drawTextCentered(int y, String text, int fg, int bg) {
+		drawText((Canvas.WIDTH - text.length()) / 2, y, text, fg, bg);
+	}
 
 	/** draws a box border at x,y with width w and height h */
-	public void box(int x, int y, int w, int h, int fg, int bg) {
+	public void drawBox(int x, int y, int w, int h, int fg, int bg) {
 		if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > WIDTH || y + h > HEIGHT) {
 			throw new IllegalArgumentException(
 					"Illegal dimensions, box out of bound: (%d,%d) (%d, %d)".formatted(x, y, w, h));
@@ -71,8 +78,8 @@ public class Canvas {
 		}
 	}
 
-	/** set the pixel at px,py */
-	public void pixel(int px, int py, int rgb) {
+	/** draw the pixel at px,py */
+	public void drawPixel(int px, int py, int rgb) {
 		int y = py / 2;
 		if (px < 0 || px >= WIDTH || py < 0 || y >= HEIGHT) {
 			return;
@@ -88,13 +95,17 @@ public class Canvas {
 		}
 	}
 
-	public String toAnsi() {
+	/** convert the canvas into a string block for rendering */
+	@Override
+	public String toString() {
 		StringBuilder sb = new StringBuilder(WIDTH * HEIGHT * 4);
 		int lastFg = -1;
 		int lastBg = -1;
 
 		for (int y = 0; y < HEIGHT; y++) {
-			sb.append("\033[").append(y + 1).append(";1H");
+			//relocate cursor to new line
+			//does not use \n to avoid undesired terminal screen scroll 
+			sb.append(ESC).append(y + 1).append(";1H"); 
 			for (int x = 0; x < WIDTH; x++) {
 				if (foreground[y][x] != lastFg) {
 					appendColor(sb, 38, foreground[y][x]);
@@ -107,13 +118,15 @@ public class Canvas {
 				sb.append(characters[y][x]);
 			}
 		}
-		return sb.append("\033[0m").toString();
+		return sb.append(ESC).append("0m").toString();
 	}
 
+	/** helper function to append color from a rgb value
+	 *  sets the following characters to this color */
 	private void appendColor(StringBuilder sb, int type, int color) {
-		int r = (color >> 16) & 0xFF;
-		int g = (color >> 8) & 0xFF;
-		int b = color & 0xFF;
-		sb.append("\033[").append(type).append(";2;%d;%d;%dm".formatted(r, g, b));
+		sb.append(ESC).append(type).append(";2;")
+				.append(Palette.red(color)).append(';')
+				.append(Palette.green(color)).append(';')
+				.append(Palette.blue(color)).append('m');
 	}
 }
