@@ -300,7 +300,6 @@ public class UIHandler implements AutoCloseable {
 		if(player != null) {
 	    	sb.append(buildBoxText("%s  |  LV %s".formatted(player.getName(),player.getLevel())));
 			sb.append(buildBoxText("HP %.0f / %.0f".formatted(player.getHp(),player.getMaxHp())));
-			sb.append(buildBoxText("Attack %-10.0f | Armor %10.0f".formatted(player.getAttack(),player.getArmor())));
 	    	sb.append(buildBoxEmptyRow());
 			ins = new String[]{"[C] Continue",
 					"[B] Return to Main Menu",

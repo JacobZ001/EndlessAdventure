@@ -74,11 +74,6 @@ public class SaveManager {
 		props.setProperty("level", String.valueOf(player.getLevel()));
 		props.setProperty("EXP", String.valueOf(player.getExp()));
 		props.setProperty("hp", String.valueOf(player.getHp()));
-		props.setProperty("maxHp", String.valueOf(player.getMaxHp()));
-		props.setProperty("attack", String.valueOf(player.getAttack()));
-		props.setProperty("armor", String.valueOf(player.getArmor()));
-		props.setProperty("energy", String.valueOf(player.getEnergy()));
-		props.setProperty("maxEnergy", String.valueOf(player.getMaxEnergy()));
 		
 		//write current scene
 		CurrentScene currentScene = state.getCurrentScene();
@@ -132,16 +127,11 @@ public class SaveManager {
 
 			//load player stats
 			String name = getStringProperty(props, "name");
-			double maxHp = getDoubleProperty(props, "maxHp");
-			double hp = getDoubleProperty(props, "hp");
-			double attack = getDoubleProperty(props, "attack");
-			double armor = getDoubleProperty(props, "armor");
-			int maxEnergy = getIntProperty(props, "maxEnergy");
-			int energy = getIntProperty(props, "energy");
+			int hp = getIntProperty(props, "hp");
 			int level = getIntProperty(props, "level");
 			int exp = getIntProperty(props, "EXP");
 
-			Player player = new Player(name, maxHp, hp, level, attack, armor, maxEnergy, energy, exp);
+			Player player = new Player(name, hp, level, exp);
 			
 			//load history
 			int historyCount = getIntProperty(props,"history.count");

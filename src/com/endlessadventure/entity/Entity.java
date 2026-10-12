@@ -2,22 +2,21 @@ package com.endlessadventure.entity;
 
 public abstract class Entity {
 	public static final int MAX_LEVEL = 20;
+		
 	private String name;
-	private double maxHp;
-	private double hp;
+	private int hp;
 	private int level;
 	
-	/** constructor for fully defined entity */
-	public Entity(String name, double maxHp, double hp, int level) {
+	public Entity(String name, int level, int hp) {
 		setName(name);
-		setMaxHp(maxHp);
 		setHp(hp);
 		setLevel(level);
 	}
 	
-	/** constructor for newly spawn entity */
-	public Entity(String name, double maxHp, int level) {
-		this(name, maxHp, maxHp, level);
+	public Entity(String name, int level) {
+		setName(name);
+		setLevel(level);
+		setHp(getMaxHp());
 	}
 	
 	public String getName() {
@@ -33,26 +32,17 @@ public abstract class Entity {
 		this.name = name.strip();
 	}
 	
-	public double getMaxHp() {
-		return maxHp;
-	}
-
-	/* @throws IllegalArgumentException */
-	public void setMaxHp(double maxHp) {
-		if(!Double.isFinite(maxHp) || maxHp <= 0) {
-			throw new IllegalArgumentException("Invalid maxHp: " + maxHp);
-		}
-		this.maxHp = maxHp;
-		hp = Math.min(hp, maxHp);
+	public int getMaxHp() {
+		return 18 * (7 + getLevel());
 	}
 	
-	public double getHp() {
+	public int getHp() {
 		return hp;
 	}
 	
 	/** @throws IllegalArgumentException */
-	public void setHp(double hp) {
-		if(!Double.isFinite(hp) || hp < 0 || hp > maxHp) {
+	public void setHp(int hp) {
+		if(hp < 0 || hp > getMaxHp()) {
 			throw new IllegalArgumentException("Invalid hp: " + hp);
 		}
 		this.hp = hp;
@@ -72,8 +62,8 @@ public abstract class Entity {
 
 	/** take the amount as damage and subtract from hp; return true if the entity is still alive afterwards
 	 *  @throws IllegalArgumenException */
-	public boolean takeDamage(double amount) {
-		if (!Double.isFinite(amount) || amount < 0) {
+	public boolean takeDamage(int amount) {
+		if (amount < 0) {
 			throw new IllegalArgumentException("Invalid damage: " + amount);
 		}
 		hp = Math.max(0, hp - amount);
@@ -82,11 +72,11 @@ public abstract class Entity {
 
 	/** take the amount as restoration and add it to hp
 	 *  @throws IllegalArgumenException */
-	public void RestoreHP(double amount) {
-		if (!Double.isFinite(amount) || amount < 0) {
+	public void restoreHP(int amount) {
+		if (amount < 0) {
 			throw new IllegalArgumentException("Invalid healing: " + amount);
 		}
-		hp = Math.min(maxHp, hp + amount);
+		hp = Math.min(getMaxHp(), hp + amount);
 	}
 	
 	public boolean isAlive() {

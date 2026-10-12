@@ -3,29 +3,33 @@ package com.endlessadventure.entity;
 import com.endlessadventure.inventory.Inventory;
 
 public class Player extends Combatant {
+	private class CharacterBuild{
+		private static final int ATTRIBUTE_BUDGET = 8;
+		private static final int ATTRIBUTE_START_CAP = 4;
+		private static final int COMBAT_BUDGET = 8;
+		private static final int GENERAL_BUDGET = 12;
+	}
+	
 	private static final int[] XP_TO_NEXT = { //index = current level; value = amount of exp required for leveling up
 			48, 64, 80, 96,				//1-4
 			196, 224, 252, 280, 308,	//5-9
 			480, 520, 560, 600, 640,	//10-14
 			816, 864, 912, 960, 1008	//15-19
 	};
-	private static final double DEFAULT_MAX_HP = 40.0;
-	private static final double DEFAULT_ATTACK = 6.0;
-	private static final double DEFAULT_ARMOR = 1.0;
-	private static final int DEFAULT_MAX_ENERGY = 5;
 	private int exp;
 	
 	private final Inventory inventory = new Inventory();
 	
 	/** constructor for fully defined player */
-	public Player(String name, double maxHp, double hp, int level, double attack, double armor, int maxEnergy, int energy, int exp) {
-		super(name, maxHp, hp, level, attack, armor, maxEnergy, energy);
+	public Player(String name, int hp, int level, int exp) {
+		super(name, hp, level);
 		setExp(exp);
 	}
 	
 	/** constructor for new default player */
-	public Player(String name) {
-		this(name, DEFAULT_MAX_HP, DEFAULT_MAX_HP, 1, DEFAULT_ATTACK, DEFAULT_ARMOR, DEFAULT_MAX_ENERGY, 0, 0);
+	//TODO implement new player creation
+	public Player(String name, CharacterBuild build) {
+		this(name, 40, 1, 0);
 	}
 	
 	/** returns the amount of exp required for the selected level to level-up */
