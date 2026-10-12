@@ -1,39 +1,43 @@
 # Endless Adventure 当前技术架构
 
-更新日期：2026-10-07。依据当前工作区源码，包含未提交改动。本文记录实际实现；功能目标见 [DESIGN.md](DESIGN.md)。两份文档位于仓库根目录并随仓库公开。
+更新日期：2026-10-11。依据当前提交的源码记录实际实现；功能目标与确认状态见 [DESIGN.md](DESIGN.md)。两份文档随仓库提交。
 
 ## 1. 运行与职责
 
-Java 21、Eclipse 项目、模块 EndlessAdventure，仅依赖标准库与 java.net.http。Driver 创建 UIHandler、SaveManager、StoryGenerator(new LlmClient())，交给 GameEngine.run。工作目录为项目根目录，配置与存档使用相对路径。
+Java 21、Eclipse 项目、模块 EndlessAdventure。module-info 依赖 java.net.http、org.jline.reader、org.jline.terminal、com.google.gson。`lib/` 中有 JLine 4.4.6 的四个 jar（terminal、reader、terminal-jni、native）与 Gson 2.13.2，均在 `.classpath` 中以模块方式登记；命令行启动时模块路径须包含 `lib`。Gson 已声明依赖但源码尚未使用；读取数据 record 时须另把所在包 `opens` 给 com.google.gson（包建立后再加，空包无法 opens）。工作目录为项目根目录，配置与存档使用相对路径。
+
+Driver 用 try-with-resources 创建 UIHandler（AutoCloseable），再创建 SaveManager、StoryGenerator(new LlmClient())，交给 GameEngine.run。没有可交互终端时 UIHandler 构造抛出 IOException，Driver 打印 “Terminal error” 后退出。
 
 以下路径相对 src/com/endlessadventure/：
 
 | 类型／位置 | 当前职责 |
 |---|---|
 | GameEngine | 单线程 while 主循环、内部 GameScreen、命令路由、角色创建、情境推进、存读与删除 |
-| UIHandler | Scanner 行输入、字符界面、换行、清屏及一次性状态消息 |
+| UIHandler | JLine Terminal 与 LineReader 行输入；启动时进入备用屏幕，关闭时恢复；主菜单与背包框架在 Canvas 上绘制，其余界面仍以字符串拼装后清屏输出；一次性状态消息 |
+| Canvas | 207×48 字符格，每格保存字符与 24 位前景／背景色；提供 clear、drawText、drawTextCentered、drawBox、半块像素 drawPixel，toString 输出整帧 ANSI |
+| Palette | 共享 RGB 配色常量与 red／green／blue／rgb／mix 颜色工具 |
 | GameState | Player、CurrentScene、List<SceneRecord>；默认玩家与情境为 null，历史为空 |
 | story/Scene | 抽象基类：地点、描述、回合；回合至少为 1 |
 | story/CurrentScene | 当前情境和 1–3 个选项，数组在构造与 getter 时复制；toRecord 保存所选行动 |
 | story/SceneRecord | 已完成情境及 playerAction；行动结果体现在下一情境 |
 | story/StoryGenerator | 构造上下文、请求模型、验证并返回 CurrentScene，不直接修改 GameState |
 | entity/Entity → Combatant → Player | 生命／等级 → 攻击／护甲／能量 → 本级 EXP 与 Inventory；前两层为抽象类型 |
-| inventory/Item | 抽象物品，进程内自增 ID、名称与描述；子类须提供 toString、equals、hashCode |
+| inventory/Item | 抽象物品，进程内自增 int ID、名称与描述；子类须提供 toString、equals、hashCode |
 | inventory/Inventory | ArrayList<Item>；添加时拒绝 null，按索引读取／移除，查询数量 |
 | save/SaveManager | 三个 Properties 槽位、完整加载生成摘要、写入与删除；内含 SlotStatus、SlotOverview |
 | save/BadSaveException | checked exception，保留槽位及可选 cause，描述无效存档状态 |
 | save/PropertyNotFoundException | 缺少或空白必需字段的运行时异常 |
-| llm/LlmClient、LlmRequestException | 同步 HTTP、配置、API JSON 文本提取；报告缺 key、超时、HTTP 或响应错误 |
+| llm/LlmClient、LlmRequestException | 同步 HTTP、配置、手写 JSON 请求体与响应提取；报告缺 key、超时、HTTP 或响应错误 |
 
-Player 初值为 Lv1、HP40、Attack6、Armor1、Energy0/5、EXP0，上限 20 级。已有属性校验与经验表，无自动升级或奖励执行。每个 Player 创建空 Inventory；尚无具体物品子类、装备效果和库存持久化。
+Player 初值为 Lv1、HP40、Attack6、Armor1、Energy0/5、EXP0，数值以 double 保存，等级上限 20（Entity.MAX_LEVEL）。已有属性校验与经验表，无自动升级或奖励执行。姓名限 1–40 个字符、不含控制字符。每个 Player 创建空 Inventory；尚无具体物品子类、装备效果和库存持久化。
 
 ## 2. 主循环与状态变化
 
-GameScreen 包含 MAIN_MENU、CHARACTER_CREATION、LOAD_SAVE、WRITE_SAVE、ADVENTURE、INVENTORY、COMBAT、HELP。处理器返回下一屏；退出设置 running=false，输入 EOF 正常结束循环。
+GameScreen 包含 MAIN_MENU、CHARACTER_CREATION、LOAD_SAVE、WRITE_SAVE、ADVENTURE、INVENTORY、COMBAT、HELP。处理器返回下一屏；退出设置 running=false。输入关闭（EOF 或 Ctrl-C）时 UIHandler 抛出 NoSuchElementException，主循环捕获后提示并结束。
 
 - **创建：** New 替换为新 GameState，输入姓名后创建 Player。C 进入冒险，R 清除玩家重新输入，B 回主菜单；不自动保存。
 - **开场：** currentScene 为 null 才生成回合 1。已有情境直接显示，读档与导航不重复生成开场。
-- **行动：** 优先处理 S 保存与 B 返回；其余输入将合法编号映射为选项原文，否则作为自由行动。空白不发送。生成成功后先替换 currentScene，再追加上一情境与行动至 history；生成器按当前回合 +1 创建新情境。
+- **行动：** 优先处理 S 保存与 B 返回（返回主菜单须确认）；其余输入将合法编号映射为选项原文，否则作为自由行动。空白不发送。生成成功后先替换 currentScene，再追加上一情境与行动至 history；生成器按当前回合 +1 创建新情境。
 - **失败：** 开场 LlmRequestException 返回主菜单；续写同类异常留在 ADVENTURE，旧情境和历史不变。无自动重试、离线故事或主菜单 Continue。
 - **存档菜单：** 1–3 选择槽位，覆盖非空／损坏槽位须确认。D／del／delete 加槽号删除，须确认。保存成功仍留在存档页；读档成功替换整个 GameState 后进入冒险。
 - **占位屏幕：** INVENTORY、COMBAT 处理器直接返回冒险，尚无玩法路由；Help 由主菜单打开。
@@ -42,7 +46,7 @@ history 直接以可变 List 暴露，GameState setter 未统一校验完整状�
 
 ## 3. 模型输入与响应
 
-LlmClient 构造时读取配置：.env 优先于进程环境变量，再使用默认值；显式空 key 禁止请求。同步 HttpClient 连接超时 10 秒、请求超时 60 秒。外层 API JSON 与游戏正文分开解析，HTTP 错误消息遮蔽配置的 key。
+LlmClient 构造时读取配置：.env 优先于进程环境变量，再使用默认值；显式空 key 禁止请求。同步 HttpClient 连接超时 10 秒、请求超时 60 秒。外层 API JSON 与游戏正文分开解析，HTTP 错误消息遮蔽配置的 key。API JSON 的请求体转义与响应提取为手写实现（含内部 JsonCursor），约 350 行。
 
 请求包含完整 HISTORY 表、续写时的 CURRENT、PLAYER 和新 ACTION。历史每行记录回合、地点、描述、所选行动；制表符、换行、反斜杠转义。玩家资料为姓名、等级、HP；未发送背包或能力评估，尚无摘要或请求长度预算。
 
@@ -69,7 +73,7 @@ saves/slot1.txt 至 slot3.txt，UTF-8 Properties；注释为 EndlessAdventure sa
 | 当前情境 | location、description、option_count、options.N |
 | 历史 | history.count、history.N.location、history.N.description、history.N.action |
 
-不单独保存回合：历史记录按索引 +1 恢复回合，当前回合为 history.count +1。无库存、装备、技能或区域数据。
+不单独保存回合：历史记录按索引 +1 恢复回合，当前回合为 history.count +1。无库存、装备、技能或地点数据。
 
 写档前拒绝 null 当前情境，要求历史数量等于当前回合减一，记录回合依次为 1…N。组装 Properties 后直接打开目标文件写入，没有临时文件或原子替换。
 
@@ -79,14 +83,13 @@ saves/slot1.txt 至 slot3.txt，UTF-8 Properties；注释为 EndlessAdventure sa
 
 ## 5. 界面与当前限制
 
-Unicode 边框、ANSI 颜色、清屏重绘；当前 UI_WIDTH=204、UI_HEIGHT=48、内边距 2。宽度参与布局，高度未形成分页或裁剪约束。Scanner 输入需 Enter；非 raw 输入转小写，自由行动也经过此路径，姓名保留大小写。
-
-背包渲染接收 Inventory 与 selectedIndex，仅有按 12 格计算页号等占位内容，未绘制可用背包或支持即时方向键。
-
-当前边界：直接覆盖存档，写入中断可能损坏原档；历史、存档和请求无总量上限；帮助显示 back，处理器只接受 b／[b]。没有战斗、休息、专用对话或奖励结算。
+- **输入：** JLine LineReader 逐行读取，提示符为“消息> ”，仍需 Enter 提交；已关闭事件扩展（`!` 不触发历史替换）。非 raw 输入去首尾空白并转小写，自由行动也经过此路径；姓名使用 raw，保留大小写。尚无即时按键。
+- **菜单与冒险界面：** UIHandler 用 StringBuilder 拼装 Unicode 边框、ANSI 颜色与按显示宽度换行的文本，经 System.out 清屏后输出；宽度 UI_WIDTH＝Canvas.WIDTH＝207，内边距 2。高度未形成分页或裁剪约束。
+- **Canvas：** 字符格、真彩色输出（按行定位光标，仅在颜色变化时输出转义码）与半块像素绘制。主菜单在 Canvas 上绘制像素标题（2×2 色点放大、纵向渐变与阴影）与选项；renderCanvas 在窗口小于画布时提示最大化，画面下方第 1 行显示状态消息，第 2 行为固定输入行。背包渲染只画外框与标题，尚无网格、选择与内容。战斗界面为空方法。
+- **当前边界：** 直接覆盖存档，写入中断可能损坏原档；历史、存档和请求无总量上限；帮助显示 back，处理器只接受 b／[b]。没有战斗、休息、专用对话或奖励结算。
 
 ## 6. 验证边界
 
-2026-10-07 本次核对中，全部 src 使用 JDK 21 编译通过。仅维护文档，未修改源码、测试或运行脚本。
+2026-10-11 核对：加入 Gson 后，全部 src 以 JDK 21、`--module-path lib` 编译通过。未运行游戏，未访问真实模型、个人存档或进行交互游玩；编译通过不等于上述路径已验收。
 
-现有检查为 tests/LlmConfigCheck.java、tests/StoryGeneratorCheck.java，本次未重新执行。未访问真实模型、个人存档或进行交互游玩；编译通过不等于上述路径已验收。
+现有检查为 tests/LlmConfigCheck.java、tests/StoryGeneratorCheck.java。2026-10-11 按 README 命令的等效方式执行，两项均通过；故事检查编译全部源码，须把 `lib/*` 加入 classpath（README 已更新）。
