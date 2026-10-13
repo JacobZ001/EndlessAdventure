@@ -3,32 +3,37 @@ package com.endlessadventure.entity;
 import java.util.EnumMap;
 
 public abstract class GameCharacter extends Entity {
-		
-	private EnumMap<Attribute, Integer> attributes;
-	private EnumMap<Training, Integer> trainings;
 
-	public GameCharacter(String name, int level, int hp) {
-		super(name, level, hp);
-		// TODO Auto-generated constructor stub
+	private final EnumMap<Attribute, Integer> attributes = new EnumMap<>(Attribute.class);
+	private final EnumMap<Training, Integer> trainings = new EnumMap<>(Training.class);
+
+	public GameCharacter(String name, int level) {
+		super(name, level);
 	}
-	
+
 	public int getAttribute(Attribute a) {
-		return attributes.get(a);
+		return attributes.getOrDefault(a, 0);
 	}
-	
-	/** @throws IllegalArgumentException */
-	public void setAttribute(Attribute a, int v) {
+
+	/** upper limits depend on the kind of character and are checked by the subclass
+	 *  @throws IllegalArgumentException */
+	protected void setAttribute(Attribute a, int v) {
 		if(v < 0) {
 			throw new IllegalArgumentException("Invalid attribute value: " + a.name() + " : " + v);
 		}
+		attributes.put(a, v);
 	}
-	
+
 	public int getTraining(Training t) {
-		return trainings.get(t);
+		return trainings.getOrDefault(t, 0);
 	}
-	
-	@Override
-	public int getMaxHp() {
-		return super.getMaxHp() + 8 * getAttribute(Attribute.CON);
+
+	/** upper limits depend on the kind of character and are checked by the subclass
+	 *  @throws IllegalArgumentException */
+	protected void setTraining(Training t, int v) {
+		if(v < 0) {
+			throw new IllegalArgumentException("Invalid training value: " + t.name() + " : " + v);
+		}
+		trainings.put(t, v);
 	}
 }

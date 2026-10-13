@@ -298,8 +298,9 @@ public class UIHandler implements AutoCloseable {
 		
 		String[] ins = {"What is your name, adventurer?"};
 		if(player != null) {
+			
 	    	sb.append(buildBoxText("%s  |  LV %s".formatted(player.getName(),player.getLevel())));
-			sb.append(buildBoxText("HP %.0f / %.0f".formatted(player.getHp(),player.getMaxHp())));
+			sb.append(buildBoxText("HP %d / %d".formatted(player.getHp(),player.getMaxHp())));
 	    	sb.append(buildBoxEmptyRow());
 			ins = new String[]{"[C] Continue",
 					"[B] Return to Main Menu",

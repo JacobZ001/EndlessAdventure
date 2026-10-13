@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -42,11 +43,11 @@ public final class StoryGeneratorCheck {
 		try {
 			String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
 			StoryGenerator generator = new StoryGenerator(new LlmClient("dummy-key", "test-model", endpoint));
-			GameState state = new GameState(new Player("ZaRiX"), null, new ArrayList<>());
+			GameState state = new GameState(new Player("ZaRiX", 1, 40, 0, Map.of(), Map.of()), null, new ArrayList<>());
 			CurrentScene opening = generator.generateOpening(state);
 			check(opening.getDescription().contains("Runes a=b") && opening.getDescription().contains("C:\\road"),
 					"Literal equals signs and backslashes must survive parsing");
-			check(request.get().contains(LlmClient.escape("PLAYER\nname=ZaRiX\nlevel=1\nhp=40.0/40.0\n"))
+			check(request.get().contains(LlmClient.escape("PLAYER\nname=ZaRiX\nlevel=1\nhp=40/144\n"))
 					&& !request.get().contains(LlmClient.escape("CURRENT\nturn=")) && opening.getTurn() == 1,
 					"Opening works without a current scene and assigns turn one locally");
 			check(state.getCurrentScene() == null && state.getHistory().isEmpty() && state.getPlayer().getHp() == 40,

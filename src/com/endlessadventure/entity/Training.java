@@ -31,16 +31,20 @@ public enum Training{
 	PERFORMANCE(Group.GENERAL, Attribute.CHA);
 	
 	private final Group group;
-	private final Attribute default_attribute;
+	private final Attribute defaultAttribute;
 
-	private Training(Group group, Attribute default_attribute) {
+	private Training(Group group, Attribute defaultAttribute) {
 		this.group = group;
-		this.default_attribute = default_attribute;
+		this.defaultAttribute = defaultAttribute;
 	}
 
 	public enum Group { COMBAT, GENERAL }
 	
 	public Group getGroup() {
 		return this.group;
+	}
+
+	public Attribute getDefaultAttribute() {
+		return defaultAttribute;
 	}
 }

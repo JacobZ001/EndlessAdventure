@@ -9,9 +9,13 @@ public enum Attribute{
 	WIL("Willpower"), 
 	CHA("Charisma");
 	
-	private String name;
+	private final String displayName;
 
-	private Attribute(String name) {
-		this.name = name;
+	private Attribute(String displayName) {
+		this.displayName = displayName;
+	}
+
+	public String getDisplayName() {
+		return displayName;
 	}
 }

@@ -9,6 +9,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import com.endlessadventure.entity.Player;
@@ -131,7 +132,8 @@ public class SaveManager {
 			int level = getIntProperty(props, "level");
 			int exp = getIntProperty(props, "EXP");
 
-			Player player = new Player(name, hp, level, exp);
+			// TODO save v3: store attributes and trainings; until then they load as 0
+			Player player = new Player(name, level, hp, exp, Map.of(), Map.of());
 			
 			//load history
 			int historyCount = getIntProperty(props,"history.count");

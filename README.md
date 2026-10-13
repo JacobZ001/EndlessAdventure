@@ -122,4 +122,4 @@ The following LLM classes and verification code were developed with a GenAI codi
 
 A GenAI coding agent also added the Gson dependency setup (`lib/gson-2.13.2.jar`, its `.classpath` entry, and the `requires com.google.gson` line in `module-info.java`) at the author's request.
 
-The core game code were written by the author.
+The core game code is written by the author.

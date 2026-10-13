@@ -2,21 +2,16 @@ package com.endlessadventure.entity;
 
 public abstract class Entity {
 	public static final int MAX_LEVEL = 20;
+	private static final int MAX_NAME_LENGTH = 40;
 		
 	private String name;
 	private int hp;
 	private int level;
 	
-	public Entity(String name, int level, int hp) {
-		setName(name);
-		setHp(hp);
-		setLevel(level);
-	}
-	
+	/** hp starts at 0; subclasses set it once everything getMaxHp reads is initialized */
 	public Entity(String name, int level) {
 		setName(name);
 		setLevel(level);
-		setHp(getMaxHp());
 	}
 	
 	public String getName() {
@@ -25,16 +20,21 @@ public abstract class Entity {
 	
 	/** @throws IllegalArgumentException */
 	public void setName(String name) {
-		if (name == null || name.isBlank() || name.strip().length() > 40
-				|| name.chars().anyMatch(Character::isISOControl)) {
-			throw new IllegalArgumentException("Name must contain 1 to 40 characters without control characters");
-		}
-		this.name = name.strip();
+		this.name = checkName(name);
 	}
 	
-	public int getMaxHp() {
-		return 18 * (7 + getLevel());
+	/** returns the stripped name
+	 *  @throws IllegalArgumentException */
+	protected static String checkName(String name) {
+		if (name == null || name.isBlank() || name.strip().length() > MAX_NAME_LENGTH
+				|| name.chars().anyMatch(Character::isISOControl)) {
+			throw new IllegalArgumentException("Name must contain 1 to " + MAX_NAME_LENGTH + " characters without control characters");
+		}
+		return name.strip();
 	}
+	
+	/** derived from level and attributes, never saved */
+	public abstract int getMaxHp();
 	
 	public int getHp() {
 		return hp;
