@@ -5,7 +5,7 @@ import java.util.EnumMap;
 public abstract class GameCharacter extends Entity {
 
 	private final EnumMap<Attribute, Integer> attributes = new EnumMap<>(Attribute.class);
-	private final EnumMap<Training, Integer> trainings = new EnumMap<>(Training.class);
+	private final EnumMap<Skill, Integer> skills = new EnumMap<>(Skill.class);
 
 	public GameCharacter(String name, int level) {
 		super(name, level);
@@ -24,16 +24,16 @@ public abstract class GameCharacter extends Entity {
 		attributes.put(a, v);
 	}
 
-	public int getTraining(Training t) {
-		return trainings.getOrDefault(t, 0);
+	public int getSkill(Skill s) {
+		return skills.getOrDefault(s, 0);
 	}
 
 	/** upper limits depend on the kind of character and are checked by the subclass
 	 *  @throws IllegalArgumentException */
-	protected void setTraining(Training t, int v) {
+	protected void setSkill(Skill s, int v) {
 		if(v < 0) {
-			throw new IllegalArgumentException("Invalid training value: " + t.name() + " : " + v);
+			throw new IllegalArgumentException("Invalid skill value: " + s.name() + " : " + v);
 		}
-		trainings.put(t, v);
+		skills.put(s, v);
 	}
 }

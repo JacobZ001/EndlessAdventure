@@ -3,51 +3,34 @@ package com.endlessadventure.entity;
 import java.util.EnumMap;
 import java.util.Map;
 
+import com.endlessadventure.StatRules;
 import com.endlessadventure.inventory.Inventory;
 
-public class Player extends Combatant {
-	private static final int[] XP_TO_NEXT = { //index = current level; value = amount of exp required for leveling up
-			48, 64, 80, 96,				//1-4
-			196, 224, 252, 280, 308,	//5-9
-			480, 520, 560, 600, 640,	//10-14
-			816, 864, 912, 960, 1008	//15-19
-	};
-	private static final int ATTRIBUTE_BUDGET = 8;
-	private static final int ATTRIBUTE_START_CAP = 4;
-	private static final int COMBAT_BUDGET = 8;
-	private static final int GENERAL_BUDGET = 12;
-	private static final int TRAINING_START_CAP = 8;
-	
+public class Player extends GameCharacter {
 	private final Inventory inventory = new Inventory();
 	
 	private int exp;
 
-	/** constructor for loading a saved player; attributes and trainings may not exceed what the level allows
+	/** constructor for loading a saved player; attributes and skills may not exceed what the level allows
 	 *  @throws IllegalArgumentException */
-	public Player(String name, int level, int hp, int exp, Map<Attribute, Integer> attributes, Map<Training, Integer> trainings) {
+	public Player(String name, int level, int hp, int exp, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills) {
 		super(name, level);
-		checkGrowthLimits(level, attributes, trainings);
+		checkGrowthLimits(level, attributes, skills);
 		attributes.forEach(this::setAttribute);
-		trainings.forEach(this::setTraining);
+		skills.forEach(this::setSkill);
 		setExp(exp);
 		setHp(hp);
 	}
 
 	/** constructor for a new player, see Builder; starts at full HP */
 	private Player(Builder b) {
-		this(b.name, 1, 0, 0, b.attributes, b.trainings);
+		this(b.name, 1, 0, 0, b.attributes, b.skills);
 		setHp(getMaxHp());
 	}
 
 	@Override
 	public int getMaxHp() {
-		return 18 * (7 + getLevel()) + 8 * getAttribute(Attribute.CON);
-	}
-
-	/** returns the amount of exp required for the selected level to level-up */
-	public static int xpToNext(int level) {
-		if (level < 1 || level >= MAX_LEVEL) return Integer.MAX_VALUE;
-		return XP_TO_NEXT[level-1];
+		return StatRules.getPlayerMaxHp(getLevel(), getAttribute(Attribute.CON));
 	}
 
 	public int getExp() {
@@ -56,7 +39,7 @@ public class Player extends Combatant {
 
 	/** Set valid within-level progress, for example when loading a save. */
 	public void setExp(int exp) {
-		if(exp < 0 || (getLevel() == MAX_LEVEL && exp != 0) || (getLevel() < MAX_LEVEL && exp >= xpToNext(getLevel()))) {
+		if(exp < 0 || (getLevel() == StatRules.MAX_LEVEL && exp != 0) || (getLevel() < StatRules.MAX_LEVEL && exp >= StatRules.getXpToNext(getLevel()))) {
 			throw new IllegalArgumentException("Invalid exp for level: Lv " + getLevel() + ": " + exp);
 		}
 		this.exp = exp;
@@ -65,7 +48,7 @@ public class Player extends Combatant {
 	/** direct level change, does not leave incompatible EXP behind. */
 	@Override
 	public void setLevel(int level) {
-		if ((level == MAX_LEVEL && exp != 0) || (level < MAX_LEVEL && exp >= xpToNext(level))) {
+		if ((level == StatRules.MAX_LEVEL && exp != 0) || (level < StatRules.MAX_LEVEL && exp >= StatRules.getXpToNext(level))) {
 			throw new IllegalArgumentException("Current EXP is invalid for level: " + level);
 		}
 		super.setLevel(level);
@@ -75,16 +58,10 @@ public class Player extends Combatant {
 		return inventory;
 	}
 
-	/** returns the training point budget for selected level and group
-	 *  combat trainings get 1 point and general trainings 2 points per level */
-	private static int trainingBudget(Training.Group group, int level) {
-		return group == Training.Group.COMBAT ? COMBAT_BUDGET + (level - 1) : GENERAL_BUDGET + 2 * (level - 1);
-	}
-
-	/** returns the total amount of training points of the input training EnumMap that is within the selected group */
-	private static int trainingTotal(Map<Training, Integer> trainings, Training.Group group) {
+	/** returns the total amount of skill points of the argument skill EnumMap that is within the selected group */
+	private static int getSkillTotal(Map<Skill, Integer> skills, Skill.Group group) {
 		int total = 0;
-		for (Map.Entry<Training, Integer> e : trainings.entrySet()) {
+		for (Map.Entry<Skill, Integer> e : skills.entrySet()) {
 			if (e.getKey().getGroup() == group) {
 				total += e.getValue();
 			}
@@ -92,43 +69,41 @@ public class Player extends Combatant {
 		return total;
 	}
 
-	/**checks if the input attributes and trainings are valid according to the caps and budgets values
+	/**checks if the argument attributes and skills are valid according to the caps and budgets values
 	 * checks upper limits only, so a loaded player may still have unspent points
 	 *  @throws IllegalArgumentException */
-	private static void checkGrowthLimits(int level, Map<Attribute, Integer> attributes, Map<Training, Integer> trainings) {
-		int attributePoints = (level - 1) / 2; // granted at levels 3, 5, 7...
+	private static void checkGrowthLimits(int level, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills) {
 		int attributeTotal = 0;
 		int highest = 0;
 		for (int v : attributes.values()) {
-			if (v > ATTRIBUTE_START_CAP + attributePoints) {
+			if (v > StatRules.getAttributeCap(level)) {
 				throw new IllegalArgumentException("Attribute too high for Lv " + level + ": " + v);
 			}
 			attributeTotal += v;
 			highest = Math.max(highest, v);
 		}
-		if (attributeTotal > ATTRIBUTE_BUDGET + attributePoints) {
+		if (attributeTotal > StatRules.getAttributeBudgetLimit(level)) {
 			throw new IllegalArgumentException("Too many attribute points for Lv " + level + ": " + attributeTotal);
 		}
 
-		// single training cap = min(7 + level, 8 * tier of the highest attribute), tier at least 3
-		int trainingCap = Math.min(7 + level, 8 * Math.max(3, (highest + 3) / 4));
-		for (int v : trainings.values()) {
-			if (v > trainingCap) {
-				throw new IllegalArgumentException("Training too high for Lv " + level + ": " + v);
+		int skillCap = StatRules.getSkillCap(level, highest);
+		for (int v : skills.values()) {
+			if (v > skillCap) {
+				throw new IllegalArgumentException("Skill too high for Lv " + level + ": " + v);
 			}
 		}
-		for (Training.Group g : Training.Group.values()) {
-			if (trainingTotal(trainings, g) > trainingBudget(g, level)) {
-				throw new IllegalArgumentException("Too many " + g + " training points for Lv " + level);
+		for (Skill.Group g : Skill.Group.values()) {
+			if (getSkillTotal(skills, g) > StatRules.getSkillBudgetLimit(g, level)) {
+				throw new IllegalArgumentException("Too many " + g + " skill points for Lv " + level);
 			}
 		}
 	}
 
-	/** creates a new level 1 player; build() requires every attribute and training point to be spent */
+	/** creates a new level 1 player; build() requires every attribute and skill point to be spent */
 	public static class Builder {
 		private final String name;
 		private final EnumMap<Attribute, Integer> attributes = new EnumMap<>(Attribute.class);
-		private final EnumMap<Training, Integer> trainings = new EnumMap<>(Training.class);
+		private final EnumMap<Skill, Integer> skills = new EnumMap<>(Skill.class);
 
 		/** @throws IllegalArgumentException */
 		public Builder(String name) {
@@ -139,36 +114,36 @@ public class Player extends Combatant {
 			return attributes.getOrDefault(a, 0);
 		}
 
-		public int getTraining(Training t) {
-			return trainings.getOrDefault(t, 0);
+		public int getSkill(Skill s) {
+			return skills.getOrDefault(s, 0);
 		}
 
-		public int remainingAttributePoints() {
+		public int getRemainingAttributePoints() {
 			int total = 0;
 			for (int v : attributes.values()) {
 				total += v;
 			}
-			return ATTRIBUTE_BUDGET - total;
+			return StatRules.getAttributeBudgetLimit(1) - total;
 		}
 
-		public int remainingTrainingPoints(Training.Group group) {
-			return trainingBudget(group, 1) - trainingTotal(trainings, group);
+		public int getRemainingSkillPoints(Skill.Group group) {
+			return StatRules.getSkillBudgetLimit(group, 1) - getSkillTotal(skills, group);
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder addAttribute(Attribute a) {
-			if (remainingAttributePoints() < 1) {
+		public Builder incrAttribute(Attribute a) {
+			if (getRemainingAttributePoints() < 1) {
 				throw new IllegalArgumentException("No attribute points left");
 			}
-			if (getAttribute(a) >= ATTRIBUTE_START_CAP) {
-				throw new IllegalArgumentException(a.getDisplayName() + " is already at the starting cap of " + ATTRIBUTE_START_CAP);
+			if (getAttribute(a) >= StatRules.ATTRIBUTE_START_CAP) {
+				throw new IllegalArgumentException(a.getDisplayName() + " is already at the starting cap of " + StatRules.ATTRIBUTE_START_CAP);
 			}
 			attributes.put(a, getAttribute(a) + 1);
 			return this;
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder removeAttribute(Attribute a) {
+		public Builder decrAttribute(Attribute a) {
 			if (getAttribute(a) < 1) {
 				throw new IllegalArgumentException(a.getDisplayName() + " has no points to remove");
 			}
@@ -177,35 +152,35 @@ public class Player extends Combatant {
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder addTraining(Training t) {
-			if (remainingTrainingPoints(t.getGroup()) < 1) {
-				throw new IllegalArgumentException("No " + t.getGroup() + " training points left");
+		public Builder incrSkill(Skill s) {
+			if (getRemainingSkillPoints(s.getGroup()) < 1) {
+				throw new IllegalArgumentException("No " + s.getGroup() + " skill points left");
 			}
-			if (getTraining(t) >= TRAINING_START_CAP) {
-				throw new IllegalArgumentException(t + " is already at the starting cap of " + TRAINING_START_CAP);
+			if (getSkill(s) >= StatRules.SKILL_START_CAP) {
+				throw new IllegalArgumentException(s + " is already at the starting cap of " + StatRules.SKILL_START_CAP);
 			}
-			trainings.put(t, getTraining(t) + 1);
+			skills.put(s, getSkill(s) + 1);
 			return this;
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder removeTraining(Training t) {
-			if (getTraining(t) < 1) {
-				throw new IllegalArgumentException(t + " has no points to remove");
+		public Builder decrSkill(Skill s) {
+			if (getSkill(s) < 1) {
+				throw new IllegalArgumentException(s + " has no points to remove");
 			}
-			trainings.put(t, getTraining(t) - 1);
+			skills.put(s, getSkill(s) - 1);
 			return this;
 		}
 
 		/** @throws IllegalStateException if any point is unspent */
 		public Player build() {
-			for (Training.Group g : Training.Group.values()) {
-				if (remainingTrainingPoints(g) != 0) {
-					throw new IllegalStateException(remainingTrainingPoints(g) + " " + g + " training points left");
+			for (Skill.Group g : Skill.Group.values()) {
+				if (getRemainingSkillPoints(g) != 0) {
+					throw new IllegalStateException(getRemainingSkillPoints(g) + " " + g + " skill points left");
 				}
 			}
-			if (remainingAttributePoints() != 0) {
-				throw new IllegalStateException(remainingAttributePoints() + " attribute points left");
+			if (getRemainingAttributePoints() != 0) {
+				throw new IllegalStateException(getRemainingAttributePoints() + " attribute points left");
 			}
 			return new Player(this);
 		}

@@ -132,7 +132,7 @@ public class SaveManager {
 			int level = getIntProperty(props, "level");
 			int exp = getIntProperty(props, "EXP");
 
-			// TODO save v3: store attributes and trainings; until then they load as 0
+			// TODO save v3: store attributes and skills; until then they load as 0
 			Player player = new Player(name, level, hp, exp, Map.of(), Map.of());
 			
 			//load history

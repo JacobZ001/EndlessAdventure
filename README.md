@@ -121,6 +121,11 @@ The following LLM classes and verification code were developed with a GenAI codi
 - com.endlessadventure.story.StoryGenerator.java
 - tests/StoryGeneratorCheck.java (offline story-generation verification)
 
-A GenAI coding agent also added the Gson dependency setup (`lib/gson-2.13.2.jar`, its `.classpath` entry, and the `requires com.google.gson` line in `module-info.java`) at the author's request.
+A GenAI coding agent also helped with the following at the author's request:
+
+- the JLine and Gson dependency setup (`lib/jline-*.jar` and `lib/gson-2.13.2.jar`, their `.classpath` entries, and the matching `requires` lines in `module-info.java`)
+- `Canvas.java` and the canvas-based main menu in `UIHandler.java`
+- `Palette.java` (shared colors) and its use in `UIHandler.java` and `Canvas.java`
+- drafting `DESIGN.md` from the author's design decisions
 
 The core game code is written by the author.

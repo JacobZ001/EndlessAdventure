@@ -1,6 +1,6 @@
 package com.endlessadventure.entity;
 
-public enum Training{
+public enum Skill{
 	MELEE(Group.COMBAT, Attribute.STR),
 	RANGED(Group.COMBAT, Attribute.DEX),
 	SPELLCASTING(Group.COMBAT, Attribute.INT),
@@ -30,15 +30,18 @@ public enum Training{
 	DECEPTION(Group.GENERAL, Attribute.CHA),
 	PERFORMANCE(Group.GENERAL, Attribute.CHA);
 	
+	public enum Group {
+		COMBAT,
+		GENERAL;
+	}
+	
 	private final Group group;
 	private final Attribute defaultAttribute;
 
-	private Training(Group group, Attribute defaultAttribute) {
+	private Skill(Group group, Attribute defaultAttribute) {
 		this.group = group;
 		this.defaultAttribute = defaultAttribute;
 	}
-
-	public enum Group { COMBAT, GENERAL }
 	
 	public Group getGroup() {
 		return this.group;

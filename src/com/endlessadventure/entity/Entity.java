@@ -1,7 +1,8 @@
 package com.endlessadventure.entity;
 
+import com.endlessadventure.StatRules;
+
 public abstract class Entity {
-	public static final int MAX_LEVEL = 20;
 	private static final int MAX_NAME_LENGTH = 40;
 		
 	private String name;
@@ -25,7 +26,7 @@ public abstract class Entity {
 	
 	/** returns the stripped name
 	 *  @throws IllegalArgumentException */
-	protected static String checkName(String name) {
+	public static String checkName(String name) {
 		if (name == null || name.isBlank() || name.strip().length() > MAX_NAME_LENGTH
 				|| name.chars().anyMatch(Character::isISOControl)) {
 			throw new IllegalArgumentException("Name must contain 1 to " + MAX_NAME_LENGTH + " characters without control characters");
@@ -54,7 +55,7 @@ public abstract class Entity {
 	
 	/** @throws IllegalArgumentException */
 	public void setLevel(int level) {
-		if(level < 1 || level > MAX_LEVEL) {
+		if(level < 1 || level > StatRules.MAX_LEVEL) {
 			throw new IllegalArgumentException("Invalid level: " + level);
 		};
 		this.level = level;
