@@ -1,5 +1,6 @@
 package com.endlessadventure.llm;
 
+import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpServer;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
@@ -24,8 +25,8 @@ public final class LlmConfigCheck {
         server.createContext("/", exchange -> {
             String marker = exchange.getRequestHeaders().getFirst("x-goog-api-key")
                     + "|" + exchange.getRequestURI().getPath();
-            byte[] response = ("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\""
-                    + LlmClient.escape(marker) + "\"}]}}]}").getBytes(StandardCharsets.UTF_8);
+            byte[] response = ("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                    + new Gson().toJson(marker) + "}]}}]}").getBytes(StandardCharsets.UTF_8);
             exchange.getRequestBody().readAllBytes();
             exchange.sendResponseHeaders(200, response.length);
             try (var output = exchange.getResponseBody()) {

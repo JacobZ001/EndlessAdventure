@@ -27,7 +27,7 @@ Third-party libraries are included as jars in `lib/` and registered in the Eclip
 | Library | Version | License | Use |
 |---|---|---|---|
 | JLine (terminal, reader, terminal-jni, native) | 4.4.6 | BSD-3-Clause | Terminal access and line input |
-| Gson | 2.13.2 | Apache-2.0 | Reading preset game data (JSON); added for upcoming content, not yet used by the source |
+| Gson | 2.13.2 | Apache-2.0 | Gemini request/response JSON in `LlmClient`; planned for preset game data |
 
 The game must be launched with `lib` on the module path. Narrative generation requires network access and a Gemini API key; opening the menus does not require a key.
 
@@ -69,7 +69,8 @@ This check uses only dummy credentials and a local HTTP server, with output in a
 ```powershell
 $checkDirectory = Join-Path ([IO.Path]::GetTempPath()) ('endless-llm-check-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $checkDirectory | Out-Null
-javac --add-modules jdk.httpserver -d $checkDirectory src/com/endlessadventure/llm/LlmClient.java src/com/endlessadventure/llm/LlmRequestException.java tests/LlmConfigCheck.java
+$gsonJar = (Resolve-Path lib/gson-2.13.2.jar).Path
+javac --add-modules jdk.httpserver -cp $gsonJar -d $checkDirectory src/com/endlessadventure/llm/LlmClient.java src/com/endlessadventure/llm/LlmRequestException.java tests/LlmConfigCheck.java
 if ($LASTEXITCODE -ne 0) { throw 'Configuration check compilation failed' }
 $previousKey = $env:ENDLESS_ADVENTURE_API_KEY
 $previousModel = $env:ENDLESS_ADVENTURE_MODEL
@@ -77,7 +78,7 @@ Push-Location $checkDirectory
 try {
     $env:ENDLESS_ADVENTURE_API_KEY = 'environment-test-key'
     $env:ENDLESS_ADVENTURE_MODEL = 'environment-test-model'
-    java --add-modules jdk.httpserver -cp $checkDirectory com.endlessadventure.llm.LlmConfigCheck
+    java --add-modules jdk.httpserver -cp "$checkDirectory;$gsonJar" com.endlessadventure.llm.LlmConfigCheck
     if ($LASTEXITCODE -ne 0) { throw 'Configuration check failed' }
 } finally {
     $env:ENDLESS_ADVENTURE_API_KEY = $previousKey
@@ -90,7 +91,7 @@ try {
 
 The outdated core regression check and its launcher have been removed. LLM configuration and story-generation checks remain. Core gameplay is currently checked manually; automated core checks can be added when the relevant features and interfaces stabilize.
 
-On October 11, 2026, the full source compiled with JDK 21 using `lib` as the module path, and both offline checks below passed when run with equivalent commands on Linux. Real-model gameplay and the interactive terminal were not rechecked.
+On October 14, 2026, the full source compiled with JDK 21 using `lib` as the module path, and both offline checks below passed on Windows with the listed commands; the story check also passed on the module path. Real-model gameplay and the interactive terminal were not rechecked.
 
 ## Story generation
 
@@ -106,7 +107,7 @@ New-Item -ItemType Directory -Path $storyCheckDirectory | Out-Null
 $storySources = @(Get-ChildItem -LiteralPath src -Filter '*.java' -Recurse | Where-Object Name -ne 'module-info.java' | ForEach-Object FullName)
 javac --release 21 -encoding UTF-8 --add-modules jdk.httpserver -cp 'lib/*' -d $storyCheckDirectory $storySources tests/StoryGeneratorCheck.java
 if ($LASTEXITCODE -ne 0) { throw 'Story check compilation failed' }
-java --add-modules jdk.httpserver -cp $storyCheckDirectory com.endlessadventure.llm.StoryGeneratorCheck
+java --add-modules jdk.httpserver -cp "$storyCheckDirectory;lib/*" com.endlessadventure.llm.StoryGeneratorCheck
 if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 ```
 

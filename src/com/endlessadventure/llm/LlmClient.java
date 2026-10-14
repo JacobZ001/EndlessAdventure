@@ -12,7 +12,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /** LLM client for interacting with the Gemini API
  * This class is developed by Cursor AI and modified by me to fit my needs.
@@ -22,6 +31,7 @@ public final class LlmClient {
 	private static final String MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
+	private static final Gson GSON = new Gson();
 
 	private final HttpClient http;
 	private final String apiKey;
@@ -52,7 +62,7 @@ public final class LlmClient {
 		if (Files.notExists(path)) {
 			return config;
 		}
-		// ponytail: single-line NAME=VALUE only; add expansion or multiline syntax when actually needed.
+		// single-line NAME=VALUE only; add expansion or multiline syntax when actually needed.
 		try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
 			String line;
 			int lineNumber = 0;
@@ -147,32 +157,40 @@ public final class LlmClient {
 	 * @return The request body for the LLM
 	 */
 	private static String requestBody(String systemInstruction, String userContent) {
-		String user = "{\"role\":\"user\",\"parts\":[{\"text\":\"" + escape(userContent) + "\"}]}";
-		if (systemInstruction == null || systemInstruction.isBlank()) {
-			return "{\"contents\":[" + user + "]}";
+		Map<String, Object> body = new HashMap<>();
+		body.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", userContent)))));
+		if (systemInstruction != null && !systemInstruction.isBlank()) {
+			body.put("systemInstruction", Map.of("parts", List.of(Map.of("text", systemInstruction))));
 		}
-		return "{\"systemInstruction\":{\"parts\":[{\"text\":\"" + escape(systemInstruction)
-				+ "\"}]},\"contents\":[" + user + "]}";
+		return GSON.toJson(body);
 	}
 
-	/** Extract the reply from the JSON response
+	/** Extract the reply from the JSON response, joining the first candidate's non-thought text parts
 	 * @param json The JSON response from the LLM
 	 * @return The reply from the LLM
 	 * @throws LlmRequestException If the reply is invalid
 	 */
 	static String extractReply(String json) throws LlmRequestException {
+		StringBuilder text = new StringBuilder();
 		try {
-			JsonCursor cursor = new JsonCursor(json);
-			String text = cursor.replyText();
-			if (text.isBlank()) {
-				throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE, "Gemini response had no text");
+			JsonArray candidates = JsonParser.parseString(json).getAsJsonObject().getAsJsonArray("candidates");
+			JsonObject content = candidates == null || candidates.isEmpty() ? null
+					: candidates.get(0).getAsJsonObject().getAsJsonObject("content");
+			JsonArray parts = content == null ? null : content.getAsJsonArray("parts");
+			for (JsonElement element : parts == null ? new JsonArray() : parts) {
+				JsonObject part = element.getAsJsonObject();
+				boolean thought = part.has("thought") && part.get("thought").getAsBoolean();
+				if (!thought && part.has("text")) {
+					text.append(part.get("text").getAsString());
+				}
 			}
-			return text;
-		} catch (LlmRequestException e) {
-			throw e;
 		} catch (RuntimeException e) {
 			throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE, "Gemini response could not be read", e);
 		}
+		if (text.toString().isBlank()) {
+			throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE, "Gemini response had no text");
+		}
+		return text.toString();
 	}
 
 	/** Get a brief summary of the body
@@ -185,321 +203,5 @@ public final class LlmClient {
 		}
 		String cleaned = body.replace(apiKey, "[redacted]").replace('\n', ' ').replace('\r', ' ').trim();
 		return cleaned.length() <= 180 ? cleaned : cleaned.substring(0, 180);
-	}
-
-	/** Escape the value for the JSON request
-	 * @param value The value to escape
-	 * @return The escaped value
-	 */
-	static String escape(String value) {
-		StringBuilder out = new StringBuilder(value.length() + 8);
-		for (int i = 0; i < value.length(); i++) {
-			char c = value.charAt(i);
-			switch (c) {
-			case '\\' -> out.append("\\\\");
-			case '"' -> out.append("\\\"");
-			case '\n' -> out.append("\\n");
-			case '\r' -> out.append("\\r");
-			case '\t' -> out.append("\\t");
-			default -> {
-				if (c < 0x20) {
-					out.append(String.format("\\u%04x", (int) c));
-				} else {
-					out.append(c);
-				}
-			}
-		}
-		}
-		return out.toString();
-	}
-
-	/** JSON cursor for reading the response from the LLM
-	 * @param json The JSON response from the LLM
-	 * @return The JSON cursor
-	 */
-	private static final class JsonCursor {
-		private final String json;
-		private int i;
-
-		/** Initialize the JSON cursor
-		 * @param json The JSON response from the LLM
-		 */
-		JsonCursor(String json) {
-			this.json = json == null ? "" : json;
-		}
-
-		/** Get the reply text from the JSON response
-		 * @return The reply text from the JSON response
-		 */
-		String replyText() {
-			expect('{');
-			String text = null;
-			while (peek() != '}') {
-				String key = readString();
-				expect(':');
-				if ("candidates".equals(key)) {
-					text = readCandidates();
-				} else {
-					skipValue();
-				}
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect('}');
-			return text == null ? "" : text;
-		}
-
-		/** Read the candidates from the JSON response
-		 * @return The candidates from the JSON response
-		 */
-		private String readCandidates() {
-			expect('[');
-			if (peek() == ']') {
-				i++;
-				return "";
-			}
-			String text = readCandidate();
-			while (peek() != ']') {
-				expect(',');
-				skipValue();
-			}
-			expect(']');
-			return text;
-		}
-
-		/** Read the candidate from the JSON response
-		 * @return The candidate from the JSON response
-		 */
-		private String readCandidate() {
-			expect('{');
-			String text = "";
-			while (peek() != '}') {
-				String key = readString();
-				expect(':');
-				if ("content".equals(key)) {
-					text = readContent();
-				} else {
-					skipValue();
-				}
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect('}');
-			return text;
-		}
-
-		/** Read the content from the JSON response
-		 * @return The content from the JSON response
-		 */
-		private String readContent() {
-			expect('{');
-			String text = "";
-			while (peek() != '}') {
-				String key = readString();
-				expect(':');
-				if ("parts".equals(key)) {
-					text = readParts();
-				} else {
-					skipValue();
-				}
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect('}');
-			return text;
-		}
-
-		/** Read the parts from the JSON response
-		 * @return The parts from the JSON response
-		 */
-		private String readParts() {
-			expect('[');
-			StringBuilder text = new StringBuilder();
-			if (peek() != ']') {
-				appendPart(text);
-				while (peek() == ',') {
-					i++;
-					appendPart(text);
-				}
-			}
-			expect(']');
-			return text.toString();
-		}
-
-		/** Append the part to the text
-		 * @param text The text to append the part to
-		 */
-		private void appendPart(StringBuilder text) {
-			expect('{');
-			String partText = null;
-			boolean thought = false;
-			while (peek() != '}') {
-				String key = readString();
-				expect(':');
-				if ("text".equals(key) && peek() == '"') {
-					partText = readString();
-				} else if ("thought".equals(key) && peek() == 't') {
-					thought = readTrue();
-				} else {
-					skipValue();
-				}
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect('}');
-			if (!thought && partText != null) {
-				text.append(partText);
-			}
-		}
-
-		/** Read the true value from the JSON response
-		 * @return The true value from the JSON response
-		 */
-		private boolean readTrue() {
-			skipWs();
-			if (json.startsWith("true", i)) {
-				i += 4;
-				return true;
-			}
-			skipValue();
-			return false;
-		}
-
-		/** Skip the value from the JSON response
-		 * @throws IllegalArgumentException If the value is invalid
-		 */
-		private void skipValue() {
-			char c = peek();
-			if (c == '"') {
-				readString();
-			} else if (c == '{') {
-				skipObject();
-			} else if (c == '[') {
-				skipArray();
-			} else if (c == 't' || c == 'f' || c == 'n') {
-				while (i < json.length() && Character.isLetter(json.charAt(i))) {
-					i++;
-				}
-			} else if (c == '-' || Character.isDigit(c)) {
-				while (i < json.length() && "0123456789+-.eE".indexOf(json.charAt(i)) >= 0) {
-					i++;
-				}
-			} else {
-				throw new IllegalArgumentException("Unexpected JSON at " + i);
-			}
-		}
-
-		/** Skip the object from the JSON response
-		 * @throws IllegalArgumentException If the object is invalid
-		 */
-		private void skipObject() {
-			expect('{');
-			while (peek() != '}') {
-				readString();
-				expect(':');
-				skipValue();
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect('}');
-		}
-
-		/** Skip the array from the JSON response
-		 * @throws IllegalArgumentException If the array is invalid
-		 */
-		private void skipArray() {
-			expect('[');
-			while (peek() != ']') {
-				skipValue();
-				if (peek() == ',') {
-					i++;
-				}
-			}
-			expect(']');
-		}
-
-		/** Read the string from the JSON response
-		 * @return The string from the JSON response
-		 * @throws IllegalArgumentException If the string is invalid
-		 */
-		private String readString() {
-			expect('"');
-			StringBuilder out = new StringBuilder();
-			while (i < json.length()) {
-				char c = json.charAt(i++);
-				if (c == '"') {
-					return out.toString();
-				}
-				if (c != '\\') {
-					out.append(c);
-					continue;
-				}
-				if (i >= json.length()) {
-					break;
-				}
-				char escaped = json.charAt(i++);
-				switch (escaped) {
-				case '"', '\\', '/' -> out.append(escaped);
-				case 'b' -> out.append('\b');
-				case 'f' -> out.append('\f');
-				case 'n' -> out.append('\n');
-				case 'r' -> out.append('\r');
-				case 't' -> out.append('\t');
-				case 'u' -> out.append(readHex());
-				default -> throw new IllegalArgumentException("Bad JSON escape");
-				}
-			}
-			throw new IllegalArgumentException("Unclosed JSON string");
-		}
-
-		/** Read the hex value from the JSON response
-		 * @return The hex value from the JSON response
-		 * @throws IllegalArgumentException If the hex value is invalid
-		 */
-		private char readHex() {
-			if (i + 4 > json.length()) {
-				throw new IllegalArgumentException("Short JSON unicode escape");
-			}
-			int value = Integer.parseInt(json.substring(i, i + 4), 16);
-			i += 4;
-			return (char) value;
-		}
-
-		/** Peek the next character from the JSON response
-		 * @return The next character from the JSON response
-		 * @throws IllegalArgumentException If the next character is invalid
-		 */
-		private char peek() {
-			skipWs();
-			if (i >= json.length()) {
-				throw new IllegalArgumentException("Unexpected end of JSON");
-			}
-			return json.charAt(i);
-		}
-
-		/** Expect the next character from the JSON response
-		 * @param c The character to expect
-		 * @throws IllegalArgumentException If the next character is invalid
-		 */
-		private void expect(char c) {
-			if (peek() != c) {
-				throw new IllegalArgumentException("Expected '" + c + "'");
-			}
-			i++;
-		}
-
-		/** Skip the whitespace from the JSON response
-		 * @throws IllegalArgumentException If the whitespace is invalid
-		 */
-		private void skipWs() {
-			while (i < json.length() && Character.isWhitespace(json.charAt(i))) {
-				i++;
-			}
-		}
 	}
 }
