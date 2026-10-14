@@ -1,4 +1,4 @@
-package com.endlessadventure;
+package com.endlessadventure.ui;
 
 /** shared rgb colors and helpers; a color is an int in 0xRRGGBB form */
 public final class Palette {

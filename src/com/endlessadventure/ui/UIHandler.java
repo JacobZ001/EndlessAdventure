@@ -1,21 +1,30 @@
-package com.endlessadventure;
+package com.endlessadventure.ui;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jline.keymap.BindingReader;
+import org.jline.keymap.KeyMap;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
+import org.jline.terminal.Attributes;
+import org.jline.terminal.MouseEvent;
+import org.jline.terminal.impl.MouseSupport;
+import org.jline.utils.InfoCmp.Capability;
 
+import com.endlessadventure.GameState;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.inventory.Inventory;
 import com.endlessadventure.save.SaveManager;
@@ -74,10 +83,23 @@ public class UIHandler implements AutoCloseable {
 			"#...#.#...#..#.#..#.....#..##...#...#...#.#.#...#....",
 			"#...#.#...#..#.#..#.....#..##...#...#...#.#..#..#....",
 			"#...#.####....#...#####.#...#...#....###..#...#.#####"};
-
+	
 	private final Terminal terminal;
 	private final PrintWriter writer;
 	private final LineReader reader;
+	private final BindingReader bindingReader;
+	
+	public enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, CHAR, CLICK, HOVER, MOUSE, INTERRUPT }
+	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
+	public record Input(InputKey inputKey, char ch, int x, int y) {}
+
+
+	public enum InputAction { SELECT, MINUS, PLUS }
+	public record Button(int index, InputAction inputAction) {}
+	private record ButtonBox(int x, int y, int w, int h, Button button) {}
+	private final List<ButtonBox> buttons = new ArrayList<>();
+	private Button lastHover;
+	
 	private final Canvas canvas = new Canvas();
 	private final StringBuilder sb = new StringBuilder();
 
@@ -95,6 +117,20 @@ public class UIHandler implements AutoCloseable {
 		        .terminal(terminal)
 		        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
 		        .build();
+		
+		//bind terminal user input to InputMap
+		bindingReader = new BindingReader(terminal.reader());
+		inputKeys.bind(InputKey.UP, KeyMap.key(terminal, Capability.key_up));
+		inputKeys.bind(InputKey.DOWN, KeyMap.key(terminal, Capability.key_down));
+		inputKeys.bind(InputKey.LEFT, KeyMap.key(terminal, Capability.key_left));
+		inputKeys.bind(InputKey.RIGHT, KeyMap.key(terminal, Capability.key_right));
+		inputKeys.bind(InputKey.ENTER, "\r");
+		inputKeys.bind(InputKey.ESC, KeyMap.esc());
+		inputKeys.bind(InputKey.INTERRUPT, KeyMap.ctrl('C'), KeyMap.ctrl('D'));
+		inputKeys.bind(InputKey.MOUSE, MouseSupport.keys(terminal));
+		for (char c = 'a'; c <= 'z'; c++) inputKeys.bind(InputKey.CHAR, String.valueOf(c));
+		for (char c = '0'; c <= '9'; c++) inputKeys.bind(InputKey.CHAR, String.valueOf(c));
+		inputKeys.setAmbiguousTimeout(100);
 		
 		canvas.clear(Palette.BG);
 		
@@ -145,7 +181,7 @@ public class UIHandler implements AutoCloseable {
 	
 	
 
-	//prompt user for input
+	//user input reading
 	/** prints the message and returns the user input on the same line */
 	public String prompt(String message, boolean raw) {
 		System.out.print("\033[" + (Canvas.HEIGHT + 2) + ";1H\033[K"); //input row: second row below the canvas
@@ -168,6 +204,62 @@ public class UIHandler implements AutoCloseable {
 	/** overload of prompt with default message and raw = false */
 	public String prompt() {
 		return prompt("",false);
+	}
+	
+	/** enters raw mode and reads raw user input */
+	public Input readInput() {
+	    Attributes saved = terminal.enterRawMode();
+	    terminal.puts(Capability.keypad_xmit);
+	    terminal.puts(Capability.cursor_invisible);
+	    terminal.trackMouse(Terminal.MouseTracking.Any);
+	    terminal.flush();
+	    try {
+	        while (true) {
+	            InputKey key = bindingReader.readBinding(inputKeys);
+	            if (key == null || key == InputKey.INTERRUPT) {
+	            	throw new NoSuchElementException("Input closed");
+	            }
+	            if (key == InputKey.CHAR) {
+	            	return new Input(key, bindingReader.getLastBinding().charAt(0), -1, -1);
+	            }
+	            if (key != InputKey.MOUSE) {
+	            	return new Input(key, '\0', -1, -1);
+	            }
+	            
+	            MouseEvent e = terminal.readMouseEvent(bindingReader::readCharacter, bindingReader.getLastBinding());
+	            if (e.getType() == MouseEvent.Type.Pressed && e.getButton() == MouseEvent.Button.Button1) {
+	                return new Input(InputKey.CLICK, '\0', e.getX(), e.getY());
+	            }
+	            if(e.getType() == MouseEvent.Type.Moved) {
+	            	Button h = getSelectedButton(e.getX(), e.getY());
+	                boolean changed = !Objects.equals(h, lastHover);
+	                lastHover = h;
+	                if (changed && h != null) {
+	                	return new Input(InputKey.HOVER, '\0', e.getX(), e.getY());
+	                }
+	            }
+	            // ignore mouse releases, motion and wheel; keep reading
+	        }
+	    } finally {
+	        terminal.trackMouse(Terminal.MouseTracking.Off);
+	        terminal.puts(Capability.keypad_local);
+	        terminal.puts(Capability.cursor_visible);
+	        terminal.setAttributes(saved);
+	        terminal.flush();
+	    }
+	}
+	
+	/** check for the button at position */
+	public Button getSelectedButton(int x, int y) {
+		for (ButtonBox b : buttons) {
+	        if (x >= b.x() && x < b.x() + b.w() && y >= b.y() && y < b.y() + b.h()) return b.button();
+		}
+		return null;
+	}
+	
+	/** add new button */
+	private void addButton(int x, int y, int w, int h, Button b) {
+		buttons.add(new ButtonBox(x,y,w,h,b));
 	}
 
 
@@ -259,10 +351,11 @@ public class UIHandler implements AutoCloseable {
 	
 	
 	//public methods for rendering specific screens
-	public void renderMainMenuUI(boolean hasSave) {
+	public void renderMainMenuUI(boolean hasSave, int selected) {
+		buttons.clear();
 		canvas.clear(Palette.BG);
 		
-		int row = 17;
+		int row = 20;
 		drawTitle(TITLE_ENDLESS, row);
 		drawTitle(TITLE_ADVENTURE, row + 16);
 		
@@ -272,22 +365,30 @@ public class UIHandler implements AutoCloseable {
 		String[] labels = {
 				"New Game",
 				"Load Game",
-				"How to Play",
 				"Exit"};
 		
 		int x = (Canvas.WIDTH / 2) - 7;
 		row += 5;
 		for (int i = 0; i < labels.length; i++) {
 			boolean enabled = i != 1 || hasSave; //Load Game is dimmed without saves
+			boolean focused = i == selected;
+
 			int y = row + i * 2;
-			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? OPTION_KEY : Palette.MUTED, Palette.BG);
-			canvas.drawText(x + 5, y, labels[i], enabled ? Palette.TEXT : Palette.MUTED, Palette.BG);
+			int width = 20;
+			int rowBg = focused ? Palette.mix(Palette.BG, Palette.MUTED, 0.5) : Palette.BG;
+			
+			canvas.drawText(x - 2, y, " ".repeat(width), rowBg, rowBg);   // highlight bar
+			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? OPTION_KEY : Palette.MUTED, rowBg);
+			canvas.drawText(x + 5, y, labels[i], enabled ? Palette.TEXT : Palette.MUTED, rowBg);
+			addButton(x - 2, y, width, 1, new Button(i, InputAction.SELECT));
 		}
 
 		drawFrame();
 		drawInstruction(List.of(
-				Map.entry("1-4","selection"),
-				Map.entry("ENTER","confirm")
+				Map.entry("1-4","select"),
+				Map.entry("↑/↓","move"),
+				Map.entry("ENTER","confirm"),
+				Map.entry("Click","select")
 		));
 		renderCanvas();
 	}
@@ -368,18 +469,6 @@ public class UIHandler implements AutoCloseable {
 
 	public void renderCombatUI() {
 		//TODO create combat UI
-	}
-
-	public void renderHelpUI() {
-		sb.append(buildHLineTitle("HOW TO PLAY"));
-		sb.append("\n");
-		sb.append(buildText("Type a number or keyword shown on screen, then press Enter."));
-		sb.append("\n");
-		sb.append(buildText("Start a new game or load a save from the main menu. Explore, interact with other beings, manage your gear,"
-				+ " and fight when enemies appear — each screen lists the commands you can use."));
-		sb.append("\n");
-		sb.append(buildHLineRich());
-		render(sb.toString(),new String[]{"Enter [b] or [back] to return to the main menu"});
 	}
 	
 	private void buildSaveSlotUI(String title, SlotOverview[] slots) {
@@ -466,25 +555,6 @@ public class UIHandler implements AutoCloseable {
 	    return DIVIDERS[0] + ROW_BORDER.repeat(UI_WIDTH - DIVIDERS[0].length() - DIVIDERS[1].length()) + DIVIDERS[1] + "\n";
 	}
 	
-	/** build horizontal line using center design */
-	private String buildHLineRich(String center) {
-		int canvasWidth = UI_WIDTH - visibleLength(center) - LINE_CAPS[0].length() - LINE_CAPS[1].length();
-		int left = Math.floorDiv(canvasWidth, 2);
-		int right = canvasWidth - left;
-		return LINE_CAPS[0] + ROW_BORDER.repeat(left) + center + ROW_BORDER.repeat(right) + LINE_CAPS[1] + "\n";
-	}
-	
-	/** build horizontal line using default center design */
-	private String buildHLineRich() {
-		return buildHLineRich(CENTER);
-	}
-
-	/** build horizontal line with Title */
-	private String buildHLineTitle(String title) {
-		String center = "%s %s %s".formatted(LINE_CAPS[0], YELLOW + title + RESET, LINE_CAPS[1]);
-		return buildHLineRich(center);
-	}
-	
 	/** build text, can be centered and can be boxed */
 	private String buildText(String text, boolean centered, boolean boxed) {
 		String border = boxed? COL_BORDER : "";
@@ -535,11 +605,6 @@ public class UIHandler implements AutoCloseable {
 			return border + " ".repeat(TEXT_PADDING + left) + content + " ".repeat(right + TEXT_PADDING) + border + "\n";
 		}
 		return border + " ".repeat(TEXT_PADDING) + content + " ".repeat(canvasWidth - contentWidth + TEXT_PADDING) + border + "\n";
-	}
-	
-	/** overload of buildText with default centered = false, boxed = false */
-	private String buildText(String text) {
-		return buildText(text, false, false);
 	}
 	
 	/** overload of buildBoxText with default centered = false */

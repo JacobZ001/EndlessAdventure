@@ -11,10 +11,11 @@ import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
+import com.endlessadventure.ui.UIHandler;
 
 public class GameEngine {
 	private enum GameScreen {
-		MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE, WRITE_SAVE, ADVENTURE, INVENTORY, COMBAT, HELP
+		MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE, WRITE_SAVE, ADVENTURE, INVENTORY, COMBAT
 	}
 
 	private final UIHandler ui;
@@ -45,7 +46,6 @@ public class GameEngine {
 			case ADVENTURE -> handleAdventure();
 			case INVENTORY -> handleInventory();
 			case COMBAT -> handleCombat();
-			case HELP -> handleHelp();
 			};
 		}
 	}
@@ -67,23 +67,47 @@ public class GameEngine {
 	/** handle main menu screen */
 	/** display main menu and handle input */
 	private GameScreen handleMainMenu() {
-		ui.renderMainMenuUI(hasExistingSaves());
-
-		String command = ui.prompt();
-
-		return switch (command) {
-		case "1", "[1]", "new" -> {
-			gameState = new GameState();
-			yield GameScreen.CHARACTER_CREATION;
-		}
-		case "2", "[2]", "load" -> GameScreen.LOAD_SAVE;
-		case "3", "[3]", "help" -> GameScreen.HELP;
-		case "4", "[4]", "exit" -> {
-			running = false;
-			yield GameScreen.MAIN_MENU;
-		}
-		default -> handleGeneralCommand(command);
-		};
+	    boolean hasSave = hasExistingSaves();
+	    int selected = 0;
+	    while (true) {
+	        ui.renderMainMenuUI(hasSave, selected);
+	        UIHandler.Input in = ui.readInput();
+	        int choice = -1;
+	        switch (in.inputKey()) {
+	            case UP -> selected = (selected + 3) % 4;
+	            case DOWN -> selected = (selected + 1) % 4;
+	            case ENTER -> choice = selected;
+	            case CHAR -> { if (in.ch() >= '1' && in.ch() <= '4') choice = in.ch() - '1'; }
+	            case CLICK -> {
+	                UIHandler.Button h = ui.getSelectedButton(in.x(), in.y());
+	                if (h != null) {
+	                	choice = h.index();
+	                }
+	            }
+	            case HOVER -> {
+	            	UIHandler.Button h = ui.getSelectedButton(in.x(), in.y());
+	            	if (h != null) {
+	            		selected = h.index();
+	            	}
+	            }
+	            default -> {}
+	        }
+	        if (choice == 1 && !hasSave) {
+	            ui.showWarning("No saved game yet.");
+	            choice = -1;
+	        }
+	        switch (choice) {
+	            case 0 -> {
+	            	gameState = new GameState();
+	            	return GameScreen.CHARACTER_CREATION;
+            	}
+	            case 1 -> { return GameScreen.LOAD_SAVE; }
+	            case 3 -> {
+	            	running = false;
+	            	return GameScreen.MAIN_MENU; 
+            	}
+	        }
+	    }
 	}
 
 	/** handle character creation screen */
@@ -293,16 +317,6 @@ public class GameEngine {
 	private GameScreen handleCombat() {
 		// TODO create handle combat
 		return GameScreen.ADVENTURE;
-	}
-
-	/** handle help screen */
-	private GameScreen handleHelp() {
-		ui.renderHelpUI();
-		String command = ui.prompt();
-		return switch (command) {
-		case "b", "[b]" -> GameScreen.MAIN_MENU;
-		default -> handleGeneralCommand(command);
-		};
 	}
 
 	/**

@@ -1,4 +1,4 @@
-package com.endlessadventure;
+package com.endlessadventure.ui;
 
 public class Canvas {
 	public static final int HEIGHT = 48;

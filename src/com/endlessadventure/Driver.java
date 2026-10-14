@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.story.StoryGenerator;
+import com.endlessadventure.ui.UIHandler;
 
 public class Driver {	
     public static void main(String[] args) {
