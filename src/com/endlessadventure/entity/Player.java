@@ -109,6 +109,10 @@ public class Player extends GameCharacter {
 		public Builder(String name) {
 			this.name = checkName(name);
 		}
+		
+		public String getName() {
+			return name;
+		}
 
 		public int getAttribute(Attribute a) {
 			return attributes.getOrDefault(a, 0);

@@ -11,6 +11,8 @@ import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
+import com.endlessadventure.ui.CharacterCreationScreen;
+import com.endlessadventure.ui.MainMenuScreen;
 import com.endlessadventure.ui.UIHandler;
 
 public class GameEngine {
@@ -64,87 +66,34 @@ public class GameEngine {
 		return false;
 	}
 
-	/** handle main menu screen */
-	/** display main menu and handle input */
+	/** show the main menu and act on the player's choice */
 	private GameScreen handleMainMenu() {
-	    boolean hasSave = hasExistingSaves();
-	    int selected = 0;
-	    while (true) {
-	        ui.renderMainMenuUI(hasSave, selected);
-	        UIHandler.Input in = ui.readInput();
-	        int choice = -1;
-	        switch (in.inputKey()) {
-	            case UP -> selected = (selected + 3) % 4;
-	            case DOWN -> selected = (selected + 1) % 4;
-	            case ENTER -> choice = selected;
-	            case CHAR -> { if (in.ch() >= '1' && in.ch() <= '4') choice = in.ch() - '1'; }
-	            case CLICK -> {
-	                UIHandler.Button h = ui.getSelectedButton(in.x(), in.y());
-	                if (h != null) {
-	                	choice = h.index();
-	                }
-	            }
-	            case HOVER -> {
-	            	UIHandler.Button h = ui.getSelectedButton(in.x(), in.y());
-	            	if (h != null) {
-	            		selected = h.index();
-	            	}
-	            }
-	            default -> {}
-	        }
-	        if (choice == 1 && !hasSave) {
-	            ui.showWarning("No saved game yet.");
-	            choice = -1;
-	        }
-	        switch (choice) {
-	            case 0 -> {
-	            	gameState = new GameState();
-	            	return GameScreen.CHARACTER_CREATION;
-            	}
-	            case 1 -> { return GameScreen.LOAD_SAVE; }
-	            case 3 -> {
-	            	running = false;
-	            	return GameScreen.MAIN_MENU; 
-            	}
-	        }
-	    }
-	}
-
-	/** handle character creation screen */
-	private GameScreen handleCharacterCreation() {
-		Player player = gameState.getPlayer();
-		ui.renderCharacterCreationUI(player);
-
-		if (gameState.getPlayer() == null) {
-			String name = ui.prompt("", true);
-			try {
-				//player = new Player();
-				gameState.setPlayer(player);
-			} catch (IllegalArgumentException e) {
-				ui.showWarning(e.getMessage());
-			}
-			return GameScreen.CHARACTER_CREATION;
-		}
-
-		String command = ui.prompt();
-		return switch (command) {
-		case "b", "[b]" -> GameScreen.MAIN_MENU;
-		case "c", "[c]" -> {
-			System.out.println("Starting your adventure...");
-			yield GameScreen.ADVENTURE;
-		}
-		case "r", "[r]" -> {
-			gameState.setPlayer(null);
+		return switch (new MainMenuScreen(ui, hasExistingSaves()).run()) {
+		case NEW_GAME -> {
+			gameState = new GameState();
 			yield GameScreen.CHARACTER_CREATION;
 		}
-		default -> handleGeneralCommand(command);
+		case LOAD_GAME -> GameScreen.LOAD_SAVE;
+		case EXIT -> {
+			running = false;
+			yield GameScreen.MAIN_MENU;
+		}
 		};
+	}
+
+	/** run character creation; start the adventure with the new player, or go back to the main menu */
+	private GameScreen handleCharacterCreation() {
+		Player player = new CharacterCreationScreen(ui).run();
+		if (player == null) {
+			return GameScreen.MAIN_MENU;
+		}
+		gameState.setPlayer(player);
+		return GameScreen.ADVENTURE;
 	}
 
 	/** handle load save screen */
 	/**
-	 * load save from slot and return GameScreen.ADVENTURE if successful, repeat
-	 * same screen if not
+	 * load save from slot and return GameScreen.ADVENTURE if successful, repeat same screen if not
 	 */
 	private GameScreen handleLoadSave() {
 		slotOverviews = saveManager.readAllSummaries();
