@@ -3,22 +3,8 @@ package com.endlessadventure.ui;
 import java.util.List;
 import java.util.Map;
 
-import com.endlessadventure.entity.Attribute;
-
 /** main menu screen: draws itself and reads input until the player picks an option */
 public final class MainMenuScreen {
-	public enum Choice {
-		NEW_GAME("New Game"),
-		LOAD_GAME("Load Game"),
-		EXIT("Exit");
-
-		private final String label;
-
-		private Choice(String label) {
-			this.label = label;
-		}
-	}
-
 	//title bitmaps, each '#' is drawn as 2x2 pixels
 	private static final String[] TITLE_ENDLESS = {
 			"#####.#...#.####..#.....#####..####..####",
@@ -39,12 +25,27 @@ public final class MainMenuScreen {
 
 	private static final Choice[] CHOICES = Choice.values();
 
+	public enum Choice {
+		NEW_GAME("New Game"),
+		LOAD_GAME("Load Game"),
+		EXIT("Exit");
+
+		private final String label;
+
+		private Choice(String label) {
+			this.label = label;
+		}
+	}
+	
 	private final UIHandler ui;
+	private final Canvas canvas;
+
 	private final boolean hasSave;
 	private int selected = 0;
 
 	public MainMenuScreen(UIHandler ui, boolean hasSave) {
 		this.ui = ui;
+		canvas = ui.getCanvas();
 		this.hasSave = hasSave;
 	}
 
@@ -91,34 +92,34 @@ public final class MainMenuScreen {
 	}
 
 	private void draw() {
-		Canvas canvas = ui.getCanvas();
 		ui.clearButtons();
 		canvas.clear(Palette.BG);
+		canvas.drawFrame();
 
-		int row = 20;
-		canvas.drawPixelTitle(TITLE_ENDLESS, row, Palette.KEY, Palette.WARNING);
-		canvas.drawPixelTitle(TITLE_ADVENTURE, row + 16, Palette.getAttributeColor(Attribute.DEX), Palette.getAttributeColor(Attribute.INT));
+		int y = 20;
+		canvas.drawPixelTitle(TITLE_ENDLESS, y, Palette.KEY, Palette.WARNING);
+		canvas.drawPixelTitle(TITLE_ADVENTURE, y + 16, Palette.mix(Palette.TEXT, Palette.TAG, 0.5), Palette.TAG);
 
-		row += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
-		canvas.drawTextCentered(row, "────────────────────  +  ────────────────────", Palette.MUTED, Palette.BG);
+		y += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
+		canvas.drawTextCentered(y, "────────────────────  +  ────────────────────", Palette.MUTED);
 
 		int x = (Canvas.WIDTH / 2) - 7;
-		row += 5;
+		y += 5;
 		for (int i = 0; i < CHOICES.length; i++) {
 			boolean enabled = CHOICES[i] != Choice.LOAD_GAME || hasSave; //Load Game is dimmed without saves
 			boolean focused = i == selected;
 
-			int y = row + i * 2;
 			int width = 20;
 			int rowBg = focused ? Palette.FOCUSED_BG : Palette.BG;
 
 			canvas.drawText(x - 2, y, " ".repeat(width), rowBg, rowBg); //highlight bar
 			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? Palette.KEY : Palette.MUTED, rowBg);
 			canvas.drawText(x + 5, y, CHOICES[i].label, enabled ? Palette.TEXT : Palette.MUTED, rowBg);
-			ui.addButton(x - 2, y, width, 1, new UIHandler.Button(i, UIHandler.InputAction.SELECT));
+			ui.addButton(x - 2, y, width, 1, new UIHandler.Button(i));
+			
+			y+=2;
 		}
 
-		canvas.drawFrame();
 		canvas.drawHints(List.of(
 				Map.entry("1-" + CHOICES.length, "select"),
 				Map.entry("↑/↓", "move"),

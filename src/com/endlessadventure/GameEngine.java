@@ -13,7 +13,9 @@ import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.CharacterCreationScreen;
 import com.endlessadventure.ui.MainMenuScreen;
+import com.endlessadventure.ui.SaveSlotsScreen;
 import com.endlessadventure.ui.UIHandler;
+import com.endlessadventure.ui.SaveSlotsScreen.Mode;
 
 public class GameEngine {
 	private enum GameScreen {
@@ -24,9 +26,9 @@ public class GameEngine {
 	private final SaveManager saveManager;
 	private final StoryGenerator storyGenerator;
 
-	private boolean running;
-	private GameScreen currentScreen; // current screen to be displayed
-	private SlotOverview[] slotOverviews;
+	private boolean running = true;
+	private int selectedSlot = 1;
+	private GameScreen currentScreen = GameScreen.MAIN_MENU;
 	private GameState gameState = new GameState();
 
 	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator) {
@@ -37,28 +39,22 @@ public class GameEngine {
 
 	/** main game loop */
 	public void run() throws NoSuchElementException{
-		currentScreen = GameScreen.MAIN_MENU;
-		running = true;
 		while (running) {
 			currentScreen = switch (currentScreen) {
-			case MAIN_MENU -> handleMainMenu();
-			case CHARACTER_CREATION -> handleCharacterCreation();
-			case LOAD_SAVE -> handleLoadSave();
-			case WRITE_SAVE -> handleWriteSave();
-			case ADVENTURE -> handleAdventure();
-			case INVENTORY -> handleInventory();
-			case COMBAT -> handleCombat();
+				case MAIN_MENU -> handleMainMenu();
+				case CHARACTER_CREATION -> handleCharacterCreation();
+				case LOAD_SAVE -> handleSaveScreen(Mode.LOAD);
+				case WRITE_SAVE -> handleSaveScreen(Mode.SAVE);
+				case ADVENTURE -> handleAdventure();
+				case INVENTORY -> handleInventory();
+				case COMBAT -> handleCombat();
 			};
 		}
 	}
 
-	/** check if there are any existing saves */
-	/**
-	 * include unreadable saves so they are visible and never silently overwritten
-	 */
+	/** check if there are any existing saves include unreadable saves so they are visible and never silently overwritten */
 	private boolean hasExistingSaves() {
-		slotOverviews = saveManager.readAllSummaries();
-		for (SlotOverview s : slotOverviews) {
+		for (SlotOverview s : saveManager.readAllSummaries()) {
 			if (s.status() != SlotStatus.EMPTY) {
 				return true;
 			}
@@ -91,120 +87,39 @@ public class GameEngine {
 		return GameScreen.ADVENTURE;
 	}
 
-	/** handle load save screen */
-	/**
-	 * load save from slot and return GameScreen.ADVENTURE if successful, repeat same screen if not
-	 */
-	private GameScreen handleLoadSave() {
-		slotOverviews = saveManager.readAllSummaries();
-		
-		ui.renderLoadSaveUI(slotOverviews);
-		
-		String input = ui.prompt();
-		String[] parts = input.split("\\s+",2);
-		String command = parts[0].toLowerCase();
-		String argument = parts.length == 2 ? parts[1] : "";
-
-		return switch (command) {
-			case "1", "[1]" -> loadSave(1);
-			case "2", "[2]" -> loadSave(2);
-			case "3", "[3]" -> loadSave(3);
-			case "b", "[b]" -> GameScreen.MAIN_MENU;
-			case "d", "del", "delete" -> delSave(argument);
-			default -> handleGeneralCommand(command);
+	/** handle load and save screen */
+	private GameScreen handleSaveScreen(Mode mode) {
+		SaveSlotsScreen.Choice choice = new SaveSlotsScreen(ui, mode , saveManager.readAllSummaries(), selectedSlot).run();
+		selectedSlot = choice.slot();
+		return switch(choice.action()) {
+			case CONFIRM -> {
+				try {
+					if(mode == Mode.LOAD) {
+						gameState = saveManager.loadSave(selectedSlot);
+						ui.showSuccess("Loaded slot " + selectedSlot + ".");
+						yield GameScreen.ADVENTURE;
+					}
+					else {
+						saveManager.writeSave(selectedSlot, gameState);
+						ui.showSuccess("Saved to slot " + selectedSlot + ".");
+						yield GameScreen.WRITE_SAVE;
+					}
+				} catch (IOException | BadSaveException e) {
+					ui.showError("Cannot " + mode.toString().toLowerCase() + " slot " + selectedSlot + ": " + e.getMessage());
+					yield currentScreen;
+				}
+			}
+			case DELETE -> {
+				try {
+					saveManager.deleteSave(selectedSlot);
+					ui.showSuccess("Deleted save in slot " + selectedSlot + ".");
+				} catch (IOException e3) {
+					ui.showError("Cannot delete save: " + e3.getMessage());
+				}
+				yield currentScreen;
+			}
+			case BACK -> mode == Mode.LOAD? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
 		};
-	}
-
-	/** helper function to load save from slot */
-	private GameScreen loadSave(int slot) {
-		try {
-			gameState = saveManager.loadSave(slot);
-			ui.showSuccess("Loaded slot " + slot + ".");
-			return GameScreen.ADVENTURE;
-		} catch (IOException | BadSaveException e) {
-			ui.showError("Cannot load save " + slot + ": " + e.getMessage());
-			return GameScreen.LOAD_SAVE;
-		}
-	}
-
-	/** handle write save screen */
-	/**
-	 * write save to slot and return GameScreen.ADVENTURE if successful, repeat same
-	 * screen if not
-	 */
-	private GameScreen handleWriteSave() {
-		slotOverviews = saveManager.readAllSummaries();
-		
-		ui.renderWriteSaveUI(slotOverviews);
-
-		String input = ui.prompt();
-		String[] parts = input.split("\\s+",2);
-		String command = parts[0].toLowerCase();
-		String argument = parts.length == 2 ? parts[1] : "";
-		
-		return switch (command) {
-			case "1", "[1]" -> writeSave(1);
-			case "2", "[2]" -> writeSave(2);
-			case "3", "[3]" -> writeSave(3);
-			case "b", "[b]" -> GameScreen.ADVENTURE;
-			case "d", "del", "delete" -> delSave(argument);
-			default -> handleGeneralCommand(command);
-		};
-	}
-
-	/** helper function to write save to slot */
-	private GameScreen writeSave(int slot) {
-		SlotStatus status = slotOverviews[slot - 1].status();
-		if (status != SlotStatus.EMPTY) {
-			String message;
-			if (status == SlotStatus.CORRUPT) {
-				message = "This slot contains an unreadable save. Overwrite it? [Y/N]";
-			} else {
-				message = "There is an existing save in this slot. Overwrite it? [Y/N]";
-			}
-			String confirm = ui.prompt(message);
-			if (!confirm.equals("y") && !confirm.equals("yes")) {
-				return GameScreen.WRITE_SAVE;
-			}
-		}
-		try {
-			saveManager.writeSave(slot, gameState);
-			ui.showSuccess("Saved to slot " + slot + ".");
-			return GameScreen.WRITE_SAVE;
-		} catch (IOException | BadSaveException e) {
-			ui.showError("Cannot write save " + slot + ": " + e.getMessage());
-			return GameScreen.WRITE_SAVE;
-		}
-	}
-	
-	private GameScreen delSave(String argument) {
-		try {
-			if(argument.isBlank()) {
-				throw new IllegalArgumentException("Invalid command: delete, requires slot number selection.");
-			}
-			int slot = Integer.parseInt(argument);
-			if(slot < 1 || slot > SaveManager.SLOT_COUNT) {
-				throw new IllegalArgumentException("Invalid command: delete, slot number must be between 1 and " + SaveManager.SLOT_COUNT);
-			}
-
-			String confirm = ui.prompt("Delete save in slot " + slot + "? This action cannot be undone. [Y/N]");
-			if (!confirm.equals("y") && !confirm.equals("yes")) {
-				return currentScreen;
-			}
-			if(saveManager.deleteSave(slot)) {
-				ui.showSuccess("Deleted save in slot " + slot + ".");
-			}
-			else {
-				ui.showError("Slot " + slot + " is already empty.");
-			}
-		} catch(NumberFormatException e1) {
-			ui.showError("Cannot process slot number: " + e1.getMessage());
-		} catch(IllegalArgumentException e2) {
-			ui.showError(e2.getMessage());
-		} catch (IOException e3) {
-			ui.showError("Cannot delete save: " + e3.getMessage());
-		}
-		return currentScreen;
 	}
 
 	/** handle adventure screen */

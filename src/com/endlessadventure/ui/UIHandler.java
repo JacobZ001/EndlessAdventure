@@ -25,9 +25,6 @@ import org.jline.utils.InfoCmp.Capability;
 
 import com.endlessadventure.GameState;
 import com.endlessadventure.entity.Player;
-import com.endlessadventure.save.SaveManager;
-import com.endlessadventure.save.SaveManager.SlotOverview;
-import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 
 public class UIHandler implements AutoCloseable {
@@ -54,20 +51,28 @@ public class UIHandler implements AutoCloseable {
 	private final PrintWriter writer;
 	private final LineReader reader;
 	private final BindingReader bindingReader;
+	private final Canvas canvas = new Canvas();
+	private final StringBuilder sb = new StringBuilder();
 	
-	public enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, CHAR, CLICK, HOVER, MOUSE, INTERRUPT }
+	public enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, CHAR, CLICK, HOVER, MOUSE, INTERRUPT }
 	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
 	public record Input(InputKey inputKey, char ch, int x, int y) {}
 
 
-	public enum InputAction { SELECT, MINUS, PLUS }
-	public record Button(int index, InputAction inputAction) {}
-	private record ButtonBox(int x, int y, int w, int h, Button button) {}
+	/** a clickable area: index identifies it on the screen; type is the screen's own name for a sub-area, null if not needed */
+	public record Button(int index, Enum<?> type) {
+		public Button(int index) {
+			this(index, null);
+		}
+	}
+	private record ButtonBox(int x, int y, int w, int h, Button button) {
+		boolean contains(int px, int py) {
+			return px >= x && px < x + w && py >= y && py < y + h;
+		}
+	}
 	private final List<ButtonBox> buttons = new ArrayList<>();
 	private Button lastHoveredButton;
-	
-	private final Canvas canvas = new Canvas();
-	private final StringBuilder sb = new StringBuilder();
+	private int mouseX = -1, mouseY = -1;
 
 	private String statusMsg = null;
 	private int color;
@@ -96,12 +101,13 @@ public class UIHandler implements AutoCloseable {
 		inputKeys.bind(InputKey.ESC, KeyMap.esc());
 		inputKeys.bind(InputKey.INTERRUPT, KeyMap.ctrl('C'), KeyMap.ctrl('D'));
 		inputKeys.bind(InputKey.MOUSE, MouseSupport.keys(terminal));
-		for (char c = 'a'; c <= 'z'; c++) inputKeys.bind(InputKey.CHAR, String.valueOf(c));
-		for (char c = '0'; c <= '9'; c++) inputKeys.bind(InputKey.CHAR, String.valueOf(c));
+		inputKeys.bind(InputKey.BACKSPACE, "\b", "\177");
+		inputKeys.bind(InputKey.DEL, KeyMap.key(terminal, Capability.key_dc));
+		for (char c = ' '; c <= '~'; c++) {
+			inputKeys.bind(InputKey.CHAR, String.valueOf(c)); //printable ASCII
+		}
 		inputKeys.setAmbiguousTimeout(100);
-		
-		canvas.clear(Palette.BG);
-		
+				
 		//switch to the alternate screen; the original terminal content comes back on close
 		writer.print("\033[?1049h");
 		writer.flush();
@@ -178,8 +184,9 @@ public class UIHandler implements AutoCloseable {
 		return promptAt(0, Canvas.HEIGHT - 1, message + " > ", raw);
 	}
 
-	/** reads one line typed at canvas position x,y, after the prompt text; screens draw their own input box around it */
-	String promptAt(int x, int y, String promptText, boolean raw) {
+	/** reads one line with JLine's line editor at canvas position x,y.
+	 *  the editor redraws its whole terminal row, so it suits plain rows only; canvas screens edit text through readInput() */
+	private String promptAt(int x, int y, String promptText, boolean raw) {
 		leaveRawMode();
 		writer.print(Canvas.ESC + (y + 1) + ";" + (x + 1) + "H"); //canvas is 0-based, ANSI cursor positions are 1-based
 		writer.flush();
@@ -215,11 +222,13 @@ public class UIHandler implements AutoCloseable {
             if (key == InputKey.MOUSE) {
                 MouseEvent e = terminal.readMouseEvent(bindingReader::readCharacter, bindingReader.getLastBinding());
                 if(e.getType() == MouseEvent.Type.Moved) {
-                	Button hoveredButton = getSelectedButton(e.getX(), e.getY());
+                	mouseX = e.getX();
+                	mouseY = e.getY();
+                	Button hoveredButton = getSelectedButton(mouseX, mouseY);
                 	boolean changed = !Objects.equals(hoveredButton, lastHoveredButton);
-                	lastHoveredButton = hoveredButton; //null over empty space, so re-entering a button counts as a change
-                    if (changed && hoveredButton != null) {
-                    	return new Input(InputKey.HOVER, '\0', e.getX(), e.getY()); //hover keeps the status message
+                	lastHoveredButton = hoveredButton;
+                    if (changed) {
+                    	return new Input(InputKey.HOVER, '\0', mouseX, mouseY);
                     }
                 }
                 else if (e.getType() == MouseEvent.Type.Pressed && e.getButton() == MouseEvent.Button.Button1) {
@@ -228,7 +237,9 @@ public class UIHandler implements AutoCloseable {
                 }
                 continue; //other mouse events (moves within a button, releases, drags, wheel): keep reading
             }
-            statusMsg = null;
+            if (key != InputKey.UP && key != InputKey.DOWN) {
+            	statusMsg = null; //moving the focus keeps the status message; any other key acts on it
+            }
             char ch = (key == InputKey.CHAR)? bindingReader.getLastBinding().charAt(0) : '\0';
         	return new Input(key, ch, -1, -1);
         }
@@ -237,7 +248,9 @@ public class UIHandler implements AutoCloseable {
 	/** check for the button at position */
 	Button getSelectedButton(int x, int y) {
 		for (ButtonBox b : buttons) {
-	        if (x >= b.x() && x < b.x() + b.w() && y >= b.y() && y < b.y() + b.h()) return b.button();
+	        if (b.contains(x, y)) {
+	        	return b.button();
+	        }
 		}
 		return null;
 	}
@@ -247,9 +260,16 @@ public class UIHandler implements AutoCloseable {
 		buttons.clear();
 	}
 
-	/** register a clickable area for the current frame */
+	/** register a click-able area for the current frame */
 	void addButton(int x, int y, int w, int h, Button b) {
-		buttons.add(new ButtonBox(x,y,w,h,b));
+		buttons.add(new ButtonBox(x, y, w, h, b));
+	}
+	
+	/** draw a default sized button on canvas and register a click-able area for the current frame */
+	void drawButton(int x, int y, String label, boolean enabled, Button b) {
+		ButtonBox box = new ButtonBox(x, y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, b);
+	    canvas.drawButton(x, y, label, enabled, box.contains(mouseX, mouseY));
+	    buttons.add(box);
 	}
 
 
@@ -257,14 +277,16 @@ public class UIHandler implements AutoCloseable {
 	//render UI
 	/** print the canvas; a status message is drawn on the bottom border, right-aligned, until the next key or click */
 	void present() {
-	    if (terminal.getColumns() < Canvas.WIDTH || terminal.getRows() < Canvas.HEIGHT) {
-	        writer.println("Please maximize the window.");
+	    int columns = terminal.getColumns(), rows = terminal.getRows();
+	    if (columns < Canvas.WIDTH || rows < Canvas.HEIGHT) {
+	    	String text = "Please maximize the window (" + Canvas.WIDTH + " x " + Canvas.HEIGHT + " needed, now " + columns + " x " + rows + ").";
+	        writer.print(RESET + "\033[2J" + Canvas.ESC + (rows / 2 + 1) + ";" + Math.max(1, (columns - text.length()) / 2 + 1) + "H" + text);
 	        writer.flush();
 	        return;
 	    }
 	    if (statusMsg != null) {
 	    	String text = " " + statusMsg + " ";
-	    	canvas.drawText(Canvas.WIDTH - 3 - text.length(), Canvas.HEIGHT - 1, text, color, Palette.BG);
+	    	canvas.drawText(Canvas.WIDTH - 3 - text.length(), Canvas.HEIGHT - 1, text, color);
 	    }
 	    writer.print(canvas);
 	    writer.flush();
@@ -295,25 +317,7 @@ public class UIHandler implements AutoCloseable {
 	
 	
 	
-	//public methods for rendering specific screens
-	public void renderLoadSaveUI(SlotOverview[] slots) {
-		buildSaveSlotUI("LOAD GAME", slots);
-		String[] ins = {
-				"[1-%d] Load Game".formatted(SaveManager.SLOT_COUNT),
-				"[B] Return to Main Menu",
-				"[D 1-%d] Delete Save".formatted(SaveManager.SLOT_COUNT)};
-		render(sb.toString(),ins);
-	}
-	
-	public void renderWriteSaveUI(SlotOverview[] slots) {
-		buildSaveSlotUI("SAVE GAME", slots);
-		String[] ins = {
-				"[1-%d] Save to Slot".formatted(SaveManager.SLOT_COUNT),
-				"[B] Return to Adventure",
-				"[D 1-%d] Delete Save".formatted(SaveManager.SLOT_COUNT)};
-		render(sb.toString(),ins);
-	}
-	
+	//public methods for rendering specific screens	
 	public void renderAdventureUI(GameState gameState) {
 		CurrentScene currentScene = gameState.getCurrentScene();
 		sb.append(buildBoxTop("ADVENTURE"));
@@ -346,25 +350,6 @@ public class UIHandler implements AutoCloseable {
 		//TODO create combat UI
 	}
 	
-	private void buildSaveSlotUI(String title, SlotOverview[] slots) {
-		sb.append(buildBoxTop(title));
-		sb.append(buildBoxEmptyRow());
-		for(SlotOverview slot : slots) {
-			if(slot.status() == SlotStatus.EMPTY) {
-				sb.append(buildBoxText("%s[%d]%s Empty Slot".formatted(CYAN, slot.slot(),RESET)));
-				sb.append(buildBoxEmptyRow());
-			}
-			else if (slot.status() == SlotStatus.CORRUPT) {
-				sb.append(buildBoxText("%s[%d]%s Unreadable Save".formatted(CYAN,slot.slot(),RESET)));
-				sb.append(buildBoxEmptyRow());
-			}
-			else {
-				sb.append(buildBoxText("%s[%d]%s LV %-5d %s | Turn %d".formatted(CYAN,slot.slot(),RESET,slot.level(),slot.name(),slot.turn())));
-				sb.append(buildBoxEmptyRow());
-			}
-		}
-		sb.append(buildBoxBottom());
-	}
 	
 	
 	//UI component string building

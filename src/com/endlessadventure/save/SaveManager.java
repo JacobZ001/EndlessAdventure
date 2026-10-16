@@ -34,18 +34,18 @@ public class SaveManager {
 	}
 
 	/** Summary record for a save slot containing the slot number, status, player name, level, and turn count. */
-	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn) {}
+	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn, String location) {}
 
 	/** Validate the save before presenting it as readable in the UI. */
 	public SlotOverview readSummary(int slot) {
 		try {
 			GameState state = loadSave(slot);
 			Player player = state.getPlayer();
-			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getCurrentScene().getTurn());
+			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getCurrentScene().getTurn(), state.getCurrentScene().getLocation());
 		} catch (NoSuchFileException e) {
-			return new SlotOverview(slot, SlotStatus.EMPTY, null, 0, 0);
+			return new SlotOverview(slot, SlotStatus.EMPTY, null, 0, 0, "");
 		} catch(IOException | BadSaveException e) {
-			return new SlotOverview(slot, SlotStatus.CORRUPT, null, 0, 0);
+			return new SlotOverview(slot, SlotStatus.CORRUPT, null, 0, 0, "");
 		}
 	}
 	

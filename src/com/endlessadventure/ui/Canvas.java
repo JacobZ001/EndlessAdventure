@@ -6,7 +6,7 @@ import java.util.Map;
 
 public class Canvas {
 	public static final int HEIGHT = 51;
-	public static final int WIDTH = 207;
+	public static final int WIDTH = 209;
 	public static final int BUTTON_HEIGHT = 3;
 	public static final int BUTTON_WIDTH = 18;
 	
@@ -37,25 +37,114 @@ public class Canvas {
 
 	/** clear the whole canvas with whitespace with bg as foreground and background */
 	void clear(int bg) {
-		for (int i = 0; i < HEIGHT; i++) {
-			for (int j = 0; j < WIDTH; j++) {
-				set(j, i, ' ', bg, bg);
+		fill(0, 0, WIDTH, HEIGHT, bg);
+	}
+	
+	/** fills the are starting from {@code x, y} to {@code x + w, y + h} with whitespace with {@code c} */
+	void fill(int x, int y, int w, int h, int c) {
+		for (int i = y; i < y + h; i++) {
+			for (int j = x; j < x + w; j++) {
+				set(j, i, ' ', c, c);
 			}
 		}
 	}
+	
+	/** scrim: pull the colors of every cell in the rectangle toward the background */
+	void dim(int x, int y, int w, int h) {
+		for (int i = Math.max(0, y); i < Math.min(HEIGHT, y + h); i++) {
+			for (int j = Math.max(0, x); j < Math.min(WIDTH, x + w); j++) {
+				set(j, i, characters[i][j], Palette.mix(foreground[i][j], Palette.BG, 0.65), Palette.mix(background[i][j], Palette.BG, 0.65));
+			}
+		}
+	}
+	
+	/** draws a box border at x,y with width w and height h */
+	void drawBox(int x, int y, int w, int h, int fg) {
+		if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > WIDTH || y + h > HEIGHT) {
+			throw new IllegalArgumentException(
+					"Illegal dimensions: box out of bound at (%d,%d), W = %d H = %d)".formatted(x, y, w, h));
+		}
+		for (int i = y; i < y + h; i++) {
+			if (i == y || i == y + h - 1) {
+				for (int j = x; j < x + w; j++) {
+					if (i == y && j == x) {
+						set(j, i, CORNERS[0], fg, Palette.BG);
+					} else if (i == y && j == x + w - 1) {
+						set(j, i, CORNERS[1], fg, Palette.BG);
+					} else if (i == y + (h - 1) && j == x) {
+						set(j, i, CORNERS[2], fg, Palette.BG);
+					} else if (i == y + (h - 1) && j == x + w - 1) {
+						set(j, i, CORNERS[3], fg, Palette.BG);
+					} else {
+						set(j, i, ROW_BORDER, fg, Palette.BG);
+					}
+				}
+			} else {
+				set(x, i, COL_BORDER, fg, Palette.BG);
+				set(x + w - 1, i, COL_BORDER, fg, Palette.BG);
+			}
+		}
+	}
+	
+	/** draw the border around the whole canvas */
+	void drawFrame() {
+		drawBox(0, 0, WIDTH, HEIGHT, Palette.MUTED);
+	}
 
-	/**
-	 * draw the given string in the canvas grid at x,y cut off at edge
-	 */
+	/** draw the given string in the canvas grid at x,y cut off at edge */
 	void drawText(int x, int y, String s, int fg, int bg) {
 		for (int i = 0; i < s.length() && x + i < WIDTH; i++) {
 			set(x + i, y, s.charAt(i), fg, bg);
 		}
 	}
 	
+	/** overload of drawText with default bg */
+	void drawText(int x, int y, String s, int fg) {
+		drawText(x, y, s, fg, Palette.BG);
+	}
+	
 	/** write text centered horizontally on canvas row y */
-	void drawTextCentered(int y, String text, int fg, int bg) {
-		drawText((Canvas.WIDTH - text.length()) / 2, y, text, fg, bg);
+	void drawTextCentered(int y, String text, int fg) {
+		drawText((Canvas.WIDTH - text.length()) / 2, y, text, fg);
+	}
+	
+	/** draws wrapped text and returns the row after the last line */
+	int drawParagraph(int x, int y, int width, String text, int fg) {
+		for (String line : wrapText(text, width)) {
+			drawText(x, y++, line, fg);
+		}
+		return y;
+	}
+
+	/** split text into lines of at most width characters, breaking at spaces; longer words are cut */
+	private static List<String> wrapText(String text, int width) {
+		List<String> lines = new ArrayList<>();
+		StringBuilder line = new StringBuilder();
+		for (String word : text.strip().split("\\s+")) {
+			while (word.length() > width) {
+				if (!line.isEmpty()) {
+					lines.add(line.toString());
+					line.setLength(0);
+				}
+				lines.add(word.substring(0, width));
+				word = word.substring(width);
+			}
+			if (word.isEmpty()) {
+				continue;
+			}
+			if (!line.isEmpty() && line.length() + 1 + word.length() > width) {
+				lines.add(line.toString());
+				line.setLength(0);
+			}
+			if (!line.isEmpty()) {
+				line.append(' ');
+			}
+			line.append(word);
+		}
+		if (!line.isEmpty()) {
+			lines.add(line.toString());
+		}
+		return lines;
 	}
 	
 	/** draw "[key] description" hints on the bottom border, left to right */
@@ -64,50 +153,17 @@ public class Canvas {
 		for (Map.Entry<String, String> hint : hints) {
 			String key = " [" + hint.getKey() + "] ";
 			String value = hint.getValue() + "   ";
-			drawText(x, HEIGHT - 1, key, Palette.KEY, Palette.BG);
-			drawText(x + key.length(), HEIGHT - 1, value, Palette.MUTED, Palette.BG);
+			drawText(x, HEIGHT - 1, key, Palette.KEY);
+			drawText(x + key.length(), HEIGHT - 1, value, Palette.MUTED);
 			x += key.length() + value.length();
 		}
 	}
 
-	/** draws a box border at x,y with width w and height h */
-	void drawBox(int x, int y, int w, int h, int fg, int bg) {
-		if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > WIDTH || y + h > HEIGHT) {
-			throw new IllegalArgumentException(
-					"Illegal dimensions, box out of bound: (%d,%d) (%d, %d)".formatted(x, y, w, h));
-		}
-		for (int i = y; i < y + h; i++) {
-			if (i == y || i == y + h - 1) {
-				for (int j = x; j < x + w; j++) {
-					if (i == y && j == x) {
-						set(j, i, CORNERS[0], fg, bg);
-					} else if (i == y && j == x + w - 1) {
-						set(j, i, CORNERS[1], fg, bg);
-					} else if (i == y + (h - 1) && j == x) {
-						set(j, i, CORNERS[2], fg, bg);
-					} else if (i == y + (h - 1) && j == x + w - 1) {
-						set(j, i, CORNERS[3], fg, bg);
-					} else {
-						set(j, i, ROW_BORDER, fg, bg);
-					}
-				}
-			} else {
-				set(x, i, COL_BORDER, fg, bg);
-				set(x + w - 1, i, COL_BORDER, fg, bg);
-			}
-		}
-	}
-	
-	/** draw the border around the whole canvas */
-	void drawFrame() {
-		drawBox(0, 0, WIDTH, HEIGHT, Palette.MUTED, Palette.BG);
-	}
-
-	/** draw a 3-row boxed button with a centered label; the border turns gold when highlighted */
-	void drawButton(int x, int y, int w, String label, boolean enabled, boolean highlighted) {
+	/** draw a boxed button with a centered label; the border turns gold when highlighted */
+	void drawButton(int x, int y, String label, boolean enabled, boolean highlighted) {
 		int border = highlighted && enabled ? Palette.KEY : Palette.MUTED;
-		drawBox(x, y, w, 3, border, Palette.BG);
-		drawText(x + (w - label.length()) / 2, y + 1, label, enabled ? Palette.TEXT : Palette.MUTED, Palette.BG);
+		drawBox(x, y, BUTTON_WIDTH, BUTTON_HEIGHT, border);
+		drawText(x + (BUTTON_WIDTH - label.length()) / 2, y + 1, label, enabled ? Palette.TEXT : Palette.MUTED);
 	}
 	
 	//pixel drawing
@@ -179,44 +235,5 @@ public class Canvas {
 			}
 		}
 		return sb.append(ESC).append("0m").toString();
-	}
-
-	/** draws wrapped text and returns the row after the last line */
-	int drawParagraph(int x, int y, int width, String text, int fg, int bg) {
-		for (String line : wrapText(text, width)) {
-			drawText(x, y++, line, fg, bg);
-		}
-		return y;
-	}
-
-	/** split text into lines of at most width characters, breaking at spaces; longer words are cut */
-	private static List<String> wrapText(String text, int width) {
-		List<String> lines = new ArrayList<>();
-		StringBuilder line = new StringBuilder();
-		for (String word : text.strip().split("\\s+")) {
-			while (word.length() > width) {
-				if (!line.isEmpty()) {
-					lines.add(line.toString());
-					line.setLength(0);
-				}
-				lines.add(word.substring(0, width));
-				word = word.substring(width);
-			}
-			if (word.isEmpty()) {
-				continue;
-			}
-			if (!line.isEmpty() && line.length() + 1 + word.length() > width) {
-				lines.add(line.toString());
-				line.setLength(0);
-			}
-			if (!line.isEmpty()) {
-				line.append(' ');
-			}
-			line.append(word);
-		}
-		if (!line.isEmpty()) {
-			lines.add(line.toString());
-		}
-		return lines;
 	}
 }
