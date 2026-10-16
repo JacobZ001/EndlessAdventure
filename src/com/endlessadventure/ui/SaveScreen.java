@@ -1,14 +1,13 @@
 package com.endlessadventure.ui;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
 
-public class SaveSlotsScreen {
+public class SaveScreen {
 	private static final int START_Y = 6,
 							 CARD_W = 96, CARD_H = 7, CARD_STEP = CARD_H + 2, CARD_P = 4,
 							 CARD_X = (Canvas.WIDTH - CARD_W) / 2,
@@ -19,16 +18,7 @@ public class SaveSlotsScreen {
 							 BUTTON_X = CARD_X + CARD_W - 3 * Canvas.BUTTON_WIDTH - 2 * BUTTON_SPACING;
 	
 	
-	public enum Mode { 
-		LOAD("Load"),
-		SAVE("Save");
-		
-		private final String hint;
-		
-		private Mode(String hint) {
-			this.hint = hint;
-		}
-	}
+	public enum Mode { LOAD, SAVE }
 	public enum Action {CONFIRM, DELETE, BACK }
 	public record Choice(Action action, int slot) {}
 
@@ -38,7 +28,7 @@ public class SaveSlotsScreen {
 	private final SlotOverview[] slots;
 	private int selected;
 	
-	public SaveSlotsScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
+	public SaveScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
 		this.ui = ui;
 		canvas = ui.getCanvas();
 		this.mode = mode;
@@ -130,7 +120,7 @@ public class SaveSlotsScreen {
 		canvas.drawText(2, 0, " " + mode.toString() + " GAME ", Palette.KEY);
 		
 		int y = START_Y;
-		canvas.drawTextCentered(y, "Choose a slot to " + mode.hint.toLowerCase(Locale.ROOT), Palette.MUTED);
+		canvas.drawTextCentered(y, "Choose a slot to " + mode.toString().toLowerCase(), Palette.MUTED);
 		
 		//draw slot cards
 		y = CARD_Y;
@@ -169,7 +159,7 @@ public class SaveSlotsScreen {
 		}
 		
 		//draw buttons
-		String[] labels = {mode.hint.toUpperCase(), "DELETE", "BACK"};
+		String[] labels = {mode.toString(), "DELETE", "BACK"};
 		boolean[] enabled = {canConfirm(), canDelete(), true};
 		
 		for(int i=0; i < labels.length; i++) {
@@ -181,7 +171,7 @@ public class SaveSlotsScreen {
 		canvas.drawHints(List.of(
 				Map.entry("1-" + slots.length, "select"),
 				Map.entry("↑/↓", "move"),
-				Map.entry("ENTER", mode.hint.toLowerCase()),
+				Map.entry("ENTER", mode.toString().toLowerCase()),
 				Map.entry("DEL","delete"),
 				Map.entry("ESC","back")));
 		ui.present();

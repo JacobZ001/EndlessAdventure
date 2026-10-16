@@ -7,15 +7,12 @@ import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmRequestException;
 import com.endlessadventure.save.BadSaveException;
 import com.endlessadventure.save.SaveManager;
-import com.endlessadventure.save.SaveManager.SlotOverview;
-import com.endlessadventure.save.SaveManager.SlotStatus;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.CharacterCreationScreen;
 import com.endlessadventure.ui.MainMenuScreen;
-import com.endlessadventure.ui.SaveSlotsScreen;
+import com.endlessadventure.ui.SaveScreen;
 import com.endlessadventure.ui.UIHandler;
-import com.endlessadventure.ui.SaveSlotsScreen.Mode;
 
 public class GameEngine {
 	private enum GameScreen {
@@ -43,8 +40,8 @@ public class GameEngine {
 			currentScreen = switch (currentScreen) {
 				case MAIN_MENU -> handleMainMenu();
 				case CHARACTER_CREATION -> handleCharacterCreation();
-				case LOAD_SAVE -> handleSaveScreen(Mode.LOAD);
-				case WRITE_SAVE -> handleSaveScreen(Mode.SAVE);
+				case LOAD_SAVE -> handleSaveScreen(SaveScreen.Mode.LOAD);
+				case WRITE_SAVE -> handleSaveScreen(SaveScreen.Mode.SAVE);
 				case ADVENTURE -> handleAdventure();
 				case INVENTORY -> handleInventory();
 				case COMBAT -> handleCombat();
@@ -54,8 +51,8 @@ public class GameEngine {
 
 	/** check if there are any existing saves include unreadable saves so they are visible and never silently overwritten */
 	private boolean hasExistingSaves() {
-		for (SlotOverview s : saveManager.readAllSummaries()) {
-			if (s.status() != SlotStatus.EMPTY) {
+		for (SaveManager.SlotOverview s : saveManager.readAllSummaries()) {
+			if (s.status() != SaveManager.SlotStatus.EMPTY) {
 				return true;
 			}
 		}
@@ -88,13 +85,14 @@ public class GameEngine {
 	}
 
 	/** handle load and save screen */
-	private GameScreen handleSaveScreen(Mode mode) {
-		SaveSlotsScreen.Choice choice = new SaveSlotsScreen(ui, mode , saveManager.readAllSummaries(), selectedSlot).run();
+	private GameScreen handleSaveScreen(SaveScreen.Mode mode) {
+		boolean isLoadMode = mode == SaveScreen.Mode.LOAD;
+		SaveScreen.Choice choice = new SaveScreen(ui, mode , saveManager.readAllSummaries(), selectedSlot).run();
 		selectedSlot = choice.slot();
 		return switch(choice.action()) {
 			case CONFIRM -> {
 				try {
-					if(mode == Mode.LOAD) {
+					if(isLoadMode) {
 						gameState = saveManager.loadSave(selectedSlot);
 						ui.showSuccess("Loaded slot " + selectedSlot + ".");
 						yield GameScreen.ADVENTURE;
@@ -118,7 +116,7 @@ public class GameEngine {
 				}
 				yield currentScreen;
 			}
-			case BACK -> mode == Mode.LOAD? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
+			case BACK -> isLoadMode? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
 		};
 	}
 
