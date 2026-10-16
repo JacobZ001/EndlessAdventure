@@ -9,6 +9,7 @@ import com.endlessadventure.save.BadSaveException;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
+import com.endlessadventure.ui.AdventureScreen;
 import com.endlessadventure.ui.CharacterCreationScreen;
 import com.endlessadventure.ui.MainMenuScreen;
 import com.endlessadventure.ui.SaveScreen;
@@ -131,33 +132,35 @@ public class GameEngine {
 				return GameScreen.MAIN_MENU;
 			}
 		}
+		//TODO temp stub
+		AdventureScreen.Choice choice = new AdventureScreen(ui, gameState).run();
+		ui.showSuccess(choice.toString());
+		return GameScreen.MAIN_MENU;
 		
-		ui.renderAdventureUI(gameState);
-		
-		String command = ui.prompt("Action ");
-    	return switch(command) {
-    		//TODO implement inventory and other adventure general commands
-    		case "b","[b]" -> {
-				String confirm = ui.prompt("Are you sure to return to the main menu? Unsaved progress may be lost. (y/n)");
-				yield confirm.equals("y") || confirm.equals("yes") ? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
-    		}
-	    	case "s","[s]" -> GameScreen.WRITE_SAVE; 
-			default -> {
-				String action = getPlayerAction(command, gameState.getCurrentScene().getOptions());
-				if(!action.isBlank() && action != null) {
-					try {
-						CurrentScene temp = gameState.getCurrentScene();
-						gameState.setCurrentScene(storyGenerator.generateNext(gameState, action));
-						gameState.addRecord(temp.toRecord(action));
-						yield GameScreen.ADVENTURE;
-					} catch (LlmRequestException e) {
-						ui.showError("Cannot process LLM request: " + e.getMessage());
-						yield GameScreen.ADVENTURE;
-					}
-				}
-				yield handleGeneralCommand(command);
-			}
-    	};
+//		String command = ui.prompt("Action ");
+//    	return switch(command) {
+//    		//TODO implement inventory and other adventure general commands
+//    		case "b","[b]" -> {
+//				String confirm = ui.prompt("Are you sure to return to the main menu? Unsaved progress may be lost. (y/n)");
+//				yield confirm.equals("y") || confirm.equals("yes") ? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
+//    		}
+//	    	case "s","[s]" -> GameScreen.WRITE_SAVE; 
+//			default -> {
+//				String action = getPlayerAction(command, gameState.getCurrentScene().getOptions());
+//				if(!action.isBlank() && action != null) {
+//					try {
+//						CurrentScene temp = gameState.getCurrentScene();
+//						gameState.setCurrentScene(storyGenerator.generateNext(gameState, action));
+//						gameState.addRecord(temp.toRecord(action));
+//						yield GameScreen.ADVENTURE;
+//					} catch (LlmRequestException e) {
+//						ui.showError("Cannot process LLM request: " + e.getMessage());
+//						yield GameScreen.ADVENTURE;
+//					}
+//				}
+//				yield handleGeneralCommand(command);
+//			}
+//    	};
 	}
 
 	private String getPlayerAction(String command, String[] options) {

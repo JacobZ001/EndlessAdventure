@@ -1,4 +1,4 @@
-	package com.endlessadventure.ui;
+package com.endlessadventure.ui;
 
 import java.util.List;
 
@@ -34,8 +34,9 @@ final class ConfirmDialog {
 
 			y += 2;
 			ui.drawButton(BUTTON_X, y, confirmLabel, true, new Button(0));
+			String confirmHint = Character.toUpperCase(confirmLabel.charAt(0)) + confirmLabel.toLowerCase().substring(1);
 			ui.drawButton(BUTTON_X + Canvas.BUTTON_WIDTH + 2, y, "CANCEL", true, new Button(1));
-			canvas.drawTextCentered(top + height - 2, " [Y] %s   [N] cancel ".formatted(confirmLabel.toLowerCase()), Palette.MUTED);
+			canvas.drawTextCentered(top + height - 2, " [Y] %s   [N] Cancel ".formatted(confirmHint), Palette.MUTED);
 			ui.present();
 
 			UIHandler.Input in = ui.readInput();
@@ -52,7 +53,7 @@ final class ConfirmDialog {
 					return false;
 				}
 				case CLICK -> {
-					UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
+					UIHandler.Button b = in.button();
 					if (b != null) {
 						return b.index() == 0;
 					}

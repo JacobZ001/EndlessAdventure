@@ -7,7 +7,7 @@ import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
 
-public class SaveScreen {
+public final class SaveScreen extends Screen {
 	private static final int START_Y = 6,
 							 CARD_W = 96, CARD_H = 7, CARD_STEP = CARD_H + 2, CARD_P = 4,
 							 CARD_X = (Canvas.WIDTH - CARD_W) / 2,
@@ -22,15 +22,12 @@ public class SaveScreen {
 	public enum Action {CONFIRM, DELETE, BACK }
 	public record Choice(Action action, int slot) {}
 
-	private final UIHandler ui;
-	private final Canvas canvas;
 	private final Mode mode;
 	private final SlotOverview[] slots;
 	private int selected;
 	
 	public SaveScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
-		this.ui = ui;
-		canvas = ui.getCanvas();
+		super(ui, mode.toString() + " GAME");
 		this.mode = mode;
 		this.slots = slots;
 		selected = selectedSlot - 1; //1-indexing to 0-indexing
@@ -38,23 +35,23 @@ public class SaveScreen {
 
 	public Choice run() {
 		while(true) {
-			draw();
+			drawFrame();
 			UIHandler.Input in = ui.readInput();
 			Action action = null;
 			switch(in.inputKey()) {
-				case UP -> selected = (selected + slots.length - 1) % slots.length;
-				case DOWN -> selected = (selected + 1) % slots.length;
+				case UP -> selected = Math.floorMod(selected - 1, slots.length);
+				case DOWN -> selected = Math.floorMod(selected + 1, slots.length);
 				case ENTER -> action = Action.CONFIRM;
 				case ESC -> action = Action.BACK;
 				case DEL -> action = Action.DELETE;
 				case CHAR -> {
-					int digit = in.ch() - '1';
+					int digit = in.digit();
 					if (digit >= 0 && digit < slots.length) {
 						selected = digit;
 					}
 				}
 				case CLICK -> {
-					UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
+					UIHandler.Button b = in.button();
 					if (b != null){
 						if(b.index() >= SaveManager.SLOT_COUNT) {
 							action = Action.values()[b.index() - SaveManager.SLOT_COUNT];
@@ -113,11 +110,8 @@ public class SaveScreen {
 		};
 	}
 	
-	private void draw() {
-		ui.clearButtons();
-		canvas.clear(Palette.BG);
-		canvas.drawFrame();
-		canvas.drawText(2, 0, " " + mode.toString() + " GAME ", Palette.KEY);
+	private void drawFrame() {
+		beginFrame();
 		
 		int y = START_Y;
 		canvas.drawTextCentered(y, "Choose a slot to " + mode.toString().toLowerCase(), Palette.MUTED);
@@ -168,15 +162,16 @@ public class SaveScreen {
 			
 			ui.drawButton(x, BUTTON_Y, labels[i], enabled[i], new UIHandler.Button(abs_i));
 		}
+		String modeHint = Character.toUpperCase(mode.toString().charAt(0)) + mode.toString().substring(1);
 		canvas.drawHints(List.of(
-				Map.entry("1-" + slots.length, "select"),
-				Map.entry("↑/↓", "move"),
-				Map.entry("ENTER", mode.toString().toLowerCase()),
-				Map.entry("DEL","delete"),
-				Map.entry("ESC","back")));
+				Map.entry("1-" + slots.length, "Select"),
+				Map.entry("↑/↓", "Move"),
+				Map.entry("ENTER", modeHint),
+				Map.entry("DEL","Delete"),
+				Map.entry("ESC","Back")));
 		ui.present();
 	}
-	
+
 	private boolean canConfirm() {
 	    SlotStatus s = slots[selected].status();
 	    return mode == Mode.SAVE || s == SlotStatus.READABLE;

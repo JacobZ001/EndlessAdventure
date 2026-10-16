@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /** main menu screen: draws itself and reads input until the player picks an option */
-public final class MainMenuScreen {
+public final class MainMenuScreen extends Screen {
 	//title bitmaps, each '#' is drawn as 2x2 pixels
 	private static final String[] TITLE_ENDLESS = {
 			"#####.#...#.####..#.....#####..####..####",
@@ -36,48 +36,44 @@ public final class MainMenuScreen {
 			this.label = label;
 		}
 	}
-	
-	private final UIHandler ui;
-	private final Canvas canvas;
 
 	private final boolean hasSave;
 	private int selected = 0;
 
 	public MainMenuScreen(UIHandler ui, boolean hasSave) {
-		this.ui = ui;
-		canvas = ui.getCanvas();
+		super(ui, null);
 		this.hasSave = hasSave;
 	}
 
 	/** show the menu until the player picks an available option */
 	public Choice run() {
 		while (true) {
-			draw();
+			drawFrame();
 			UIHandler.Input in = ui.readInput();
 			int choice = -1;
 			switch (in.inputKey()) {
-			case UP -> selected = (selected + CHOICES.length - 1) % CHOICES.length;
-			case DOWN -> selected = (selected + 1) % CHOICES.length;
-			case ENTER -> choice = selected;
-			case CHAR -> {
-				int digit = in.ch() - '1';
-				if (digit >= 0 && digit < CHOICES.length) {
-					choice = digit;
+				case UP -> selected = Math.floorMod(selected - 1, CHOICES.length);
+				case DOWN -> selected = Math.floorMod(selected + 1, CHOICES.length);
+				case ENTER -> choice = selected;
+				case CHAR -> {
+					int digit = in.digit();
+					if (digit >= 0 && digit < CHOICES.length) {
+						choice = digit;
+					}
 				}
-			}
-			case CLICK -> {
-				UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
-				if (b != null) {
-					choice = b.index();
+				case CLICK -> {
+					UIHandler.Button b = in.button();
+					if (b != null) {
+						choice = b.index();
+					}
 				}
-			}
-			case HOVER -> {
-				UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
-				if (b != null) {
-					selected = b.index();
+				case HOVER -> {
+					UIHandler.Button b = in.button();
+					if (b != null) {
+						selected = b.index();
+					}
 				}
-			}
-			default -> {}
+				default -> {}
 			}
 
 			if (choice < 0) {
@@ -91,10 +87,8 @@ public final class MainMenuScreen {
 		}
 	}
 
-	private void draw() {
-		ui.clearButtons();
-		canvas.clear(Palette.BG);
-		canvas.drawFrame();
+	private void drawFrame() {
+		beginFrame();
 
 		int y = 20;
 		canvas.drawPixelTitle(TITLE_ENDLESS, y, Palette.KEY, Palette.WARNING);
@@ -121,10 +115,9 @@ public final class MainMenuScreen {
 		}
 
 		canvas.drawHints(List.of(
-				Map.entry("1-" + CHOICES.length, "select"),
-				Map.entry("↑/↓", "move"),
-				Map.entry("ENTER", "confirm"),
-				Map.entry("Click", "select")));
+				Map.entry("1-" + CHOICES.length, "Select"),
+				Map.entry("↑/↓", "Move"),
+				Map.entry("ENTER", "Confirm")));
 		ui.present();
 	}
 }

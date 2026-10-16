@@ -54,22 +54,28 @@ public class UIHandler implements AutoCloseable {
 	private final Canvas canvas = new Canvas();
 	private final StringBuilder sb = new StringBuilder();
 	
-	public enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, CHAR, CLICK, HOVER, MOUSE, INTERRUPT }
-	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
-	public record Input(InputKey inputKey, char ch, int x, int y) {}
-
+	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
 
 	/** a clickable area: index identifies it on the screen; type is the screen's own name for a sub-area, null if not needed */
-	public record Button(int index, Enum<?> type) {
+	record Button(int index, Enum<?> type) {
 		public Button(int index) {
 			this(index, null);
 		}
 	}
+	
+	record Input(InputKey inputKey, char ch, int x, int y, Button button) {
+		int digit() {
+			return Character.isDigit(ch) ? ch - '1' : -1;
+		}
+	}
+	
 	private record ButtonBox(int x, int y, int w, int h, Button button) {
 		boolean contains(int px, int py) {
 			return px >= x && px < x + w && py >= y && py < y + h;
 		}
 	}
+
+	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
 	private final List<ButtonBox> buttons = new ArrayList<>();
 	private Button lastHoveredButton;
 	private int mouseX = -1, mouseY = -1;
@@ -214,7 +220,7 @@ public class UIHandler implements AutoCloseable {
 	/** enters raw mode and reads raw user input */
 	public Input readInput() {
 		enterRawMode();
-        while (true) {            
+        while (true) {
             InputKey key = bindingReader.readBinding(inputKeys);
             if (key == null || key == InputKey.INTERRUPT) {
             	throw new NoSuchElementException("Input closed");
@@ -228,12 +234,14 @@ public class UIHandler implements AutoCloseable {
                 	boolean changed = !Objects.equals(hoveredButton, lastHoveredButton);
                 	lastHoveredButton = hoveredButton;
                     if (changed) {
-                    	return new Input(InputKey.HOVER, '\0', mouseX, mouseY);
+                    	return new Input(InputKey.HOVER, '\0', mouseX, mouseY, hoveredButton);
                     }
                 }
                 else if (e.getType() == MouseEvent.Type.Pressed && e.getButton() == MouseEvent.Button.Button1) {
                     statusMsg = null;
-                    return new Input(InputKey.CLICK, '\0', e.getX(), e.getY());
+                	mouseX = e.getX();
+                	mouseY = e.getY();
+                    return new Input(InputKey.CLICK, '\0', mouseX, mouseY, getSelectedButton(mouseX, mouseY));
                 }
                 continue; //other mouse events (moves within a button, releases, drags, wheel): keep reading
             }
@@ -241,12 +249,12 @@ public class UIHandler implements AutoCloseable {
             	statusMsg = null; //moving the focus keeps the status message; any other key acts on it
             }
             char ch = (key == InputKey.CHAR)? bindingReader.getLastBinding().charAt(0) : '\0';
-        	return new Input(key, ch, -1, -1);
+        	return new Input(key, ch, -1, -1, null);
         }
 	}
 	
 	/** check for the button at position */
-	Button getSelectedButton(int x, int y) {
+	private Button getSelectedButton(int x, int y) {
 		for (ButtonBox b : buttons) {
 	        if (b.contains(x, y)) {
 	        	return b.button();
@@ -270,6 +278,11 @@ public class UIHandler implements AutoCloseable {
 		ButtonBox box = new ButtonBox(x, y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, b);
 	    canvas.drawButton(x, y, label, enabled, box.contains(mouseX, mouseY));
 	    buttons.add(box);
+	}
+	
+	/** UIHandler: same test drawButton uses, offered to screens */
+	boolean isHovered(int x, int y, int w, int h) {
+	    return (new ButtonBox(x, y, w, h, null).contains(mouseX, mouseY));
 	}
 
 

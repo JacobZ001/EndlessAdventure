@@ -87,8 +87,15 @@ public class Canvas {
 	}
 	
 	/** draw the border around the whole canvas */
-	void drawFrame() {
-		drawBox(0, 0, WIDTH, HEIGHT, Palette.MUTED);
+	void drawScreenBorder() {
+		drawBox(0, 0, WIDTH, HEIGHT, Palette.LINE);
+	}
+	
+	/** draw a divider from x,y to x+w, y*/
+	void drawDivider(int x, int y, int w) {
+		for(int i = 0; i < w; i++) {
+			set(x + i, y, ROW_BORDER, Palette.LINE, Palette.BG);
+		}
 	}
 
 	/** draw the given string in the canvas grid at x,y cut off at edge */
@@ -117,7 +124,10 @@ public class Canvas {
 	}
 
 	/** split text into lines of at most width characters, breaking at spaces; longer words are cut */
-	private static List<String> wrapText(String text, int width) {
+	static List<String> wrapText(String text, int width) {
+		if(text.isBlank()) {
+			return List.of("");
+		}
 		List<String> lines = new ArrayList<>();
 		StringBuilder line = new StringBuilder();
 		for (String word : text.strip().split("\\s+")) {

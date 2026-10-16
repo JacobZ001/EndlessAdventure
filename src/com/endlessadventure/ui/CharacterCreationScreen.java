@@ -10,7 +10,7 @@ import com.endlessadventure.entity.Player;
 import com.endlessadventure.entity.Skill;
 
 /** step-by-step character creation: name, attributes, combat skills, general skills, review */
-public final class CharacterCreationScreen {
+public final class CharacterCreationScreen extends Screen {
 	private static final String[] STEPS = {"ATTRIBUTES", "COMBAT SKILLS", "GENERAL SKILLS", "REVIEW"};
 	private static final int ATTRIBUTES = 0, COMBAT = 1, GENERAL = 2, REVIEW = 3;
 
@@ -36,19 +36,16 @@ public final class CharacterCreationScreen {
 	private static final int NAME_BOX_Y = Canvas.HEIGHT / 2 - 1;
 
 	private static final int PIP_EMPTY = Palette.mix(Palette.BG, Palette.MUTED, 0.6);
-
+	
 	/** the [-] and [+] areas of a row; a click elsewhere on the row only focuses it */
-	private enum Part { MINUS, PLUS }
+	private enum Type { MINUS, PLUS }
 
-	private final UIHandler ui;
-	private final Canvas canvas;
 	private Player.Builder builder;
 	private int step = ATTRIBUTES;
 	private int focus = 0; //focused row
 
 	public CharacterCreationScreen(UIHandler ui) {
-		this.ui = ui;
-		canvas = ui.getCanvas();
+		super(ui, "CREATE YOUR CHARACTER");
 	}
 
 	/** returns the new player, or null if the player left for the main menu */
@@ -69,7 +66,7 @@ public final class CharacterCreationScreen {
 	private boolean askName() {
 		StringBuilder name = new StringBuilder();
 		while (true) {
-			drawNameEntry(name.toString());
+			drawNameFrame(name.toString());
 			UIHandler.Input in = ui.readInput();
 			switch (in.inputKey()) {
 			case CHAR -> {
@@ -100,27 +97,10 @@ public final class CharacterCreationScreen {
 		}
 	}
 
-	/** question, input box with the typed name and a caret, centered */
-	private void drawNameEntry(String name) {
-		ui.clearButtons();
-		canvas.clear(Palette.BG);
-		canvas.drawFrame();
-		canvas.drawText(2, 0, " CREATE YOUR CHARACTER ", Palette.KEY);
-		canvas.drawTextCentered(NAME_BOX_Y - 3, "What is your name, adventurer?", Palette.TEXT);
-		canvas.drawBox(NAME_BOX_X, NAME_BOX_Y, NAME_BOX_W, 3, Palette.KEY);
-		canvas.drawText(NAME_BOX_X + 2, NAME_BOX_Y + 1, name, Palette.TEXT);
-		canvas.drawText(NAME_BOX_X + 2 + name.length(), NAME_BOX_Y + 1, "_", Palette.KEY); //caret
-		canvas.drawHints(List.of(
-				Map.entry("ENTER", "confirm"),
-				Map.entry("BACKSPACE", "delete"),
-				Map.entry("ESC", "main menu")));
-		ui.present();
-	}
-
 	/** runs the allocation steps; returns the built player, or null if the player backed out of the first step */
 	private Player allocate() {
 		while (true) {
-			draw();
+			drawAllocationFrame();
 			UIHandler.Input in = ui.readInput();
 			List<Enum<?>> rows = rows();
 			switch (in.inputKey()) {
@@ -140,13 +120,13 @@ public final class CharacterCreationScreen {
 				}
 			}
 			case HOVER -> {
-				UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
+				UIHandler.Button b = in.button();
 				if (b != null && b.index() < rows.size()) {
 					focus = b.index();
 				}
 			}
 			case CLICK -> {
-				UIHandler.Button b = ui.getSelectedButton(in.x(), in.y());
+				UIHandler.Button b = in.button();
 				if (b == null) {
 					break;
 				}
@@ -161,9 +141,9 @@ public final class CharacterCreationScreen {
 					}
 				} else {
 					focus = b.index();
-					if (b.type() == Part.MINUS) {
+					if (b.type() == Type.MINUS) {
 						adjustStat(rows, focus, -1);
-					} else if (b.type() == Part.PLUS) {
+					} else if (b.type() == Type.PLUS) {
 						adjustStat(rows, focus, +1);
 					}
 				}
@@ -182,7 +162,7 @@ public final class CharacterCreationScreen {
 		if (step == REVIEW) {
 			Player player = builder.build();
 			ui.showSuccess("Starting your adventure...");
-			draw(); //keep this screen up with the message while the story request runs
+			drawAllocationFrame(); //keep this screen up with the message while the story request runs
 			return player;
 		}
 		step++;
@@ -267,18 +247,24 @@ public final class CharacterCreationScreen {
 		};
 	}
 
-	private int maxHp() {
-		return StatRules.getPlayerMaxHp(1, builder.getAttribute(Attribute.CON));
-	}
-
 
 	//drawing
-	private void draw() {
-		ui.clearButtons();
-		canvas.clear(Palette.BG);
-
-		canvas.drawFrame();
-		canvas.drawText(2, 0, " CREATE YOUR CHARACTER ", Palette.KEY);
+	/** question, input box with the typed name and a caret, centered */
+	private void drawNameFrame(String name) {
+		beginFrame();
+		canvas.drawTextCentered(NAME_BOX_Y - 3, "What is your name, adventurer?", Palette.TEXT);
+		canvas.drawBox(NAME_BOX_X, NAME_BOX_Y, NAME_BOX_W, 3, Palette.KEY);
+		canvas.drawText(NAME_BOX_X + 2, NAME_BOX_Y + 1, name, Palette.TEXT);
+		canvas.drawText(NAME_BOX_X + 2 + name.length(), NAME_BOX_Y + 1, "_", Palette.KEY); //caret
+		canvas.drawHints(List.of(
+				Map.entry("ENTER", "Confirm"),
+				Map.entry("BACKSPACE", "Delete"),
+				Map.entry("ESC", "Main Menu")));
+		ui.present();
+	}
+	
+	private void drawAllocationFrame() {
+		beginFrame();
 		drawStepBar();
 
 		//draw rows
@@ -301,11 +287,10 @@ public final class CharacterCreationScreen {
 
 
 		canvas.drawHints(List.of(
-				Map.entry("↑/↓", "move"),
+				Map.entry("↑/↓", "Move"),
 				Map.entry("←/→", "- / +"),
-				Map.entry("Click", "select"),
-				Map.entry("ENTER", step == REVIEW ? "confirm" : "next"),
-				Map.entry("ESC", "back")));
+				Map.entry("ENTER", step == REVIEW ? "Confirm" : "Next"),
+				Map.entry("ESC", "Back")));
 		ui.present();
 	}
 
@@ -399,8 +384,8 @@ public final class CharacterCreationScreen {
 		canvas.drawText(valueX, y, "%2d".formatted(value), Palette.TEXT, bg);
 
 		//specific areas first: the first matching area wins
-		ui.addButton(minusX, y, 3, 1, new UIHandler.Button(index, Part.MINUS));
-		ui.addButton(plusX, y, 3, 1, new UIHandler.Button(index, Part.PLUS));
+		ui.addButton(minusX, y, 3, 1, new UIHandler.Button(index, Type.MINUS));
+		ui.addButton(plusX, y, 3, 1, new UIHandler.Button(index, Type.PLUS));
 		ui.addButton(x, y, w, 1, new UIHandler.Button(index));
 	}
 
@@ -450,7 +435,7 @@ public final class CharacterCreationScreen {
 		int x = PANEL_X + 4;
 		int y = PANEL_Y + 2;
 		canvas.drawText(x, y, builder.getName(), Palette.KEY);
-		canvas.drawText(x, y + 1, "Level 1   Max HP " + maxHp(), Palette.TEXT);
+		canvas.drawText(x, y + 1, "Level 1   Max HP " + StatRules.getPlayerMaxHp(1, builder.getAttribute(Attribute.CON)), Palette.TEXT);
 
 		y += 3;
 		canvas.drawText(x, y++, "ATTRIBUTES", Palette.TAG);
