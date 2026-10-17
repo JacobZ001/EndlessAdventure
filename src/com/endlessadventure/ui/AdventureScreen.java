@@ -137,11 +137,6 @@ public final class AdventureScreen extends Screen {
 
 	
 	//drawing
-	/** text buttons at the right end of the header, right to left, split like the header's left side; their keys are in the hints */
-	private void drawToolbar() {
-
-	}
-
 	private void drawFrame() {
 		beginFrame();
 		
@@ -149,9 +144,8 @@ public final class AdventureScreen extends Screen {
 		String location = scene.getLocation().toUpperCase();
 		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TEXT);
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
-		//canvas.drawDivider(CONTENT_X, HEADER_Y + 1, CONTENT_W);
 		
-		//draw toolbar: after the rule, so a hovered button's underline lights up its part of the rule
+		//draw toolbar
 		String[] labels = {"MAIN MENU", "SAVE"};
 		Action[] actions = {Action.BACK, Action.SAVE};
 		String divider = "  |  ";
