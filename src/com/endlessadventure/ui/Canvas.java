@@ -41,39 +41,44 @@ public class Canvas {
 	}
 	
 	/** fills the are starting from {@code x, y} to {@code x + w, y + h} with whitespace with {@code c} */
-	void fill(int x, int y, int w, int h, int c) {
-		for (int i = y; i < y + h; i++) {
-			for (int j = x; j < x + w; j++) {
-				set(j, i, ' ', c, c);
+	void fill(int x, int y, int width, int height, int color) {
+		for (int i = y; i < y + height; i++) {
+			for (int j = x; j < x + width; j++) {
+				set(j, i, ' ', color, color);
 			}
 		}
 	}
 	
 	/** scrim: pull the colors of every cell in the rectangle toward the background */
-	void dim(int x, int y, int w, int h) {
-		for (int i = Math.max(0, y); i < Math.min(HEIGHT, y + h); i++) {
-			for (int j = Math.max(0, x); j < Math.min(WIDTH, x + w); j++) {
+	void dim(int x, int y, int width, int height) {
+		for (int i = Math.max(0, y); i < Math.min(HEIGHT, y + height); i++) {
+			for (int j = Math.max(0, x); j < Math.min(WIDTH, x + width); j++) {
 				set(j, i, characters[i][j], Palette.mix(foreground[i][j], Palette.BG, 0.65), Palette.mix(background[i][j], Palette.BG, 0.65));
 			}
 		}
 	}
 	
+	/** overload of dim that defaults to dim the whole canvas */
+	void dim() {
+		dim(0, 0, WIDTH, HEIGHT);
+	}
+	
 	/** draws a box border at x,y with width w and height h */
-	void drawBox(int x, int y, int w, int h, int fg) {
-		if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > WIDTH || y + h > HEIGHT) {
+	void drawBox(int x, int y, int width, int height, int fg) {
+		if (x < 0 || y < 0 || width < 0 || height < 0 || x + width > WIDTH || y + height > HEIGHT) {
 			throw new IllegalArgumentException(
-					"Illegal dimensions: box out of bound at (%d,%d), W = %d H = %d)".formatted(x, y, w, h));
+					"Illegal dimensions: box out of bound at (%d,%d), W = %d H = %d)".formatted(x, y, width, height));
 		}
-		for (int i = y; i < y + h; i++) {
-			if (i == y || i == y + h - 1) {
-				for (int j = x; j < x + w; j++) {
+		for (int i = y; i < y + height; i++) {
+			if (i == y || i == y + height - 1) {
+				for (int j = x; j < x + width; j++) {
 					if (i == y && j == x) {
 						set(j, i, CORNERS[0], fg, Palette.BG);
-					} else if (i == y && j == x + w - 1) {
+					} else if (i == y && j == x + width - 1) {
 						set(j, i, CORNERS[1], fg, Palette.BG);
-					} else if (i == y + (h - 1) && j == x) {
+					} else if (i == y + (height - 1) && j == x) {
 						set(j, i, CORNERS[2], fg, Palette.BG);
-					} else if (i == y + (h - 1) && j == x + w - 1) {
+					} else if (i == y + (height - 1) && j == x + width - 1) {
 						set(j, i, CORNERS[3], fg, Palette.BG);
 					} else {
 						set(j, i, ROW_BORDER, fg, Palette.BG);
@@ -81,7 +86,7 @@ public class Canvas {
 				}
 			} else {
 				set(x, i, COL_BORDER, fg, Palette.BG);
-				set(x + w - 1, i, COL_BORDER, fg, Palette.BG);
+				set(x + width - 1, i, COL_BORDER, fg, Palette.BG);
 			}
 		}
 	}
@@ -92,22 +97,22 @@ public class Canvas {
 	}
 	
 	/** draw a divider from x,y to x+w, y*/
-	void drawDivider(int x, int y, int w) {
-		for(int i = 0; i < w; i++) {
+	void drawDivider(int x, int y, int width) {
+		for(int i = 0; i < width; i++) {
 			set(x + i, y, ROW_BORDER, Palette.LINE, Palette.BG);
 		}
 	}
 
 	/** draw the given string in the canvas grid at x,y cut off at edge */
-	void drawText(int x, int y, String s, int fg, int bg) {
-		for (int i = 0; i < s.length() && x + i < WIDTH; i++) {
-			set(x + i, y, s.charAt(i), fg, bg);
+	void drawText(int x, int y, String text, int fg, int bg) {
+		for (int i = 0; i < text.length() && x + i < WIDTH; i++) {
+			set(x + i, y, text.charAt(i), fg, bg);
 		}
 	}
 	
 	/** overload of drawText with default bg */
-	void drawText(int x, int y, String s, int fg) {
-		drawText(x, y, s, fg, Palette.BG);
+	void drawText(int x, int y, String text, int fg) {
+		drawText(x, y, text, fg, Palette.BG);
 	}
 	
 	/** write text centered horizontally on canvas row y */
@@ -178,7 +183,7 @@ public class Canvas {
 	
 	//pixel drawing
 	/** draw the pixel at px,py */
-	void drawPixel(int px, int py, int rgb) {
+	void drawPixel(int px, int py, int color) {
 		int y = py / 2;
 		if (px < 0 || px >= WIDTH || py < 0 || y >= HEIGHT) {
 			return;
@@ -188,9 +193,9 @@ public class Canvas {
 			foreground[y][px] = background[y][px];
 		}
 		if (py % 2 == 0) {
-			foreground[y][px] = rgb;
+			foreground[y][px] = color;
 		} else {
-			background[y][px] = rgb;
+			background[y][px] = color;
 		}
 	}
 	

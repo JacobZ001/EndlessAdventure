@@ -22,9 +22,7 @@ public final class MainMenuScreen extends Screen {
 			"#...#.#...#..#.#..#.....#..##...#...#...#.#.#...#....",
 			"#...#.#...#..#.#..#.....#..##...#...#...#.#..#..#....",
 			"#...#.####....#...#####.#...#...#....###..#...#.#####"};
-
-	private static final Choice[] CHOICES = Choice.values();
-
+	
 	public enum Choice {
 		NEW_GAME("New Game"),
 		LOAD_GAME("Load Game"),
@@ -36,9 +34,11 @@ public final class MainMenuScreen extends Screen {
 			this.label = label;
 		}
 	}
+	
+	private static final Choice[] CHOICES = Choice.values();
 
 	private final boolean hasSave;
-	private int selected = 0;
+	private int focus = 0;
 
 	public MainMenuScreen(UIHandler ui, boolean hasSave) {
 		super(ui, null);
@@ -52,25 +52,12 @@ public final class MainMenuScreen extends Screen {
 			UIHandler.Input in = ui.readInput();
 			int choice = -1;
 			switch (in.inputKey()) {
-				case UP -> selected = Math.floorMod(selected - 1, CHOICES.length);
-				case DOWN -> selected = Math.floorMod(selected + 1, CHOICES.length);
-				case ENTER -> choice = selected;
-				case CHAR -> {
-					int digit = in.digit();
-					if (digit >= 0 && digit < CHOICES.length) {
-						choice = digit;
-					}
-				}
+				case UP, DOWN, HOVER -> focus = moveFocus(in, focus, CHOICES.length);
+				case ENTER -> choice = focus;
+				case CHAR -> choice = in.digit(CHOICES.length);
 				case CLICK -> {
-					UIHandler.Button b = in.button();
-					if (b != null) {
-						choice = b.index();
-					}
-				}
-				case HOVER -> {
-					UIHandler.Button b = in.button();
-					if (b != null) {
-						selected = b.index();
+					if (in.button() != null) {
+						choice = in.button().index();
 					}
 				}
 				default -> {}
@@ -97,27 +84,17 @@ public final class MainMenuScreen extends Screen {
 		y += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
 		canvas.drawTextCentered(y, "────────────────────  +  ────────────────────", Palette.MUTED);
 
-		int x = (Canvas.WIDTH / 2) - 7;
+		int x = (Canvas.WIDTH / 2) - 9;
 		y += 5;
 		for (int i = 0; i < CHOICES.length; i++) {
 			boolean enabled = CHOICES[i] != Choice.LOAD_GAME || hasSave; //Load Game is dimmed without saves
-			boolean focused = i == selected;
-
-			int width = 20;
-			int rowBg = focused ? Palette.FOCUSED_BG : Palette.BG;
-
-			canvas.drawText(x - 2, y, " ".repeat(width), rowBg, rowBg); //highlight bar
-			canvas.drawText(x, y, "[" + (i + 1) + "]", enabled ? Palette.KEY : Palette.MUTED, rowBg);
-			canvas.drawText(x + 5, y, CHOICES[i].label, enabled ? Palette.TEXT : Palette.MUTED, rowBg);
-			ui.addButton(x - 2, y, width, 1, new UIHandler.Button(i));
-			
-			y+=2;
+			drawListRow(i, x, y, 20, String.valueOf(i + 1), CHOICES[i].label, i == focus, enabled);
+			y += 2;
 		}
 
-		canvas.drawHints(List.of(
+		endFrame(List.of(
 				Map.entry("1-" + CHOICES.length, "Select"),
 				Map.entry("↑/↓", "Move"),
 				Map.entry("ENTER", "Confirm")));
-		ui.present();
 	}
 }

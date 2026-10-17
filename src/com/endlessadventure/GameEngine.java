@@ -127,49 +127,29 @@ public class GameEngine {
 		if(gameState.getCurrentScene() == null) {
 			try {
 				gameState.setCurrentScene(storyGenerator.generateOpening(gameState));
+				ui.clearStatusMsg();
 			} catch (LlmRequestException e) {
 				ui.showError("Cannot process LLM request: " + e.getMessage());
 				return GameScreen.MAIN_MENU;
 			}
 		}
-		//TODO temp stub
-		AdventureScreen.Choice choice = new AdventureScreen(ui, gameState).run();
-		ui.showSuccess(choice.toString());
-		return GameScreen.MAIN_MENU;
 		
-//		String command = ui.prompt("Action ");
-//    	return switch(command) {
-//    		//TODO implement inventory and other adventure general commands
-//    		case "b","[b]" -> {
-//				String confirm = ui.prompt("Are you sure to return to the main menu? Unsaved progress may be lost. (y/n)");
-//				yield confirm.equals("y") || confirm.equals("yes") ? GameScreen.MAIN_MENU : GameScreen.ADVENTURE;
-//    		}
-//	    	case "s","[s]" -> GameScreen.WRITE_SAVE; 
-//			default -> {
-//				String action = getPlayerAction(command, gameState.getCurrentScene().getOptions());
-//				if(!action.isBlank() && action != null) {
-//					try {
-//						CurrentScene temp = gameState.getCurrentScene();
-//						gameState.setCurrentScene(storyGenerator.generateNext(gameState, action));
-//						gameState.addRecord(temp.toRecord(action));
-//						yield GameScreen.ADVENTURE;
-//					} catch (LlmRequestException e) {
-//						ui.showError("Cannot process LLM request: " + e.getMessage());
-//						yield GameScreen.ADVENTURE;
-//					}
-//				}
-//				yield handleGeneralCommand(command);
-//			}
-//    	};
-	}
-
-	private String getPlayerAction(String command, String[] options) {
-		for (int i = 0; i < options.length; i++) {
-			if (command.equals(Integer.toString(i + 1)) || command.equals("[%s]".formatted(Integer.toString(i + 1)))) {
-				return options[i];
+		AdventureScreen.Choice choice = new AdventureScreen(ui, gameState).run();
+		return switch(choice.action()) {
+			case ACT -> {
+				try {
+					CurrentScene previous = gameState.getCurrentScene();
+					gameState.setCurrentScene(storyGenerator.generateNext(gameState, choice.text()));
+					gameState.addRecord(previous.toRecord(choice.text()));
+					ui.clearStatusMsg();
+				} catch (LlmRequestException e) {
+					ui.showError("Cannot process LLM request: " + e.getMessage());
+				}
+				yield GameScreen.ADVENTURE;
 			}
-		}
-		return command.strip();
+			case BACK -> GameScreen.MAIN_MENU;
+			case SAVE -> GameScreen.WRITE_SAVE;
+		};
 	}
 
 	/** handle inventory screen */
@@ -182,14 +162,5 @@ public class GameEngine {
 	private GameScreen handleCombat() {
 		// TODO create handle combat
 		return GameScreen.ADVENTURE;
-	}
-
-	/**
-	 * handle general commands, return current screen and show warning if command is
-	 * not recognized
-	 */
-	private GameScreen handleGeneralCommand(String command) {
-		ui.showWarning("Unknown Command, please try again.");
-		return currentScreen;
 	}
 }

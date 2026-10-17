@@ -6,7 +6,6 @@ import com.endlessadventure.entity.Attribute;
 public final class Palette {
 	static final int BG = 0x0C1017;
 	static final int MUTED = 0x5A6274;	//frames, hints and disabled options
-	static final int FOCUSED_BG = mix(BG, MUTED, 0.5);
 	static final int LINE = mix(BG, MUTED, 0.45);
 	static final int TEXT = 0xD8DEE9;
 	static final int KEY = 0xE8C268;		//GOLD

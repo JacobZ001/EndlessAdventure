@@ -37,8 +37,8 @@ public final class CharacterCreationScreen extends Screen {
 
 	private static final int PIP_EMPTY = Palette.mix(Palette.BG, Palette.MUTED, 0.6);
 	
-	/** the [-] and [+] areas of a row; a click elsewhere on the row only focuses it */
-	private enum Type { MINUS, PLUS }
+	/** clickable actions: [-] and [+] on a row (a click elsewhere on the row only focuses it), and the two buttons */
+	private enum Action { MINUS, PLUS, BACK, NEXT }
 
 	private Player.Builder builder;
 	private int step = ATTRIBUTES;
@@ -64,35 +64,28 @@ public final class CharacterCreationScreen extends Screen {
 
 	/** asks for a name until it is valid; returns false if the player pressed Esc */
 	private boolean askName() {
-		StringBuilder name = new StringBuilder();
+		TextField name = new TextField(ui, NAME_BOX_W - 6, 1);
 		while (true) {
-			drawNameFrame(name.toString());
+			drawNameFrame(name);
 			UIHandler.Input in = ui.readInput();
+			if (name.handleInput(in)) {
+				continue; //typed or deleted a character
+			}
 			switch (in.inputKey()) {
-			case CHAR -> {
-				if (name.length() < NAME_BOX_W - 6) {
-					name.append(in.ch());
+				case ESC -> {
+					return false;
 				}
-			}
-			case BACKSPACE -> {
-				if (!name.isEmpty()) {
-					name.setLength(name.length() - 1);
+				case ENTER -> {
+					try {
+						builder = new Player.Builder(name.text());
+						step = ATTRIBUTES;
+						focus = 0;
+						return true;
+					} catch (IllegalArgumentException e) {
+						ui.showWarning(e.getMessage());
+					}
 				}
-			}
-			case ESC -> {
-				return false;
-			}
-			case ENTER -> {
-				try {
-					builder = new Player.Builder(name.toString());
-					step = ATTRIBUTES;
-					focus = 0;
-					return true;
-				} catch (IllegalArgumentException e) {
-					ui.showWarning(e.getMessage());
-				}
-			}
-			default -> {}
+				default -> {}
 			}
 		}
 	}
@@ -103,52 +96,40 @@ public final class CharacterCreationScreen extends Screen {
 			drawAllocationFrame();
 			UIHandler.Input in = ui.readInput();
 			List<Enum<?>> rows = rows();
+			
 			switch (in.inputKey()) {
-			case UP -> focus = Math.max(0, focus - 1);
-			case DOWN -> focus = Math.min(rows.size() - 1, focus + 1);
-			case LEFT -> adjustStat(rows, focus, -1);
-			case RIGHT -> adjustStat(rows, focus, +1);
-			case ENTER -> {
-				Player p = next();
-				if (p != null) {
-					return p;
+				case UP, DOWN, HOVER -> focus = moveFocus(in, focus, rows.size());
+				case LEFT -> adjustStat(rows, focus, -1);
+				case RIGHT -> adjustStat(rows, focus, +1);
+				case ENTER -> {
+					if (next() instanceof Player p) {
+						return p;
+					}
 				}
-			}
-			case ESC -> {
-				if (!back()) {
-					return null;
-				}
-			}
-			case HOVER -> {
-				UIHandler.Button b = in.button();
-				if (b != null && b.index() < rows.size()) {
-					focus = b.index();
-				}
-			}
-			case CLICK -> {
-				UIHandler.Button b = in.button();
-				if (b == null) {
-					break;
-				}
-				if (b.index() == rows.size()) { //BACK
+				case ESC -> {
 					if (!back()) {
 						return null;
 					}
-				} else if (b.index() == rows.size() + 1) { //NEXT or CONFIRM
-					Player p = next();
-					if (p != null) {
-						return p;
-					}
-				} else {
-					focus = b.index();
-					if (b.type() == Type.MINUS) {
-						adjustStat(rows, focus, -1);
-					} else if (b.type() == Type.PLUS) {
-						adjustStat(rows, focus, +1);
+				}
+				case CLICK -> {
+					if (in.button() instanceof Button b && b.action() instanceof Action a) {
+						switch(a) {
+							case BACK -> {
+								if (!back()) {
+									return null;
+								}
+							}
+							case NEXT -> {
+								if (next() instanceof Player p) {
+									return p;
+								}
+							}
+							case MINUS -> adjustStat(rows, focus, -1);
+							case PLUS -> adjustStat(rows, focus, +1);
+						}
 					}
 				}
-			}
-			default -> {}
+				default -> {}
 			}
 		}
 	}
@@ -250,17 +231,15 @@ public final class CharacterCreationScreen extends Screen {
 
 	//drawing
 	/** question, input box with the typed name and a caret, centered */
-	private void drawNameFrame(String name) {
+	private void drawNameFrame(TextField name) {
 		beginFrame();
 		canvas.drawTextCentered(NAME_BOX_Y - 3, "What is your name, adventurer?", Palette.TEXT);
 		canvas.drawBox(NAME_BOX_X, NAME_BOX_Y, NAME_BOX_W, 3, Palette.KEY);
-		canvas.drawText(NAME_BOX_X + 2, NAME_BOX_Y + 1, name, Palette.TEXT);
-		canvas.drawText(NAME_BOX_X + 2 + name.length(), NAME_BOX_Y + 1, "_", Palette.KEY); //caret
-		canvas.drawHints(List.of(
+		name.draw(canvas, NAME_BOX_X + 2, NAME_BOX_Y + 1, Palette.TEXT, true);
+		endFrame(List.of(
 				Map.entry("ENTER", "Confirm"),
 				Map.entry("BACKSPACE", "Delete"),
 				Map.entry("ESC", "Main Menu")));
-		ui.present();
 	}
 	
 	private void drawAllocationFrame() {
@@ -277,21 +256,19 @@ public final class CharacterCreationScreen extends Screen {
 		}
 
 		//draw BACK and NEXT buttons
-		//buttons come after the rows so their indices are rows.size() and rows.size() + 1
 		boolean complete = remaining(step) == 0;
-		ui.drawButton(BACK_X, BUTTON_Y, "BACK", true,new UIHandler.Button(rows.size()));
-		ui.drawButton(NEXT_X, BUTTON_Y, step == REVIEW ? "CONFIRM" : "NEXT", complete, new UIHandler.Button(rows.size() + 1));
+		ui.drawButton(BACK_X, BUTTON_Y, "BACK", true, new Button(Action.BACK));
+		ui.drawButton(NEXT_X, BUTTON_Y, step == REVIEW ? "CONFIRM" : "NEXT", complete, new Button(Action.NEXT));
 		if (step != REVIEW) {
 			drawPointsLeft();
 		}
 
 
-		canvas.drawHints(List.of(
+		endFrame(List.of(
 				Map.entry("↑/↓", "Move"),
 				Map.entry("←/→", "- / +"),
 				Map.entry("ENTER", step == REVIEW ? "Confirm" : "Next"),
 				Map.entry("ESC", "Back")));
-		ui.present();
 	}
 
 	private void drawStepBar() {
@@ -362,12 +339,13 @@ public final class CharacterCreationScreen extends Screen {
 	 *  the attribute colors the tag and the filled pips; general skills hide the tag because their group header shows it */
 	private void drawRow(int index, int x, int y, int w, String label, Attribute attribute, boolean showTag, int value, int cap, int left) {
 		boolean focused = index == focus;
-		int bg = focused ? Palette.FOCUSED_BG : Palette.BG;
 		int attributeColor = Palette.getAttributeColor(attribute);
-		canvas.drawText(x, y, " ".repeat(w), bg, bg); //highlight
-		canvas.drawText(x + 2, y, label, focused ? Palette.KEY : Palette.TEXT, bg);
+		if (focused) {
+			canvas.drawText(x, y, FOCUS_INDICATOR, Palette.KEY);
+		}
+		canvas.drawText(x + 2, y, label, focused ? Palette.KEY : Palette.TEXT);
 		if (showTag) {
-			canvas.drawText(x + 22, y, attribute.name(), attributeColor, bg);
+			canvas.drawText(x + 22, y, attribute.name(), attributeColor);
 		}
 
 		//right-aligned group: [-] pips [+] value
@@ -375,18 +353,18 @@ public final class CharacterCreationScreen extends Screen {
 		int plusX = valueX - 5;
 		int pipsX = plusX - 2 - (cap * 2 - 1);
 		int minusX = pipsX - 5;
-		canvas.drawText(minusX, y, "[-]", value > 0 ? Palette.KEY : Palette.MUTED, bg);
+		canvas.drawText(minusX, y, "[-]", value > 0 ? Palette.KEY : Palette.MUTED);
 		for (int i = 0; i < cap; i++) {
 			//a lower half block is a square half a row tall, so stacked rows stay visibly apart
-			canvas.drawText(pipsX + i * 2, y, "\u2584", i < value ? Palette.KEY : PIP_EMPTY, bg);
+			canvas.drawText(pipsX + i * 2, y, "\u2584", i < value ? Palette.KEY : PIP_EMPTY);
 		}
-		canvas.drawText(plusX, y, "[+]", left > 0 && value < cap ? Palette.KEY : Palette.MUTED, bg);
-		canvas.drawText(valueX, y, "%2d".formatted(value), Palette.TEXT, bg);
+		canvas.drawText(plusX, y, "[+]", left > 0 && value < cap ? Palette.KEY : Palette.MUTED);
+		canvas.drawText(valueX, y, "%2d".formatted(value), Palette.TEXT);
 
 		//specific areas first: the first matching area wins
-		ui.addButton(minusX, y, 3, 1, new UIHandler.Button(index, Type.MINUS));
-		ui.addButton(plusX, y, 3, 1, new UIHandler.Button(index, Type.PLUS));
-		ui.addButton(x, y, w, 1, new UIHandler.Button(index));
+		ui.addButton(minusX, y, 3, 1, new Button(index, Action.MINUS));
+		ui.addButton(plusX, y, 3, 1, new Button(index, Action.PLUS));
+		ui.addButton(x, y, w, 1, new Button(index));
 	}
 
 	/** points left in this step, at the left of the action bar, level with the button labels */

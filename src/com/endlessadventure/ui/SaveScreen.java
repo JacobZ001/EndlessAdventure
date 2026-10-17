@@ -25,6 +25,7 @@ public final class SaveScreen extends Screen {
 	private final Mode mode;
 	private final SlotOverview[] slots;
 	private int selected;
+	private int hovered;
 	
 	public SaveScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
 		super(ui, mode.toString() + " GAME");
@@ -39,35 +40,30 @@ public final class SaveScreen extends Screen {
 			UIHandler.Input in = ui.readInput();
 			Action action = null;
 			switch(in.inputKey()) {
-				case UP -> selected = Math.floorMod(selected - 1, slots.length);
-				case DOWN -> selected = Math.floorMod(selected + 1, slots.length);
+				case UP, DOWN -> selected = moveFocus(in, selected, slots.length); //no HOVER: cards are objects, see moveFocus
+				case HOVER -> hovered = moveFocus(in, hovered, slots.length);
 				case ENTER -> action = Action.CONFIRM;
 				case ESC -> action = Action.BACK;
 				case DEL -> action = Action.DELETE;
 				case CHAR -> {
-					int digit = in.digit();
-					if (digit >= 0 && digit < slots.length) {
+					int digit = in.digit(slots.length);
+					if (digit >= 0) {
 						selected = digit;
 					}
 				}
 				case CLICK -> {
-					UIHandler.Button b = in.button();
-					if (b != null){
-						if(b.index() >= SaveManager.SLOT_COUNT) {
-							action = Action.values()[b.index() - SaveManager.SLOT_COUNT];
-						}
-						else {
-							selected = b.index();
+					if (in.button() instanceof Button b) {
+						if (b.action() instanceof Action a) {
+							action = a; //a button
+						} else {
+							selected = b.index(); //a card
 						}
 					}
 				}
 			default -> {}
 			}
-			if(action != null) {
-				Choice choice = act(action);
-				if (choice != null) {
-					return choice;
-				}
+			if(action != null && act(action) instanceof Choice c) {
+				return c;
 			}
 		}
 	}
@@ -122,9 +118,10 @@ public final class SaveScreen extends Screen {
 			SlotOverview slot = slots[i];
 
 			boolean focused = i == selected;
-			int frameColor = focused ? Palette.KEY : Palette.LINE;
-			int numberColor = focused ? Palette.KEY : Palette.MUTED;
-			int tagColor = focused ? Palette.TAG : Palette.MUTED;
+			boolean h = i == hovered;
+			int frameColor = focused ? Palette.KEY : h? Palette.MUTED : Palette.LINE;
+			int markerColor = focused ? Palette.KEY : h? Palette.TEXT :Palette.MUTED;
+			int locationColor = focused ? Palette.TAG : h? Palette.TEXT : Palette.MUTED;
 			int textColor = switch (slot.status()) {
 			    case READABLE -> focused ? Palette.KEY : Palette.TEXT;
 			    case EMPTY -> Palette.MUTED;
@@ -132,7 +129,7 @@ public final class SaveScreen extends Screen {
 			};
 			
 			canvas.drawBox(CARD_X, y, CARD_W, CARD_H, frameColor);
-			canvas.drawText(CARD_X + CARD_P, y+2 , String.valueOf(i+1), numberColor);
+			canvas.drawText(CARD_X + CARD_P, y+2 , String.valueOf(i+1), markerColor);
 			
 			int x = CARD_X + CARD_P + 5;
 			String content = switch(slot.status()){
@@ -140,14 +137,15 @@ public final class SaveScreen extends Screen {
 				case EMPTY -> "Empty Slot";
 				case CORRUPT -> "Unreadable Save";
 			};
+			
 			canvas.drawText(x, y+2, content, textColor);
 			if(slot.status() == SlotStatus.READABLE) {
 				String info = info(slot);
 				canvas.drawText(CARD_X + CARD_W - CARD_P - info.length(), y+2, info, Palette.MUTED);
-				canvas.drawText(x, y+4, slot.location(), tagColor);
+				canvas.drawText(x, y+4, slot.location(), locationColor);
 			}
 			
-			ui.addButton(CARD_X, y, CARD_W, CARD_H, new UIHandler.Button(i));
+			ui.addButton(CARD_X, y, CARD_W, CARD_H, new Button(i));
 			y += CARD_STEP;
 
 		}
@@ -158,18 +156,15 @@ public final class SaveScreen extends Screen {
 		
 		for(int i=0; i < labels.length; i++) {
 			int x = BUTTON_X + i * (Canvas.BUTTON_WIDTH + BUTTON_SPACING);
-			int abs_i = SaveManager.SLOT_COUNT + i;
-			
-			ui.drawButton(x, BUTTON_Y, labels[i], enabled[i], new UIHandler.Button(abs_i));
+			ui.drawButton(x, BUTTON_Y, labels[i], enabled[i], new Button(Action.values()[i])); //labels follow Action order
 		}
 		String modeHint = Character.toUpperCase(mode.toString().charAt(0)) + mode.toString().substring(1);
-		canvas.drawHints(List.of(
+		endFrame(List.of(
 				Map.entry("1-" + slots.length, "Select"),
 				Map.entry("↑/↓", "Move"),
 				Map.entry("ENTER", modeHint),
 				Map.entry("DEL","Delete"),
 				Map.entry("ESC","Back")));
-		ui.present();
 	}
 
 	private boolean canConfirm() {

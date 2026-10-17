@@ -2,7 +2,6 @@ package com.endlessadventure.ui;
 
 import java.util.List;
 
-import com.endlessadventure.ui.UIHandler.Button;
 
 /** a modal yes/no box drawn over the current frame; returns true if the player confirms */
 final class ConfirmDialog {
@@ -17,7 +16,7 @@ final class ConfirmDialog {
 		int top = (Canvas.HEIGHT - height) / 2;
 
 		Canvas canvas = ui.getCanvas();
-		canvas.dim(0, 0, Canvas.WIDTH, Canvas.HEIGHT);
+		canvas.dim();
 
 		while(true) {
 			ui.clearButtons(); //disable screen's buttons until the dialog is done
@@ -53,7 +52,7 @@ final class ConfirmDialog {
 					return false;
 				}
 				case CLICK -> {
-					UIHandler.Button b = in.button();
+					Button b = in.button();
 					if (b != null) {
 						return b.index() == 0;
 					}

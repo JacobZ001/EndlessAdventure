@@ -6,7 +6,6 @@ import java.util.Map;
 import com.endlessadventure.GameState;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.story.CurrentScene;
-import com.endlessadventure.ui.UIHandler.Button;
 
 public final class AdventureScreen extends Screen {
 	private static final int CONTENT_W = 150,
@@ -18,9 +17,7 @@ public final class AdventureScreen extends Screen {
 							 DES_LINES = 4, //500 characters at width 150; more is cut
 							 INS_Y = 39,
 							 OPT_Y = INS_Y + 2, //41, one option every 2 rows
-							 OPTION_NUM_X = CONTENT_X + 3,
-							 OPTION_TEXT_X = OPTION_NUM_X + 4,
-							 INPUT_W = CONTENT_X + CONTENT_W - OPTION_TEXT_X,
+							 INPUT_W = CONTENT_W - ROW_TEXT_OFFSET, //inputField text lines up with the option texts
 							 INPUT_LINES = 2; //right after the last option: rows 47-48 with 3 options
 	
 	public enum Action { ACT, SAVE, BACK }
@@ -29,15 +26,20 @@ public final class AdventureScreen extends Screen {
 	private final CurrentScene scene;
 	private final Player player;
 	private final String[] options;
-	private int selected = 0; // option
-	private StringBuilder typed = new StringBuilder();
-	private boolean isTyping = false;
+	private final TextField inputField;
+	private int focus = 0; //0..options.length - 1: an option; options.length: the inputField row
+	private boolean waiting = false;
 
 	public AdventureScreen(UIHandler ui, GameState state) {
 		super(ui, "ENDLESS ADVENTURE");
 		scene = state.getCurrentScene();
 		player = state.getPlayer();
 		options = scene.getOptions();
+		inputField = new TextField(ui, INPUT_W, INPUT_LINES);
+	}
+	
+	private boolean typing() {
+		return focus == options.length;
 	}
 
 	public Choice run() {
@@ -45,47 +47,56 @@ public final class AdventureScreen extends Screen {
 			drawFrame();
 			UIHandler.Input in = ui.readInput();
 			Action action = null;
+			if (typing() && inputField.handleInput(in)) {
+				continue; //typed or deleted a character
+			}
 			switch (in.inputKey()) {
-				case UP -> selected = Math.floorMod(selected - 1, options.length + 1);
-				case DOWN -> selected = Math.floorMod(selected + 1, options.length + 1);
-				case ENTER -> action = Action.ACT;
-				case ESC -> action = Action.BACK;
-				case CHAR -> {
-					int digit = in.digit();
-					if(isTyping) {
-						if(fits(typed.toString() + in.ch())) {
-							typed.append(in.ch());
-						}
-						else {
-							ui.showWarning("The input box is full.");
-							continue;
-						}
+				case UP, DOWN -> focus = moveFocus(in, focus, options.length + 1);
+				case HOVER -> {
+					if (!typing()) {
+						focus = moveFocus(in, focus, options.length); //hovering never leaves or enters the inputField row
 					}
-					else if (digit >= 0 && digit < options.length) {
-						selected = digit;
+				}
+				case ENTER -> action = Action.ACT;
+				case ESC -> {
+					if (typing()) {
+						focus = options.length - 1; //leave the inputField row; the typed text stays
+					} else {
+						action = Action.BACK;
+					}
+				}
+				case CHAR -> {
+					int digit = in.digit(options.length);
+					if (digit >= 0) {
+						focus = digit;
+						action = Action.ACT;
+					}
+					else if(!typing()) {
+						switch(Character.toUpperCase(in.ch())){
+							case 'S' -> action = Action.SAVE;
+							//TODO implement other hot keys
+						}
 					}
 				}
 				case CLICK -> {
-					UIHandler.Button b = in.button();
-					if (b != null) {
-						selected = b.index();
-					}
-				}
-				case HOVER -> {}
-				case BACKSPACE -> {
-					if(isTyping && !typed.isEmpty()) {
-						typed.deleteCharAt(typed.length()-1);
+					if (in.button() instanceof Button b) {
+						if(b.action() instanceof Action a) {
+							action = a;
+						}
+						else if(b.index() >= 0) {
+							//an option acts at once; the inputField row only takes the focus
+							focus = b.index();
+							if (!typing()) {
+								action = Action.ACT; 
+							}
+						}
 					}
 				}
 				default -> {}
 			}
-			
-			isTyping = selected == options.length;
-			if (action != null) {
-				Choice choice = act(action);
-				if (choice != null) {
-					return choice;
-				}
+
+			if(action != null && act(action) instanceof Choice c) {
+				return c;
 			}
 		}
 	}
@@ -94,9 +105,9 @@ public final class AdventureScreen extends Screen {
 		return switch(a) {
 			case ACT -> {
 				String playerAction;
-				if(isTyping) {
-					if(!typed.isEmpty()) {
-						playerAction = typed.toString().strip();
+				if(typing()) {
+					if(!inputField.text().isBlank()) {
+						playerAction = inputField.text().strip();
 					}
 					else {
 						ui.showWarning("Describe your action to proceed.");
@@ -104,8 +115,11 @@ public final class AdventureScreen extends Screen {
 					}
 				}
 				else {
-					playerAction = options[selected];
+					playerAction = options[focus];
 				}
+				ui.showSuccess("The story continues...");
+				waiting = true;
+				drawFrame();
 				yield new Choice(Action.ACT, playerAction);
 			}
 			case SAVE -> new Choice(Action.SAVE, null);
@@ -126,13 +140,19 @@ public final class AdventureScreen extends Screen {
 	private void drawFrame() {
 		beginFrame();
 		
-		//draw top panel
+		//draw header
 		String location = scene.getLocation();
-		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.KEY);
+		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TAG);
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  Turn " + scene.getTurn(), Palette.MUTED);
 		
+		//draw toolbar
+		int x = CONTENT_X + CONTENT_W - ui.getTextButtonWidth("ESC", "Main Menu");
+		ui.drawTextButton(x, HEADER_Y, "ESC", "Main Menu", new Button(Action.BACK));
+		x -= 3 + ui.getTextButtonWidth("S", "Save");
+		ui.drawTextButton(x, HEADER_Y, "S", "Save", new Button(Action.SAVE));
+		
 		//TODO draw scene visuals, stub for now
-		canvas.fill(CONTENT_X, ART_Y, CONTENT_W, ART_H, Palette.FOCUSED_BG);
+		canvas.fill(CONTENT_X, ART_Y, CONTENT_W, ART_H, Palette.LINE);
 		
 		//draw description
 		List<String> description = Canvas.wrapText(scene.getDescription(), CONTENT_W);
@@ -148,44 +168,39 @@ public final class AdventureScreen extends Screen {
 		//draw options
 		int y = OPT_Y;
 		for(int i = 0; i < options.length; i++) {
-			canvas.drawText(OPTION_NUM_X, y, String.valueOf(i+1), selected == i? Palette.KEY : Palette.MUTED);
-			canvas.drawText(OPTION_TEXT_X, y, options[i], selected == i? Palette.KEY : Palette.TEXT);
-			ui.addButton(CONTENT_X, y, CONTENT_W, 1, new Button(i));
+			drawListRow(i, CONTENT_X, y, CONTENT_W, String.valueOf(i + 1), options[i], focus == i, true);
 			y += 2;
 		}
 		
-		//draw freeform input right after the options
-		boolean highlighted = selected == options.length;
-		int color = highlighted? Palette.KEY : Palette.MUTED;
-		canvas.drawText(OPTION_NUM_X, y, ">", color);
-		if (typed.isEmpty() && !highlighted) {
-			canvas.drawText(OPTION_TEXT_X, y, "Or describe your own action...", color);
+		//draw freeform inputField right after the options, in the same row style
+		if (typing()) {
+			canvas.drawText(CONTENT_X, y, FOCUS_INDICATOR, Palette.KEY);
+		}
+		canvas.drawText(CONTENT_X + ROW_MARKER_OFFSET, y, ">", typing() ? Palette.KEY : Palette.MUTED);
+		if (inputField.isEmpty() && !typing()) {
+			canvas.drawText(CONTENT_X + ROW_TEXT_OFFSET, y, "Or describe your own action...", Palette.MUTED);
 		} else {
-			List<String> inputLines = Canvas.wrapText(typed.toString(), INPUT_W);
-			for(int i = 0; i < inputLines.size(); i++) {
-				canvas.drawText(OPTION_TEXT_X, y + i, inputLines.get(i), color);
-			}
-			if(highlighted) {
-				//wrapText drops trailing spaces; move the caret one cell so a typed space shows
-				String last = inputLines.getLast();
-				boolean space = !last.isEmpty() && typed.charAt(typed.length() - 1) == ' ' && last.length() < INPUT_W;
-				int caretX = OPTION_TEXT_X + last.length() + (space ? 1 : 0);
-				canvas.drawText(caretX, y + inputLines.size() - 1, "_", color);
-			}
+			inputField.draw(canvas, CONTENT_X + ROW_TEXT_OFFSET, y, typing() ? Palette.KEY : Palette.TEXT, typing());
 		}
 		ui.addButton(CONTENT_X, y, CONTENT_W, INPUT_LINES, new Button(options.length));
+		
+		if(waiting) {
+			ui.clearButtons();
+			canvas.dim(0, 0, Canvas.WIDTH, Canvas.HEIGHT - 1);
+		}
 
-		canvas.drawHints(List.of(
-				Map.entry("1-" + options.length, "Select"),
-				Map.entry("↑/↓", "Move"),
-				Map.entry("ENTER", "Act"),
-				Map.entry("TYPE", "Freeform Action"),
-				Map.entry("ESC","Main Menu")));
-		ui.present();
+		endFrame(typing()?
+				List.of(
+						Map.entry("TYPE", "Freeform Action"),
+						Map.entry("BACKSPACE", "Delete"),
+						Map.entry("ENTER", "Act"),
+						Map.entry("ESC","Back to Options")) :
+				List.of(
+						Map.entry("1-" + options.length, "Choose"),
+						Map.entry("↑/↓", "Move"),
+						Map.entry("ENTER", "Act"),
+						Map.entry("S", "Save"),
+						Map.entry("ESC","Main Menu")));
 	}
-	
-	/** the typed text may fill the input box up to the end of its last line, but not wrap past it */
-	private static boolean fits(String text) {
-		return Canvas.wrapText(text, INPUT_W).size() <= INPUT_LINES;
-	}
+
 }
