@@ -137,19 +137,33 @@ public final class AdventureScreen extends Screen {
 
 	
 	//drawing
+	/** text buttons at the right end of the header, right to left, split like the header's left side; their keys are in the hints */
+	private void drawToolbar() {
+
+	}
+
 	private void drawFrame() {
 		beginFrame();
 		
-		//draw header
-		String location = scene.getLocation();
-		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TAG);
-		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  Turn " + scene.getTurn(), Palette.MUTED);
+		//draw header: where and when on the left, the toolbar on the right, a rule underneath
+		String location = scene.getLocation().toUpperCase();
+		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TEXT);
+		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
+		//canvas.drawDivider(CONTENT_X, HEADER_Y + 1, CONTENT_W);
 		
-		//draw toolbar
-		int x = CONTENT_X + CONTENT_W - ui.getTextButtonWidth("ESC", "Main Menu");
-		ui.drawTextButton(x, HEADER_Y, "ESC", "Main Menu", new Button(Action.BACK));
-		x -= 3 + ui.getTextButtonWidth("S", "Save");
-		ui.drawTextButton(x, HEADER_Y, "S", "Save", new Button(Action.SAVE));
+		//draw toolbar: after the rule, so a hovered button's underline lights up its part of the rule
+		String[] labels = {"MAIN MENU", "SAVE"};
+		Action[] actions = {Action.BACK, Action.SAVE};
+		String divider = "  |  ";
+		int x = CONTENT_X + CONTENT_W;
+		for (int i = 0; i < labels.length; i++) {
+			x -= labels[i].length();
+			ui.drawTextButton(x, HEADER_Y, labels[i], new Button(actions[i]));
+			if (i < labels.length - 1) {
+				x -= divider.length();
+				canvas.drawText(x, HEADER_Y, divider, Palette.MUTED);
+			}
+		}
 		
 		//TODO draw scene visuals, stub for now
 		canvas.fill(CONTENT_X, ART_Y, CONTENT_W, ART_H, Palette.LINE);

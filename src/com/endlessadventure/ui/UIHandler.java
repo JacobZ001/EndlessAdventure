@@ -8,8 +8,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.terminal.Attributes;
@@ -56,10 +54,6 @@ public class UIHandler implements AutoCloseable {
 			throw new IOException("No interactive terminal. Launch the game in Windows Terminal.", e);
 		}
 		writer = terminal.writer();
-		LineReaderBuilder.builder()
-		        .terminal(terminal)
-		        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
-		        .build();
 		
 		//bind terminal user input to InputMap
 		bindingReader = new BindingReader(terminal.reader());
@@ -206,30 +200,24 @@ public class UIHandler implements AutoCloseable {
 		buttons.add(new ButtonBox(x, y, w, h, b));
 	}
 	
-	/** draw a default sized button on canvas and register a click-able area for the current frame */
+	/** draw a default sized button on canvas and register a click-able area for the current frame
+	 *  while the mouse is over it the label and the frame turns gold */
 	void drawButton(int x, int y, String label, boolean enabled, Button b) {
 		ButtonBox box = new ButtonBox(x, y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, b);
 	    canvas.drawButton(x, y, label, enabled, box.contains(mouseX, mouseY));
 	    buttons.add(box);
 	}
 	
-	/** draw a one-row "[key] label" text button and register it;
-	 *  while the mouse is over it the label turns gold and is underlined on the next row.  */
-	void drawTextButton(int x, int y, String key, String label, Button b) {
-		String keyText = "[" + key + "] ";
-		ButtonBox box = new ButtonBox(x, y, getTextButtonWidth(key, label), 1, b);
+	/** draw a borderless one-row text button as wide as its label and register it, with one cell of click margin on each side;
+	 *  while the mouse is over it the label turns gold and is underlined on the next row */
+	void drawTextButton(int x, int y, String label, Button b) {
+		ButtonBox box = new ButtonBox(x - 1, y, label.length() + 2, 1, b);
 		boolean hovered = box.contains(mouseX, mouseY);
-		canvas.drawText(x, y, keyText, Palette.KEY);
-		canvas.drawText(x + keyText.length(), y, label, hovered ? Palette.KEY : Palette.TEXT);
+		canvas.drawText(x, y, label, hovered ? Palette.KEY : Palette.TEXT);
 		if (hovered) {
-			canvas.drawText(x, y + 1, "─".repeat(getTextButtonWidth(key, label)), Palette.KEY);
+			canvas.drawText(x, y + 1, "─".repeat(label.length()), Palette.KEY);
 		}
 		buttons.add(box);
-	}
-	
-	/** returns the width of a key-label combo button */
-	static int getTextButtonWidth(String key, String label) {
-		return ("[" + key + "] ").length() + label.length();
 	}
 
 
