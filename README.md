@@ -38,7 +38,7 @@ The game must be launched with `lib` on the module path. Narrative generation re
 4. Create the local `.env` file described below.
 5. Build the project, then launch it in Windows Terminal through **External Tools** as described below. The game needs an interactive terminal; if it cannot open one, it prints a terminal error and exits, so launch it in Windows Terminal rather than the IDE console.
 
-The final course submission will include updated run instructions, the requirement-to-code mapping, and any known limitations.
+The final course submission will include updated run instructions and any known limitations; the requirement mapping is below.
 
 `references/` holds static design reference images (AI-generated prototype renders, not game assets).
 
@@ -111,6 +111,38 @@ if ($LASTEXITCODE -ne 0) { throw 'Story check compilation failed' }
 java --add-modules jdk.httpserver -cp "$storyCheckDirectory;lib/*" com.endlessadventure.llm.StoryGeneratorCheck
 if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 ```
+
+## Course requirement mapping
+
+Status as of October 17, 2026. "Planned" items are designed into the equipment and combat systems that are being built; file and line references will be added for the final submission.
+
+| Requirement | Status | Where |
+|---|---|---|
+| At least 8 classes | Met | 30+ classes across `entity`, `story`, `save`, `llm`, `ui` |
+| Fields private or protected; invalid values rejected | Met | Setters and constructors validate, e.g. `Entity.setHp`, `Player.setExp`, `Player.Builder` |
+| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button` |
+| Meaningful static members | Met | `StatRules` (growth rules), `SaveManager.SLOT_COUNT`, `Canvas.wrapText` |
+| `toString()` overridden in at least 3 classes | Partly met | `Canvas` (ANSI frame). Planned: `Item` and `Entity` (names in combat log lines), combat events (log text) |
+| `equals()` and `hashCode()` overridden together | Planned | `Item`, equal by catalog definition ID |
+| Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` |
+| Abstract class with at least 2 abstract methods | Planned | `Item` (`getCategory`, `getDetails`); `Equipment` (`getSlot`, `applyTo`) |
+| At least 3 concrete subclasses of that abstract class | Planned | `Weapon`, `Armor`, `Shield` (via `Equipment`) |
+| `@Override` on every override | Met | All current overrides |
+| Loop over a supertype collection with type-dependent behavior | Planned | `Player` applies each equipped `Equipment` to its combat stats; the combat action bar loops over `CombatAction` |
+| At least 2 interfaces, one implemented by unrelated classes | Planned | `Describable` (items and characters, which share no parent); `CombatAction` |
+| An interface with a default method | Planned | `Describable.getDetails()`, `CombatAction.needsTarget()` |
+| Behavior passed as a parameter and invoked later | Planned | Enemy turn takes a `Consumer` callback that the combat screen uses to play each step |
+| A class implementing `Comparable`, and a `Comparator` in use | Planned | Initiative order (`Comparable`); equipment lists sorted with a `Comparator` |
+| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `PropertyNotFoundException` (unchecked) |
+| Each custom exception carries data beyond the message | Met | Slot number; missing property name |
+| At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` in `SaveManager` |
+| No empty catch blocks | Met | — |
+| `List` and `Map` used where appropriate | Met | Story history (`List`); attributes and skills (`EnumMap`); planned catalog index by ID (`Map`) |
+| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); planned equipment catalog |
+| Writing a file | Met | `SaveManager.writeSave` |
+| A design pattern from Lab 9, used deliberately | Pending | To be chosen once Lab 9 is covered; `Player.Builder` already follows the Builder pattern |
+| Composition chosen over inheritance at least once | Met | `Player` holds an `Inventory`; planned equipment slots instead of subclasses per loadout |
+| A class depending only on abstractions | Planned | The combat engine depends only on `CombatAction` and unit abstractions; concrete units and actions are created by `GameEngine` |
 
 ## Development assistance
 

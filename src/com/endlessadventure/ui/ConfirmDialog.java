@@ -21,7 +21,7 @@ final class ConfirmDialog {
 		while(true) {
 			ui.clearButtons(); //disable screen's buttons until the dialog is done
 			canvas.fill(X, top, WIDTH, height, Palette.BG);
-			canvas.drawBox(X, top, WIDTH, height, Palette.KEY);
+			canvas.drawBox(X, top, WIDTH, height, Palette.LINE);
 			canvas.drawTextCentered(top, " " + title + " ", Palette.KEY);
 
 			int y = top + 2;
@@ -52,9 +52,11 @@ final class ConfirmDialog {
 					return false;
 				}
 				case CLICK -> {
-					Button b = in.button();
-					if (b != null) {
+					if(in.button() instanceof Button b){
 						return b.index() == 0;
+					}
+					else if (in.x() < X || in.x() >= X + WIDTH || in.y() < top || in.y() >= top + height) { //if clicked outside the confirm dialog
+						return false;
 					}
 				}
 				default -> {

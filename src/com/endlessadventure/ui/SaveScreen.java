@@ -145,7 +145,7 @@ public final class SaveScreen extends Screen {
 				canvas.drawText(x, y+4, slot.location(), locationColor);
 			}
 			
-			ui.addButton(CARD_X, y, CARD_W, CARD_H, new Button(i));
+			ui.addButtonBox(CARD_X, y, CARD_W, CARD_H, new Button(i));
 			y += CARD_STEP;
 
 		}

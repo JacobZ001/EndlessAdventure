@@ -17,7 +17,9 @@ public class Driver {
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());
 		} catch (NoSuchElementException e) {
-			System.out.println("Input closed. Game exited.");
+			System.out.println(e.getMessage());
+		} finally {
+			System.out.println("Game exited.");
 		}
     }
 }

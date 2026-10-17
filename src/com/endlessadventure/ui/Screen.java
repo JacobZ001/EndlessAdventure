@@ -56,6 +56,6 @@ abstract class Screen {
 		}
 		canvas.drawText(x + ROW_MARKER_OFFSET, y, marker, focused && enabled ? Palette.KEY : Palette.MUTED);
 		canvas.drawText(x + ROW_TEXT_OFFSET, y, text, !enabled ? Palette.MUTED : focused ? Palette.KEY : Palette.TEXT);
-		ui.addButton(x, y, w, 1, new Button(index));
+		ui.addButtonBox(x, y, w, 1, new Button(index));
 	}
 }

@@ -20,6 +20,7 @@ public class UIHandler implements AutoCloseable {
 	private final PrintWriter writer;
 	private final BindingReader bindingReader;
 	private final Canvas canvas = new Canvas();
+	
 	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
 
 	/** one key or mouse event; button is the clickable area under the mouse for CLICK and HOVER, null otherwise */
@@ -75,18 +76,7 @@ public class UIHandler implements AutoCloseable {
 		//switch to the alternate screen; the original terminal content comes back on close
 		writer.print("\033[?1049h");
 		writer.flush();
-	}
-	
-	/** the shared canvas that screens draw on */
-	Canvas getCanvas() {
-		return canvas;
-	}
-	
-	/** enter raw mode to capture key input and mouse click */
-	private void enterRawMode() {
-		if (savedAttributes != null) {
-			return;
-		}
+		
 	    savedAttributes = terminal.enterRawMode();
 	    terminal.puts(Capability.keypad_xmit);
 	    terminal.puts(Capability.cursor_invisible);
@@ -94,23 +84,22 @@ public class UIHandler implements AutoCloseable {
 	    terminal.flush();
 	}
 	
-	private void leaveRawMode() {
-		if (savedAttributes == null) {
-			return;
-		}
-		terminal.trackMouse(Terminal.MouseTracking.Off);
-        terminal.puts(Capability.keypad_local);
-        terminal.puts(Capability.cursor_visible);
-        terminal.setAttributes(savedAttributes);
-        savedAttributes = null;
-        terminal.flush();
+	/** the shared canvas that screens draw on */
+	Canvas getCanvas() {
+		return canvas;
 	}
 
 	@Override
 	/** override close method for AutoCloseable
 	 *  used for try-with-resource in driver */
 	public void close() throws IOException {
-		leaveRawMode();
+		terminal.trackMouse(Terminal.MouseTracking.Off);
+        terminal.puts(Capability.keypad_local);
+        terminal.puts(Capability.cursor_visible);
+        terminal.setAttributes(savedAttributes);
+        savedAttributes = null;
+        terminal.flush();
+        
 		writer.print("\033[?1049l"); //switch back to original terminal content
 		writer.flush();
 		terminal.close();
@@ -133,6 +122,7 @@ public class UIHandler implements AutoCloseable {
 	
 	public void clearStatusMsg() {
 		statusMsg = null;
+		color = Palette.BG;
 	}
 
 	/** set status message and color to be shown, throws InvalidColorException if the color is invalid */
@@ -142,15 +132,32 @@ public class UIHandler implements AutoCloseable {
 	}
 	
 	
+	
+	/** print the canvas; a status message is drawn on the bottom border, right-aligned, until the next key or click */
+	void present() {
+	    int columns = terminal.getColumns(), rows = terminal.getRows();
+	    if (columns < Canvas.WIDTH || rows < Canvas.HEIGHT) {
+	    	String text = "Please maximize the window (" + Canvas.WIDTH + " x " + Canvas.HEIGHT + " needed, now " + columns + " x " + rows + ").";
+	        writer.print("\033[0m" + "\033[2J" + Canvas.ESC + (rows / 2 + 1) + ";" + Math.max(1, (columns - text.length()) / 2 + 1) + "H" + text);
+	        writer.flush();
+	        return;
+	    }
+	    if (statusMsg != null) {
+	    	String text = " " + statusMsg + " ";
+	    	canvas.drawText(Canvas.WIDTH - 3 - text.length(), Canvas.HEIGHT - 1, text, color);
+	    }
+	    writer.print(canvas);
+	    writer.flush();
+	}
+	
 
-	//user input reading
-	/** enters raw mode and reads raw user input */
+	
+	/** reads raw user inputKey and return the input  */
 	public Input readInput() {
-		enterRawMode();
         while (true) {
             InputKey key = bindingReader.readBinding(inputKeys);
             if (key == null || key == InputKey.INTERRUPT) {
-            	throw new NoSuchElementException("Input closed");
+            	throw new NoSuchElementException("Input closed: Key: " + key.toString());
             }
             if (key == InputKey.MOUSE) {
                 MouseEvent e = terminal.readMouseEvent(bindingReader::readCharacter, bindingReader.getLastBinding());
@@ -196,7 +203,7 @@ public class UIHandler implements AutoCloseable {
 	}
 
 	/** register a click-able area for the current frame */
-	void addButton(int x, int y, int w, int h, Button b) {
+	void addButtonBox(int x, int y, int w, int h, Button b) {
 		buttons.add(new ButtonBox(x, y, w, h, b));
 	}
 	
@@ -218,24 +225,5 @@ public class UIHandler implements AutoCloseable {
 			canvas.drawText(x, y + 1, "─".repeat(label.length()), Palette.KEY);
 		}
 		buttons.add(box);
-	}
-
-
-	
-	/** print the canvas; a status message is drawn on the bottom border, right-aligned, until the next key or click */
-	void present() {
-	    int columns = terminal.getColumns(), rows = terminal.getRows();
-	    if (columns < Canvas.WIDTH || rows < Canvas.HEIGHT) {
-	    	String text = "Please maximize the window (" + Canvas.WIDTH + " x " + Canvas.HEIGHT + " needed, now " + columns + " x " + rows + ").";
-	        writer.print("\033[0m" + "\033[2J" + Canvas.ESC + (rows / 2 + 1) + ";" + Math.max(1, (columns - text.length()) / 2 + 1) + "H" + text);
-	        writer.flush();
-	        return;
-	    }
-	    if (statusMsg != null) {
-	    	String text = " " + statusMsg + " ";
-	    	canvas.drawText(Canvas.WIDTH - 3 - text.length(), Canvas.HEIGHT - 1, text, color);
-	    }
-	    writer.print(canvas);
-	    writer.flush();
 	}
 }

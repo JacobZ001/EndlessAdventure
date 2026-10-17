@@ -64,7 +64,7 @@ public class Canvas {
 	}
 	
 	/** draws a box border at x,y with width w and height h */
-	void drawBox(int x, int y, int width, int height, int fg) {
+	void drawBox(int x, int y, int width, int height, int fg, int bg) {
 		if (x < 0 || y < 0 || width < 0 || height < 0 || x + width > WIDTH || y + height > HEIGHT) {
 			throw new IllegalArgumentException(
 					"Illegal dimensions: box out of bound at (%d,%d), W = %d H = %d)".formatted(x, y, width, height));
@@ -73,23 +73,29 @@ public class Canvas {
 			if (i == y || i == y + height - 1) {
 				for (int j = x; j < x + width; j++) {
 					if (i == y && j == x) {
-						set(j, i, CORNERS[0], fg, Palette.BG);
+						set(j, i, CORNERS[0], fg, bg);
 					} else if (i == y && j == x + width - 1) {
-						set(j, i, CORNERS[1], fg, Palette.BG);
+						set(j, i, CORNERS[1], fg, bg);
 					} else if (i == y + (height - 1) && j == x) {
-						set(j, i, CORNERS[2], fg, Palette.BG);
+						set(j, i, CORNERS[2], fg, bg);
 					} else if (i == y + (height - 1) && j == x + width - 1) {
-						set(j, i, CORNERS[3], fg, Palette.BG);
+						set(j, i, CORNERS[3], fg, bg);
 					} else {
-						set(j, i, ROW_BORDER, fg, Palette.BG);
+						set(j, i, ROW_BORDER, fg, bg);
 					}
 				}
 			} else {
-				set(x, i, COL_BORDER, fg, Palette.BG);
-				set(x + width - 1, i, COL_BORDER, fg, Palette.BG);
+				set(x, i, COL_BORDER, fg, bg);
+				set(x + width - 1, i, COL_BORDER, fg, bg);
 			}
 		}
 	}
+	
+	/** overload of drawBox() with defualt bg*/
+	void drawBox(int x, int y, int width, int height, int fg) {
+		drawBox(x, y, width, height, fg, Palette.BG);
+	}
+	
 	
 	/** draw the border around the whole canvas */
 	void drawScreenBorder() {

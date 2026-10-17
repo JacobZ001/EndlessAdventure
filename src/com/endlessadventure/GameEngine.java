@@ -15,6 +15,7 @@ import com.endlessadventure.ui.MainMenuScreen;
 import com.endlessadventure.ui.SaveScreen;
 import com.endlessadventure.ui.UIHandler;
 
+/** core game loop, screen routing, and fundamental back-end logic */
 public class GameEngine {
 	private enum GameScreen {
 		MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE, WRITE_SAVE, ADVENTURE, INVENTORY, COMBAT
@@ -70,19 +71,20 @@ public class GameEngine {
 		case LOAD_GAME -> GameScreen.LOAD_SAVE;
 		case EXIT -> {
 			running = false;
-			yield GameScreen.MAIN_MENU;
+			yield null;
 		}
 		};
 	}
 
 	/** run character creation; start the adventure with the new player, or go back to the main menu */
 	private GameScreen handleCharacterCreation() {
-		Player player = new CharacterCreationScreen(ui).run();
-		if (player == null) {
+		if(new CharacterCreationScreen(ui).run() instanceof Player p) {
+			gameState.setPlayer(p);
+			return GameScreen.ADVENTURE;
+		}
+		else {
 			return GameScreen.MAIN_MENU;
 		}
-		gameState.setPlayer(player);
-		return GameScreen.ADVENTURE;
 	}
 
 	/** handle load and save screen */

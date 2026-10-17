@@ -106,8 +106,8 @@ public final class AdventureScreen extends Screen {
 			case ACT -> {
 				String playerAction;
 				if(typing()) {
-					if(!inputField.text().isBlank()) {
-						playerAction = inputField.text().strip();
+					if(!inputField.getText().isBlank()) {
+						playerAction = inputField.getText().strip();
 					}
 					else {
 						ui.showWarning("Describe your action to proceed.");
@@ -117,7 +117,7 @@ public final class AdventureScreen extends Screen {
 				else {
 					playerAction = options[focus];
 				}
-				ui.showSuccess("The story continues...");
+				ui.showSuccess("Story progressing...");
 				waiting = true;
 				drawFrame();
 				yield new Choice(Action.ACT, playerAction);
@@ -142,11 +142,11 @@ public final class AdventureScreen extends Screen {
 		
 		//draw header: where and when on the left, the toolbar on the right, a rule underneath
 		String location = scene.getLocation().toUpperCase();
-		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TEXT);
+		canvas.drawText(CONTENT_X, HEADER_Y, "📍 " + location, Palette.TAG);
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
 		
 		//draw toolbar
-		String[] labels = {"MAIN MENU", "SAVE"};
+		String[] labels = {"MAIN MENU", "💾"};
 		Action[] actions = {Action.BACK, Action.SAVE};
 		String divider = "  |  ";
 		int x = CONTENT_X + CONTENT_W;
@@ -188,9 +188,9 @@ public final class AdventureScreen extends Screen {
 		if (inputField.isEmpty() && !typing()) {
 			canvas.drawText(CONTENT_X + ROW_TEXT_OFFSET, y, "Or describe your own action...", Palette.MUTED);
 		} else {
-			inputField.draw(canvas, CONTENT_X + ROW_TEXT_OFFSET, y, typing() ? Palette.KEY : Palette.TEXT, typing());
+			inputField.drawField(canvas, CONTENT_X + ROW_TEXT_OFFSET, y, typing() ? Palette.KEY : Palette.TEXT, typing());
 		}
-		ui.addButton(CONTENT_X, y, CONTENT_W, INPUT_LINES, new Button(options.length));
+		ui.addButtonBox(CONTENT_X, y, CONTENT_W, INPUT_LINES, new Button(options.length));
 		
 		if(waiting) {
 			ui.clearButtons();

@@ -77,7 +77,7 @@ public final class CharacterCreationScreen extends Screen {
 				}
 				case ENTER -> {
 					try {
-						builder = new Player.Builder(name.text());
+						builder = new Player.Builder(name.getText());
 						step = ATTRIBUTES;
 						focus = 0;
 						return true;
@@ -235,7 +235,7 @@ public final class CharacterCreationScreen extends Screen {
 		beginFrame();
 		canvas.drawTextCentered(NAME_BOX_Y - 3, "What is your name, adventurer?", Palette.TEXT);
 		canvas.drawBox(NAME_BOX_X, NAME_BOX_Y, NAME_BOX_W, 3, Palette.KEY);
-		name.draw(canvas, NAME_BOX_X + 2, NAME_BOX_Y + 1, Palette.TEXT, true);
+		name.drawField(canvas, NAME_BOX_X + 2, NAME_BOX_Y + 1, Palette.TEXT, true);
 		endFrame(List.of(
 				Map.entry("ENTER", "Confirm"),
 				Map.entry("BACKSPACE", "Delete"),
@@ -362,9 +362,9 @@ public final class CharacterCreationScreen extends Screen {
 		canvas.drawText(valueX, y, "%2d".formatted(value), Palette.TEXT);
 
 		//specific areas first: the first matching area wins
-		ui.addButton(minusX, y, 3, 1, new Button(index, Action.MINUS));
-		ui.addButton(plusX, y, 3, 1, new Button(index, Action.PLUS));
-		ui.addButton(x, y, w, 1, new Button(index));
+		ui.addButtonBox(minusX, y, 3, 1, new Button(index, Action.MINUS));
+		ui.addButtonBox(plusX, y, 3, 1, new Button(index, Action.PLUS));
+		ui.addButtonBox(x, y, w, 1, new Button(index));
 	}
 
 	/** points left in this step, at the left of the action bar, level with the button labels */

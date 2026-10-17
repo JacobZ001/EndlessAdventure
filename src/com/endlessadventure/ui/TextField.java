@@ -37,7 +37,7 @@ final class TextField {
 		}
 	}
 
-	String text() {
+	String getText() {
 		return text.toString();
 	}
 
@@ -46,7 +46,7 @@ final class TextField {
 	}
 
 	/** draws the wrapped text from x,y, with a gold caret after the last character if caret is true */
-	void draw(Canvas canvas, int x, int y, int color, boolean caret) {
+	void drawField(Canvas canvas, int x, int y, int color, boolean caret) {
 		List<String> rows = Canvas.wrapText(text.toString(), width);
 		for (int i = 0; i < rows.size(); i++) {
 			canvas.drawText(x, y + i, rows.get(i), color);
