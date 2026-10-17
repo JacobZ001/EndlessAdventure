@@ -160,7 +160,7 @@ At the author's request, the agent also:
 
 - set up the JLine and Gson dependencies (`lib/jline-*.jar` and `lib/gson-2.13.2.jar`, their `.classpath` entries, and the matching `requires` lines in `module-info.java`)
 - wrote the first versions of `Canvas.java` (frame buffer and drawing) and `Palette.java` (shared colors)
-- drafted `DESIGN.md` from the author's design decisions
+- drafted `DESIGN.md` and its module files in `design/` from the author's design decisions
 
 ### Guided by a GenAI agent
 
