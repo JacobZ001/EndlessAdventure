@@ -5,7 +5,7 @@ import com.endlessadventure.entity.Skill;
 /** contains the tunable numbers and growth formulas
  *  values "per tier" grow with the growth unit n = (7 + level) / 8, which is 1 at level 1 and +1 every tier */
 public final class StatRules {
-	public static final int MAX_LEVEL = 20;
+	public static final int MAX_LEVEL = 20; //temporary design, might change in future development
 	public static final int LEVELS_PER_TIER = 8;
 
 	// a typical specialist gains this much per tier; one tier's worth is also the starting cap

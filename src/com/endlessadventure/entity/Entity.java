@@ -1,8 +1,11 @@
 package com.endlessadventure.entity;
 
+import java.util.List;
+
+import com.endlessadventure.Displayable;
 import com.endlessadventure.StatRules;
 
-public abstract class Entity {
+public abstract class Entity implements Displayable {
 	private static final int MAX_NAME_LENGTH = 40;
 		
 	private String name;
@@ -15,10 +18,22 @@ public abstract class Entity {
 		setLevel(level);
 	}
 	
+	@Override
 	public String getName() {
 		return name;
 	}
 	
+	@Override
+	public abstract String getDescription();
+
+	@Override
+	public List<Detail> getDetails() {
+		return List.of(
+				Detail.Line.of(getName(), Tone.KEYWORD),
+				Detail.Stat.of("Level", level),
+				Detail.Stat.of("HP", hp + " / " + getMaxHp(), Attribute.CON));
+	}
+
 	/** @throws IllegalArgumentException */
 	public void setName(String name) {
 		this.name = checkName(name);

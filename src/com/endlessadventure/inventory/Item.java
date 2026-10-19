@@ -1,39 +1,63 @@
 package com.endlessadventure.inventory;
 
-public abstract class Item {
-	private static int nextId = 1;
-	private final int id;
-	private final String name;
-	private final String description;
+import java.util.List;
+import java.util.Objects;
 
-	public Item(String name, String description) {
-		id = nextId++;
+import com.endlessadventure.Displayable;
+
+/** base class for all Item types */
+public abstract class Item implements Displayable {
+	private final String id, name, description;
+
+	protected Item(String id, String name, String description) {
+		if (id == null || id.isBlank() || name == null || name.isBlank() || description == null
+				|| description.isBlank()) {
+			throw new IllegalArgumentException("Illegal item: " + id);
+		}
+		this.id = id;
 		this.name = name;
 		this.description = description;
 	}
-	
-	public Item(String name) {
-		this(name, "");
-	}
 
-	public int getId() {
+	public String getId() {
 		return id;
 	}
 
+	@Override
 	public String getName() {
 		return name;
 	}
 
+	@Override
 	public String getDescription() {
 		return description;
 	}
-	
+
+	public abstract String getCategoryLabel();
+
+	/** returns full details on stats */
 	@Override
-	public abstract String toString();
+	public abstract List<Detail> getDetails();
 
 	@Override
-	public abstract int hashCode();
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || getClass() != obj.getClass()) {
+			return false;
+		}
+		Item other = (Item) obj;
+		return Objects.equals(id, other.id);
+	}
 
 	@Override
-	public abstract boolean equals(Object obj);	
+	public int hashCode() {
+		return Objects.hash(id);
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
 }

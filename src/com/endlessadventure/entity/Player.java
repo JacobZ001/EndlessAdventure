@@ -4,10 +4,8 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import com.endlessadventure.StatRules;
-import com.endlessadventure.inventory.Inventory;
 
 public class Player extends GameCharacter {
-	private final Inventory inventory = new Inventory();
 	
 	private int exp;
 
@@ -22,8 +20,8 @@ public class Player extends GameCharacter {
 		setHp(hp);
 	}
 
-	/** constructor for a new player, see Builder; starts at full HP */
-	private Player(Builder b) {
+	/** constructor for a new player, see PlayerBuilder; starts at full HP */
+	private Player(PlayerBuilder b) {
 		this(b.name, 1, 0, 0, b.attributes, b.skills);
 		setHp(getMaxHp());
 	}
@@ -52,10 +50,6 @@ public class Player extends GameCharacter {
 			throw new IllegalArgumentException("Current EXP is invalid for level: " + level);
 		}
 		super.setLevel(level);
-	}
-
-	public Inventory getInventory() {
-		return inventory;
 	}
 
 	/** returns the total amount of skill points of the argument skill EnumMap that is within the selected group */
@@ -98,15 +92,20 @@ public class Player extends GameCharacter {
 			}
 		}
 	}
+	
+	@Override
+	public String getDescription() {
+		return getName() + " the adventurer";
+	}
 
 	/** creates a new level 1 player; build() requires every attribute and skill point to be spent */
-	public static class Builder {
+	public static class PlayerBuilder {
 		private final String name;
 		private final EnumMap<Attribute, Integer> attributes = new EnumMap<>(Attribute.class);
 		private final EnumMap<Skill, Integer> skills = new EnumMap<>(Skill.class);
 
 		/** @throws IllegalArgumentException */
-		public Builder(String name) {
+		public PlayerBuilder(String name) {
 			this.name = checkName(name);
 		}
 		
@@ -135,7 +134,7 @@ public class Player extends GameCharacter {
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder incrAttribute(Attribute a) {
+		public PlayerBuilder incrAttribute(Attribute a) {
 			if (getRemainingAttributePoints() < 1) {
 				throw new IllegalArgumentException("No attribute points left");
 			}
@@ -147,7 +146,7 @@ public class Player extends GameCharacter {
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder decrAttribute(Attribute a) {
+		public PlayerBuilder decrAttribute(Attribute a) {
 			if (getAttribute(a) < 1) {
 				throw new IllegalArgumentException(a.getDisplayName() + " has no points to remove");
 			}
@@ -156,7 +155,7 @@ public class Player extends GameCharacter {
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder incrSkill(Skill s) {
+		public PlayerBuilder incrSkill(Skill s) {
 			if (getRemainingSkillPoints(s.getGroup()) < 1) {
 				throw new IllegalArgumentException("No " + s.getGroup() + " skill points left");
 			}
@@ -168,7 +167,7 @@ public class Player extends GameCharacter {
 		}
 
 		/** @throws IllegalArgumentException */
-		public Builder decrSkill(Skill s) {
+		public PlayerBuilder decrSkill(Skill s) {
 			if (getSkill(s) < 1) {
 				throw new IllegalArgumentException(s + " has no points to remove");
 			}

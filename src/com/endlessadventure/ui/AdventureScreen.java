@@ -146,7 +146,7 @@ public final class AdventureScreen extends Screen {
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
 		
 		//draw toolbar
-		String[] labels = {"MAIN MENU", "💾"};
+		String[] labels = {"Main Menu", "Save"};
 		Action[] actions = {Action.BACK, Action.SAVE};
 		String divider = "  |  ";
 		int x = CONTENT_X + CONTENT_W;

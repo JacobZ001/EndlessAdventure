@@ -1,5 +1,6 @@
 package com.endlessadventure.ui;
 
+import com.endlessadventure.Displayable.Tone;
 import com.endlessadventure.entity.Attribute;
 
 /** shared rgb colors and helpers; a color is an int in 0xRRGGBB form */
@@ -11,9 +12,10 @@ public final class Palette {
 	static final int KEY = 0xE8C268;		//GOLD
 	static final int TAG = 0x7FB2D9;		//SKY
 	static final int SUCCESS = 0x8FC27A;	//SAGE
-	static final int WARNING = 0xD96F2B;	//EMBER
+	static final int WARNING = 0xD96F2B;	//AMBER
 	static final int ERROR = 0xD9686B; 	//ROSE
 	
+	//attribute colors
 	private static final int STR = 0xD9776B;
 	private static final int DEX = 0x6CC4B8;
 	private static final int CON = 0x8FC27A;
@@ -21,6 +23,13 @@ public final class Palette {
 	private static final int PER = 0xA98BD9;
 	private static final int WIL = 0xE0A458;
 	private static final int CHA = 0xD98BB8;
+	
+	//tier colors: the usual RPG rarity order, more saturated than the interface colors so loot stands out
+	private static final int T1 = 0xC8CDD5;	//pale steel
+	private static final int T2 = 0x7DD97B;	//green
+	private static final int T3 = 0x4FA3F7;	//azure
+	private static final int T4 = 0xB878F5;	//violet
+	private static final int T5 = 0xFF9A3C;	//amber
 	
 	private Palette() {
 	}
@@ -62,7 +71,34 @@ public final class Palette {
 				.toString();
 	}
 	
-	static int getAttributeColor(Attribute a) {
+	/** static method to get the corresponding color of an enum for display */
+	static int colorOf(Enum<?> meaning) {
+		return switch(meaning) {
+			case Tone t -> getToneColor(t);
+			case Attribute a -> getAttributeColor(a);
+			default -> TEXT;
+		};
+	}
+	
+	private static int getToneColor(Tone t) {
+		return switch(t) {
+			case PLAIN -> TEXT;
+			case NOTE -> MUTED;
+			case KEYWORD -> TAG;
+			case GOOD -> SUCCESS;
+			case BAD -> ERROR;
+			case TIER_1 -> T1;
+			case TIER_2 -> T2;
+			case TIER_3 -> T3;
+			case TIER_4 -> T4;
+			case TIER_5 -> T5;
+			default -> {
+				throw new IllegalArgumentException("Illegal tone to get color: " + t);
+			}
+		};
+	}
+	
+	private static int getAttributeColor(Attribute a) {
 		return switch(a) {
 			case STR -> STR;
 			case DEX -> DEX;
@@ -72,7 +108,7 @@ public final class Palette {
 			case WIL -> WIL;
 			case CHA -> CHA;
 			default -> {
-				throw new IllegalArgumentException("Unexpected value: " + a);
+				throw new IllegalArgumentException("Illegal attribute to get color: " + a);
 			}
 		};
 	}
