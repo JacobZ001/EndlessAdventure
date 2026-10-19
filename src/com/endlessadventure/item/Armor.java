@@ -1,4 +1,4 @@
-package com.endlessadventure.inventory;
+package com.endlessadventure.item;
 
 import java.util.List;
 
