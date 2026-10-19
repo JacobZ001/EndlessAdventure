@@ -29,7 +29,10 @@ public final class StatRules {
 	// derived stats
 	public static final int PLAYER_HP_PER_TIER = 144;
 	public static final int PLAYER_HP_PER_CON = 8;
-
+	
+	//other stats
+	public static final int BASE_SPEED = 4;
+	
 	private static final int[] XP_TO_NEXT = { //index = current level - 1; value = amount of exp required for leveling up
 			48, 64, 80, 96,				//1-4
 			196, 224, 252, 280, 308,	//5-9
