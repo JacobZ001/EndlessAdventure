@@ -56,7 +56,7 @@ public class Player extends GameCharacter {
 	private static int getSkillTotal(Map<Skill, Integer> skills, Skill.Group group) {
 		int total = 0;
 		for (Map.Entry<Skill, Integer> e : skills.entrySet()) {
-			if (e.getKey().getGroup() == group) {
+			if (e.getKey().group == group) {
 				total += e.getValue();
 			}
 		}
@@ -139,7 +139,7 @@ public class Player extends GameCharacter {
 				throw new IllegalArgumentException("No attribute points left");
 			}
 			if (getAttribute(a) >= StatRules.ATTRIBUTE_START_CAP) {
-				throw new IllegalArgumentException(a.getDisplayName() + " is already at the starting cap of " + StatRules.ATTRIBUTE_START_CAP);
+				throw new IllegalArgumentException(a.displayName + " is already at the starting cap of " + StatRules.ATTRIBUTE_START_CAP);
 			}
 			attributes.put(a, getAttribute(a) + 1);
 			return this;
@@ -148,7 +148,7 @@ public class Player extends GameCharacter {
 		/** @throws IllegalArgumentException */
 		public PlayerBuilder decrAttribute(Attribute a) {
 			if (getAttribute(a) < 1) {
-				throw new IllegalArgumentException(a.getDisplayName() + " has no points to remove");
+				throw new IllegalArgumentException(a.displayName + " has no points to remove");
 			}
 			attributes.put(a, getAttribute(a) - 1);
 			return this;
@@ -156,8 +156,8 @@ public class Player extends GameCharacter {
 
 		/** @throws IllegalArgumentException */
 		public PlayerBuilder incrSkill(Skill s) {
-			if (getRemainingSkillPoints(s.getGroup()) < 1) {
-				throw new IllegalArgumentException("No " + s.getGroup() + " skill points left");
+			if (getRemainingSkillPoints(s.group) < 1) {
+				throw new IllegalArgumentException("No " + s.group + " skill points left");
 			}
 			if (getSkill(s) >= StatRules.SKILL_START_CAP) {
 				throw new IllegalArgumentException(s + " is already at the starting cap of " + StatRules.SKILL_START_CAP);

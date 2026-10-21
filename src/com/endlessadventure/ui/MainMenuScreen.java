@@ -28,7 +28,7 @@ public final class MainMenuScreen extends Screen {
 		LOAD_GAME("Load Game"),
 		EXIT("Exit");
 
-		private final String label;
+		public final String label;
 
 		private Choice(String label) {
 			this.label = label;

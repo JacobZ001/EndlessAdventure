@@ -9,7 +9,6 @@ public enum Skill{
 	
 	SPELLCASTING(Group.COMBAT, Attribute.INT, "Spellcasting",
 			"Casting magic you have already learned; the scaling attribute is set by each ability. Does not grant spells or all magical knowledge."),
-	
 
 	ATHLETICS(Group.GENERAL, Attribute.STR, "Athletics",
 			"Climbing, swimming, carrying, pushing and pulling: sustained or forceful physical effort."),
@@ -22,7 +21,6 @@ public enum Skill{
 	
 	STEALTH(Group.GENERAL, Attribute.DEX, "Stealth",
 			"Hiding yourself, approaching quietly and avoiding notice. Does not cover taking items from someone's person (that is Sleight of Hand)."),
-	
 
 	ARCANA(Group.GENERAL, Attribute.INT, "Arcana",
 			"Magical theory, runes and the supernatural. Recognising a spell and casting one are judged separately."),
@@ -38,7 +36,6 @@ public enum Skill{
 	
 	RELIGION(Group.GENERAL, Attribute.INT, "Religion",
 			"Faiths, rituals, doctrines and religious orders. Does not grant divine power."),
-	
 
 	ANIMAL_HANDLING(Group.GENERAL, Attribute.PER, "Animal Handling",
 			"Training commands, everyday handling and working together with animals; not a catch-all for every non-human interaction."),
@@ -55,10 +52,8 @@ public enum Skill{
 	SURVIVAL(Group.GENERAL, Attribute.PER, "Survival",
 			"Navigation, tracking, foraging, choosing a camp and coping in the wild; practical rather than theoretical."),
 
-	
 	INTIMIDATION(Group.GENERAL, Attribute.WIL, "Intimidation",
 			"Forcing concessions with a credible threat or sheer presence."),
-	
 
 	PERSUASION(Group.GENERAL, Attribute.CHA, "Persuasion",
 			"Winning willing cooperation with reasons, interests or feelings. The terms of the request still matter."),
@@ -74,31 +69,15 @@ public enum Skill{
 		GENERAL;
 	}
 
-	private final Group group;
-	private final Attribute defaultAttribute;
-	private final String displayName;
-	private final String description;
+	public final Group group;
+	public final Attribute defaultAttribute;
+	public final String displayName;
+	public final String description;
 
 	private Skill(Group group, Attribute defaultAttribute, String displayName, String description) {
 		this.group = group;
 		this.defaultAttribute = defaultAttribute;
 		this.displayName = displayName;
 		this.description = description;
-	}
-
-	public Group getGroup() {
-		return this.group;
-	}
-
-	public Attribute getDefaultAttribute() {
-		return defaultAttribute;
-	}
-
-	public String getDisplayName() {
-		return displayName;
-	}
-
-	public String getDescription() {
-		return description;
 	}
 }

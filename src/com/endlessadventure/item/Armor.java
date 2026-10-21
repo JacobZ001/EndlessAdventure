@@ -10,16 +10,12 @@ public final class Armor extends Equipment {
 		MEDIUM(4, "Medium"),
 		HEAVY(6, "Heavy");
 		
-		private final int base;
-		private final String label;
+		public final int base;
+		public final String label;
 		
 		Type(int base, String label) {
 			this.base = base;
 			this.label = label;
-		}
-		
-		public String getLabel() {
-			return label;
 		}
 	}
 	
@@ -35,7 +31,7 @@ public final class Armor extends Equipment {
 
 	@Override
 	public int getArmor() {
-		return getQuality().getTier() * type.base;
+		return getQuality().tier * type.base;
 	}
 	
 	@Override
@@ -45,7 +41,7 @@ public final class Armor extends Equipment {
 
 	@Override
 	public String getCategoryLabel() {
-		return type.getLabel() + " Armor";
+		return type.label + " Armor";
 	}
 
 	@Override

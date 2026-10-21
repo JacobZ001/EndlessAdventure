@@ -3,6 +3,7 @@ package com.endlessadventure.entity;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import com.endlessadventure.StatRules;
 import com.endlessadventure.item.Equipment;
@@ -13,7 +14,7 @@ import com.endlessadventure.item.Weapon;
 public abstract class GameCharacter extends Entity {
 	private final EnumMap<Attribute, Integer> attributes = new EnumMap<>(Attribute.class);
 	private final EnumMap<Skill, Integer> skills = new EnumMap<>(Skill.class);
-	private final EnumMap<Equipment.Slot, Equipment> gears = new EnumMap<>(Equipment.Slot.class);
+	private final EnumMap<Equipment.Slot, Equipment> equipped = new EnumMap<>(Equipment.Slot.class);
 	private final List<Item> inventory = new ArrayList<>();
 
 	public GameCharacter(String name, int level) {
@@ -22,6 +23,10 @@ public abstract class GameCharacter extends Entity {
 
 	public int getAttribute(Attribute a) {
 		return attributes.getOrDefault(a, 0);
+	}
+	
+	public Map<Attribute, Integer> getAttributes() {
+		return Map.copyOf(attributes); 
 	}
 
 	/** upper limits depend on the kind of character and are checked by the subclass
@@ -35,6 +40,10 @@ public abstract class GameCharacter extends Entity {
 
 	public int getSkill(Skill s) {
 		return skills.getOrDefault(s, 0);
+	}
+	
+	public Map<Skill, Integer> getSkills() { 
+		return Map.copyOf(skills); 
 	}
 
 	/** upper limits depend on the kind of character and are checked by the subclass
@@ -66,11 +75,15 @@ public abstract class GameCharacter extends Entity {
 		if(slot == null) { 
 			throw new IllegalArgumentException("Invalid slot when getting equipped: slot cannot be null.");
 		}
-		return gears.getOrDefault(slot, null);
+		return equipped.getOrDefault(slot, null);
+	}
+	
+	public Map<Equipment.Slot, Equipment> getEquippedAll(){
+		return Map.copyOf(equipped);
 	}
 	
 	public Equipment unequip(Equipment.Slot slot) {
-		return gears.remove(slot);
+		return equipped.remove(slot);
 	}
 	
 	/** wears the piece in the slot; returns everything that had to come off if any
@@ -83,7 +96,7 @@ public abstract class GameCharacter extends Entity {
 			throw new IllegalArgumentException("Invalid slot when equipping: slot cannot be null.");
 		}
 		if(!piece.fits(slot)) {
-			throw new IllegalArgumentException(piece + " cannot be equipped in " + slot.getLabel());
+			throw new IllegalArgumentException(piece + " cannot be equipped in " + slot.label);
 		}
 		
 		List<Equipment> removed = new ArrayList<>();
@@ -95,7 +108,7 @@ public abstract class GameCharacter extends Entity {
 		else if(slot == Slot.OFF_HAND && isTwoHanded(getEquipped(Slot.MAIN_HAND))) {
 			unequip(Slot.MAIN_HAND, removed);
 		}
-		gears.put(slot, piece);
+		equipped.put(slot, piece);
 		return removed;
 	}
 	
@@ -106,16 +119,16 @@ public abstract class GameCharacter extends Entity {
 	}
 	
 	private boolean isTwoHanded(Equipment e) {
-		return e instanceof Weapon w && w.getType().getGrip() == Weapon.Grip.TWO_HANDED;
+		return e instanceof Weapon w && w.getType().grip == Weapon.Grip.TWO_HANDED;
 	}
 	
 	public List<Equipment> equip(Equipment piece){
 		return equip(piece, chooseSlot(piece));
 	}
 	
-	/** returns the default slot for the gears */
+	/** returns the default slot for the equipped */
 	private Equipment.Slot chooseSlot(Equipment piece){
-		if (piece instanceof Weapon w && w.getType().getGrip() == Weapon.Grip.LIGHT) {
+		if (piece instanceof Weapon w && w.getType().grip == Weapon.Grip.LIGHT) {
 			if(getEquipped(Slot.MAIN_HAND) == null) {
 				return Slot.MAIN_HAND;
 			}
@@ -136,7 +149,7 @@ public abstract class GameCharacter extends Entity {
 		//TODO use range skill when ranged weapons implemented 
 		if(getEquipped(Slot.MAIN_HAND) instanceof Weapon w) {
 			return w.getBaseDmg(getEquipped(Slot.OFF_HAND) == null) +
-					getAttribute(w.getType().getAttribute()) +
+					getAttribute(w.getType().attribute) +
 					getSkill(Skill.MELEE);
 		}
 		else {
@@ -150,7 +163,7 @@ public abstract class GameCharacter extends Entity {
 	
 	public int getArmor() {
 		int total = 0;
-		for(Equipment e : gears.values()) {
+		for(Equipment e : equipped.values()) {
 			total += e.getArmor();
 		}
 		return total;
@@ -158,7 +171,7 @@ public abstract class GameCharacter extends Entity {
 	
 	public int getShieldGuard() {
 		int total = 0;
-		for(Equipment e : gears.values()) {
+		for(Equipment e : equipped.values()) {
 			total += e.getGuard();
 		}
 		return total;
@@ -166,14 +179,14 @@ public abstract class GameCharacter extends Entity {
 	
 	public int getSpeed() {
 		int base = StatRules.BASE_SPEED;
-		for(Equipment e : gears.values()) {
+		for(Equipment e : equipped.values()) {
 			base -= e.getSpeedPenalty();
 		}
 		return base;
 	}
 	
 	public boolean canDodge() {
-		for(Equipment e : gears.values()) {
+		for(Equipment e : equipped.values()) {
 			if(!e.allowsDodge()) {
 				return false;
 			}

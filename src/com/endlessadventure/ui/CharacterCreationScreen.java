@@ -203,7 +203,7 @@ public final class CharacterCreationScreen extends Screen {
 	private static List<Skill> skillsIn(Skill.Group group) {
 		List<Skill> skills = new ArrayList<>();
 		for (Skill s : Skill.values()) {
-			if (s.getGroup() == group) {
+			if (s.group == group) {
 				skills.add(s);
 			}
 		}
@@ -265,7 +265,7 @@ public final class CharacterCreationScreen extends Screen {
 
 
 		endFrame(List.of(
-				Map.entry("↑/↓", "Move"),
+				Map.entry("↑/↓", "Select"),
 				Map.entry("←/→", "- / +"),
 				Map.entry("ENTER", step == REVIEW ? "Confirm" : "Next"),
 				Map.entry("ESC", "Back")));
@@ -300,7 +300,7 @@ public final class CharacterCreationScreen extends Screen {
 					+ StatRules.ATTRIBUTE_START_CAP + ".", Palette.MUTED);
 			for (int i = 0; i < rows.size(); i++) {
 				Attribute a = (Attribute) rows.get(i);
-				drawRow(i, x, PANEL_Y + 5 + i * 3, w, a.getDisplayName(), a, true, playerBuilder.getAttribute(a),
+				drawRow(i, x, PANEL_Y + 5 + i * 3, w, a.displayName, a, true, playerBuilder.getAttribute(a),
 						StatRules.ATTRIBUTE_START_CAP, left);
 			}
 		}
@@ -309,7 +309,7 @@ public final class CharacterCreationScreen extends Screen {
 					+ StatRules.SKILL_START_CAP + " each.", Palette.MUTED);
 			for (int i = 0; i < rows.size(); i++) {
 				Skill s = (Skill) rows.get(i);
-				drawRow(i, x, PANEL_Y + 5 + i * 3, w, s.getDisplayName(), s.getDefaultAttribute(), true, playerBuilder.getSkill(s),
+				drawRow(i, x, PANEL_Y + 5 + i * 3, w, s.displayName, s.defaultAttribute, true, playerBuilder.getSkill(s),
 						StatRules.SKILL_START_CAP, left);
 			}
 		}
@@ -321,13 +321,13 @@ public final class CharacterCreationScreen extends Screen {
 			Attribute group = null;
 			for (int i = 0; i < rows.size(); i++) {
 				Skill s = (Skill) rows.get(i);
-				if (s.getDefaultAttribute() != group) {
-					group = s.getDefaultAttribute();
+				if (s.defaultAttribute != group) {
+					group = s.defaultAttribute;
 					canvas.drawText(x + 2, ++y, group.name() + "  " + playerBuilder.getAttribute(group), Palette.colorOf(group));
 					canvas.drawText(x + 10, y, "─".repeat(w - 14), Palette.mix(Palette.BG, Palette.MUTED, 0.5));
 					y+=2;
 				}
-				drawRow(i, x, y, w, s.getDisplayName(), s.getDefaultAttribute(), false, playerBuilder.getSkill(s), StatRules.SKILL_START_CAP, left);
+				drawRow(i, x, y, w, s.displayName, s.defaultAttribute, false, playerBuilder.getSkill(s), StatRules.SKILL_START_CAP, left);
 				y++;
 			}
 		}
@@ -386,21 +386,21 @@ public final class CharacterCreationScreen extends Screen {
 		int y = PANEL_Y + 2;
 		switch (row) {
 		case Attribute a -> {
-			canvas.drawText(x, y, a.getDisplayName().toUpperCase() + "  (" + a.name() + ")", Palette.colorOf(a));
-			y = canvas.drawParagraph(x, y + 2, width, a.getDescription(), Palette.TEXT);
+			canvas.drawText(x, y, a.displayName.toUpperCase() + "  (" + a.name() + ")", Palette.colorOf(a));
+			y = canvas.drawParagraph(x, y + 2, width, a.description, Palette.TEXT);
 			canvas.drawText(x, y + 1, "In combat", Palette.TAG);
-			canvas.drawParagraph(x, y + 2, width, a.getCombatRole(), Palette.TEXT);
+			canvas.drawParagraph(x, y + 2, width, a.combatRole, Palette.TEXT);
 		}
 		case Skill s -> {
-			canvas.drawText(x, y, s.getDisplayName().toUpperCase(), Palette.KEY);
-			String group = s.getGroup() == Skill.Group.COMBAT ? "Combat skill" : "General skill";
-			Attribute usual = s.getDefaultAttribute();
+			canvas.drawText(x, y, s.displayName.toUpperCase(), Palette.KEY);
+			String group = s.group == Skill.Group.COMBAT ? "Combat skill" : "General skill";
+			Attribute usual = s.defaultAttribute;
 			canvas.drawText(x, y + 1, group, Palette.TAG);
 			String prefix = "   Default Attribute ";
 			canvas.drawText(x + group.length(), y + 1, prefix, Palette.MUTED);
 			canvas.drawText(x + group.length() + prefix.length(), y + 1, usual.name() + " (" + playerBuilder.getAttribute(usual) + ")",
 					Palette.colorOf(usual));
-			canvas.drawParagraph(x, y + 3, width, s.getDescription(), Palette.TEXT);
+			canvas.drawParagraph(x, y + 3, width, s.description, Palette.TEXT);
 		}
 		default -> {}
 		}
@@ -418,13 +418,13 @@ public final class CharacterCreationScreen extends Screen {
 		y += 3;
 		canvas.drawText(x, y++, "ATTRIBUTES", Palette.TAG);
 		for (Attribute a : Attribute.values()) {
-			canvas.drawText(x, y, a.getDisplayName(), Palette.TEXT);
+			canvas.drawText(x, y, a.displayName, Palette.TEXT);
 			canvas.drawText(x + 15, y++, "%2d".formatted(playerBuilder.getAttribute(a)), Palette.TEXT);
 		}
 		y++;
 		canvas.drawText(x, y++, "COMBAT SKILLS", Palette.TAG);
 		for (Skill s : skillsIn(Skill.Group.COMBAT)) {
-			canvas.drawText(x, y++, "%-14s %2d".formatted(s.getDisplayName(), playerBuilder.getSkill(s)), Palette.TEXT);
+			canvas.drawText(x, y++, "%-14s %2d".formatted(s.displayName, playerBuilder.getSkill(s)), Palette.TEXT);
 		}
 
 		int x2 = PANEL_X + 44;
@@ -432,7 +432,7 @@ public final class CharacterCreationScreen extends Screen {
 		canvas.drawText(x2, y2++, "GENERAL SKILLS", Palette.TAG);
 		for (Skill s : skillsIn(Skill.Group.GENERAL)) {
 			if (playerBuilder.getSkill(s) > 0) {
-				canvas.drawText(x2, y2++, "%-18s %2d".formatted(s.getDisplayName(), playerBuilder.getSkill(s)), Palette.TEXT);
+				canvas.drawText(x2, y2++, "%-18s %2d".formatted(s.displayName, playerBuilder.getSkill(s)), Palette.TEXT);
 			}
 		}
 

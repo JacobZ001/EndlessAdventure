@@ -16,7 +16,7 @@ public interface Displayable {
 		}
 	}
 
-	/** one part of a details panel; the ui decides how each kind is laid out */
+	/** one part of a details panel; the UI decides how each kind is laid out */
 	public sealed interface Detail {
 		/** a whole line that is a single span, e.g. the name or a one-line note */
 		record Line(Span span) implements Detail {
@@ -32,7 +32,7 @@ public interface Displayable {
 			}
 		}
 
-		/** a labelled value, e.g. "Attack Power" -> 6 (8) */
+		/** a labeled value, e.g. "Attack Power" -> 6 (8) */
 		record Stat(String label, Span value) implements Detail {
 			public static Stat of(String label, Object value) {
 				return new Stat(label, Span.plain(value));

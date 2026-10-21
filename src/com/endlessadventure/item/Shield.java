@@ -11,7 +11,7 @@ public final class Shield extends Equipment {
 	
 	@Override
 	public int getGuard() {
-		return getQuality().getTier() * SHIELD_GUARD_PER_TIER;
+		return getQuality().tier * SHIELD_GUARD_PER_TIER;
 	}
 
 	@Override

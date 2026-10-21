@@ -15,13 +15,11 @@ public final class Weapon extends Equipment {
 		TWO_HANDED("Two Handed"), 
 		VERSATILE("Versatile");
 		
-		private final String label;
+		public final String label;
 		
 		Grip(String label){
 			this.label = label;
 		}
-
-		public String getLabel() {return label;}
 	}
 	
     public enum Type {
@@ -36,11 +34,11 @@ public final class Weapon extends Equipment {
         DAGGER("Dagger", 3, Attribute.DEX, Grip.LIGHT,
         		Property.ASSASSINATE);
     	
-        private final String label;
-        private final int base;
-        private final Attribute attribute;
-        private final Grip grip;
-        private final Set<Property> properties;
+        public final String label;
+        public final int base;
+        public final Attribute attribute;
+        public final Grip grip;
+        public final Set<Property> properties;
 
         Type(String label, int base, Attribute attribute, Grip grip, Property... properties) {
         	this.label = label;
@@ -49,16 +47,6 @@ public final class Weapon extends Equipment {
         	this.grip = grip;
             this.properties = Set.of(properties);
         }
-        
-        public String getLabel() {return label;}
-        
-        public int getBase() {return base;}
-                
-        public Attribute getAttribute() {return attribute;}
-        
-        public Grip getGrip() {return grip;}
-        
-        public Set<Property> getProperties(){return properties;}
     }
 	
     public enum Property {
@@ -67,20 +55,16 @@ public final class Weapon extends Equipment {
         LETHAL("Lethal",0, "Critical hit on targets at half HP or less"),
         ASSASSINATE("Assassinate",0, "Critical hit on targets that have not acted yet");
         
-    	private final String label;
-    	private final int potencyPerTier;
-    	private final String description;
+    	public final String label;
+    	public final int potencyPerTier;
+    	public final String description;
     	
     	Property(String label, int perTier, String description){
     		this.label = label;
     		this.potencyPerTier = perTier;
     		this.description = description;
     	}
-		
-		public String getLabel() {return label;}
-		
-		public int getPotencyPerTier() {return potencyPerTier;}
-		
+
 		/** the description for a weapon of this tier, with its number as a separate span so the ui can color it */
 		public List<Span> describe(int tier) {
 			String[] parts = description.split("%d", 2);
@@ -97,10 +81,8 @@ public final class Weapon extends Equipment {
 			}
 			return spans;
 		}
-		
 	}
 
-    
     private final Type type;
 
 	public Weapon(String id, String name, String description, Quality quality, Type type) {
@@ -114,21 +96,21 @@ public final class Weapon extends Equipment {
 	public Type getType() {return type;}
 	
 	public int getBaseDmg(boolean doubleGripped) {
-		int bonus = doubleGripped && type.getGrip() == Grip.VERSATILE? VERSATILE_BONUS_PER_TIER : 0;
-		return (type.getBase() + bonus) * getQuality().getTier();
+		int bonus = doubleGripped && type.grip == Grip.VERSATILE? VERSATILE_BONUS_PER_TIER : 0;
+		return (type.base + bonus) * getQuality().tier;
 	}
 	
 	public boolean hasProperty(Property p) {
-		return type.getProperties().contains(p);
+		return type.properties.contains(p);
 	}
 	
 	public int getPenetration() {
-		return hasProperty(Property.PIERCE)? Property.PIERCE.getPotencyPerTier() * getQuality().getTier() : 0;
+		return hasProperty(Property.PIERCE)? Property.PIERCE.potencyPerTier * getQuality().tier : 0;
 	}
 
 	@Override
 	public String getCategoryLabel() {
-		return type.getLabel();
+		return type.label;
 	}
 
 	@Override
@@ -136,28 +118,28 @@ public final class Weapon extends Equipment {
 		return switch(slot) {
 			case MAIN_HAND -> true;
 			case ARMOR -> false;
-			case OFF_HAND -> getType().getGrip() == Grip.LIGHT;
+			case OFF_HAND -> getType().grip == Grip.LIGHT;
 		};
 	}
 
 	@Override
 	protected List<Span> tags() {
 		List<Span> tags = super.tags();
-		tags.add(Span.of(type.getGrip().getLabel(), Tone.NOTE));
+		tags.add(Span.of(type.grip.label, Tone.NOTE));
 		return tags;
 	}
 
 	@Override
 	protected void addStats(List<Detail> details) {
-		String power = type.getGrip() == Grip.VERSATILE ? getBaseDmg(false) + " (" + getBaseDmg(true) + ")" : String.valueOf(getBaseDmg(false));
-		details.add(Detail.Stat.of("Scaling", type.getAttribute().name(), type.getAttribute()));
-		details.add(Detail.Stat.of("Attack Power", power, type.getAttribute()));
+		String power = type.grip == Grip.VERSATILE ? getBaseDmg(false) + " (" + getBaseDmg(true) + ")" : String.valueOf(getBaseDmg(false));
+		details.add(Detail.Stat.of("Scaling", type.attribute.name(), type.attribute));
+		details.add(Detail.Stat.of("Attack Power", power, type.attribute));
 	}
 
 	@Override
 	protected void addProperties(List<Detail> details) {
-		for (Property p : type.getProperties()) {
-			details.add(new Detail.Trait(Span.of(p.getLabel(), Tone.KEYWORD), p.describe(getQuality().getTier())));
+		for (Property p : type.properties) {
+			details.add(new Detail.Trait(Span.of(p.label, Tone.KEYWORD), p.describe(getQuality().tier)));
 		}
 	}
 }

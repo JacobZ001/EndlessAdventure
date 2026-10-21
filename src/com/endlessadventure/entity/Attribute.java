@@ -23,27 +23,13 @@ public enum Attribute{
 			"Expression, presence and influence on others. Not looks or fame.",
 			"Influence and provocation. Social success is not free control over enemies.");
 
-	private final String displayName;
-	private final String description;
-	private final String combatRole;
+	public final String displayName;
+	public final String description;	//what the attribute covers in general
+	public final String combatRole;	//what the attribute does in combat
 
 	private Attribute(String displayName, String description, String combatRole) {
 		this.displayName = displayName;
 		this.description = description;
 		this.combatRole = combatRole;
-	}
-
-	public String getDisplayName() {
-		return displayName;
-	}
-
-	/** what the attribute covers in general */
-	public String getDescription() {
-		return description;
-	}
-
-	/** what the attribute does in combat */
-	public String getCombatRole() {
-		return combatRole;
 	}
 }
