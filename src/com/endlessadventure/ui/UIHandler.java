@@ -37,7 +37,7 @@ public class UIHandler implements AutoCloseable {
 			return px >= x && px < x + w && py >= y && py < y + h;
 		}
 	}
-
+	
 	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
 	private final List<ButtonBox> buttons = new ArrayList<>();
 	private Button lastHoveredButton;
@@ -210,20 +210,20 @@ public class UIHandler implements AutoCloseable {
 	/** draw a default sized button on canvas and register a click-able area for the current frame
 	 *  while the mouse is over it the label and the frame turns gold */
 	void drawButton(int x, int y, String label, boolean enabled, Button b) {
-		ButtonBox box = new ButtonBox(x, y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, b);
-	    canvas.drawButton(x, y, label, enabled, box.contains(mouseX, mouseY));
-	    buttons.add(box);
+		ButtonBox buttonBox = new ButtonBox(x, y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, b);
+	    canvas.drawButton(x, y, label, enabled, buttonBox.contains(mouseX, mouseY));
+	    buttons.add(buttonBox);
 	}
 	
 	/** draw a borderless one-row text button as wide as its label and register it, with one cell of click margin on each side;
 	 *  while the mouse is over it the label turns gold and is underlined on the next row */
 	void drawTextButton(int x, int y, String label, Button b) {
-		ButtonBox box = new ButtonBox(x - 1, y, label.length() + 2, 1, b);
-		boolean hovered = box.contains(mouseX, mouseY);
+		ButtonBox buttonBox = new ButtonBox(x - 1, y, label.length() + 2, 1, b);
+		boolean hovered = buttonBox.contains(mouseX, mouseY);
 		canvas.drawText(x, y, label, hovered ? Palette.KEY : Palette.TEXT);
 		if (hovered) {
 			canvas.drawText(x, y + 1, "─".repeat(label.length()), Palette.KEY);
 		}
-		buttons.add(box);
+		buttons.add(buttonBox);
 	}
 }

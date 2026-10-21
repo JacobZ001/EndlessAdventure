@@ -84,10 +84,13 @@ public final class AdventureScreen extends Screen {
 							action = a;
 						}
 						else if(b.index() >= 0) {
-							//an option acts at once; the inputField row only takes the focus
-							focus = b.index();
+							//click on a option acts at once; click on the inputField row only takes the focus
 							if (!typing()) {
+								focus = b.index();
 								action = Action.ACT; 
+							}
+							else {
+								focus = b.index();
 							}
 						}
 					}
@@ -204,7 +207,7 @@ public final class AdventureScreen extends Screen {
 						Map.entry("ENTER", "Act"),
 						Map.entry("ESC","Back to Options")) :
 				List.of(
-						Map.entry("1-" + options.length, "Choose"),
+						Map.entry("1-" + options.length, "Select"),
 						Map.entry("↑/↓", "Move"),
 						Map.entry("ENTER", "Act"),
 						Map.entry("S", "Save"),
