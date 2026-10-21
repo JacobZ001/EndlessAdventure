@@ -9,12 +9,12 @@ As of October 17, 2026, the narrative adventure loop and all menus run on a full
 - **Interface:** every screen (main menu, character creation, save/load, adventure, confirmation dialogs) is drawn as one 209×51 frame and can be used with the keyboard or the mouse (click and hover). The game needs Windows Terminal, maximized.
 - **Character creation:** name, then step-by-step allocation of seven attributes, combat skills and general skills within the starting budgets, then a review step.
 - **Narrative gameplay:** LLM-generated opening and continuation scenes with 1–3 suggested choices or a typed custom action (up to two lines). Successful continuation replaces the current scene and records the previous scene with the player's action. Java assigns turn numbers; the model receives the current scene, player facts and the full history.
-- **Saves:** three slots with overwrite and delete confirmation, storing the player, the current scene and choices, and the story history.
-- **Not implemented:** combat, inventory and equipment, usable skills, mechanical rewards and leveling. Story generation is narrative-only; mentioning an item or enemy does not create a gameplay object.
+- **Saves:** three JSON slots with overwrite and delete confirmation, storing the player (attributes, skills, equipment and items), the current scene and choices, and the story history.
+- **Not implemented:** combat, the inventory screen and starting equipment choice, usable skills, mechanical rewards and leveling. Story generation is narrative-only; mentioning an item or enemy does not create a gameplay object.
 
 ### Known gaps
 
-History is sent in full with each continuation; there is no summary or context-size limit yet. Saves do not yet store attributes and skills, and a save write replaces the target file directly, without an atomic temporary-file step. If the opening scene cannot be generated, the game returns to the main menu with an error; a failed continuation keeps the current scene. There is no automatic retry or offline story fallback.
+History is sent in full with each continuation; there is no summary or context-size limit yet. If the opening scene cannot be generated, the game returns to the main menu with an error; a failed continuation keeps the current scene. There is no automatic retry or offline story fallback.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ Third-party libraries are included as jars in `lib/` and registered in the Eclip
 | Library | Version | License | Use |
 |---|---|---|---|
 | JLine (terminal, reader, terminal-jni, native) | 4.4.6 | BSD-3-Clause | Terminal access, key and mouse input |
-| Gson | 2.13.2 | Apache-2.0 | Gemini request/response JSON in `LlmClient`; planned for preset game data |
+| Gson | 2.13.2 | Apache-2.0 | Gemini request/response JSON in `LlmClient`; equipment catalog in `data/`; save files |
 
 The game must be launched with `lib` on the module path. Narrative generation requires network access and a Gemini API key; opening the menus does not require a key.
 
@@ -131,15 +131,15 @@ Status as of October 17, 2026. "Planned" items are designed into the equipment a
 | Loop over a supertype collection with type-dependent behavior | Planned | `Player` applies each equipped `Equipment` to its combat stats; the combat action bar loops over `CombatAction` |
 | At least 2 interfaces, one implemented by unrelated classes | Partly met | `Displayable` (implemented by `Item` and `Entity`, which share no parent); planned `CombatAction` |
 | An interface with a default method | Met | `Displayable.getNameMeaning()`; planned `CombatAction.needsTarget()` |
-| Behavior passed as a parameter and invoked later | Planned | Enemy turn takes a `Consumer` callback that the combat screen uses to play each step |
+| Behavior passed as a parameter and invoked later | Met | `EquipmentCatalog.load` takes a `Function` that builds each piece from a file row; planned enemy-turn `Consumer` callback |
 | A class implementing `Comparable`, and a `Comparator` in use | Planned | Initiative order (`Comparable`); equipment lists sorted with a `Comparator` |
-| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `PropertyNotFoundException` (unchecked) |
-| Each custom exception carries data beyond the message | Met | Slot number; missing property name |
+| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `MissingFieldException` (unchecked) |
+| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`) |
 | At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` in `SaveManager` |
 | No empty catch blocks | Met | — |
 | `List` and `Map` used where appropriate | Met | Story history (`List`); attributes and skills (`EnumMap`); planned catalog index by ID (`Map`) |
-| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); planned equipment catalog |
-| Writing a file | Met | `SaveManager.writeSave` |
+| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); `EquipmentCatalog` (missing or malformed data stops startup with the file name) |
+| Writing a file | Met | `SaveManager.writeSave` (temporary file, then atomic replace) |
 | A design pattern from Lab 9, used deliberately | Pending | To be chosen once Lab 9 is covered; `Player.PlayerBuilder` already follows the Builder pattern; `Equipment.getDetails` is a template method |
 | Composition chosen over inheritance at least once | Partly met | `GameCharacter` holds its items; planned equipment slots instead of subclasses per loadout |
 | A class depending only on abstractions | Planned | The combat engine depends only on `CombatAction` and unit abstractions; concrete units and actions are created by `GameEngine` |
