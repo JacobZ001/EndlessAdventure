@@ -1,0 +1,14 @@
+[
+  {
+    "id": "drifter_buckler",
+    "name": "Drifter's Buckler",
+    "quality": "COMMON",
+    "description": "A dented pot lid of a shield that hangs from the belt on the march."
+  },
+  {
+    "id": "recruit_shield",
+    "name": "Recruit's Shield",
+    "quality": "COMMON",
+    "description": "A painted wooden shield; the garrison crest is already flaking off."
+  }
+]

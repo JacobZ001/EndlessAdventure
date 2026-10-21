@@ -2,39 +2,43 @@ package com.endlessadventure.save;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.nio.file.StandardCopyOption;
 
-import com.endlessadventure.entity.Player;
-import com.endlessadventure.story.CurrentScene;
-import com.endlessadventure.story.SceneRecord;
 import com.endlessadventure.GameState;
+import com.endlessadventure.data.EquipmentCatalog;
+import com.endlessadventure.entity.Player;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 
+/** reads, writes and deletes the save slots; each slot is one JSON file laid out as a SaveRecord */
 public class SaveManager {
-	public enum SlotStatus{
-		EMPTY, READABLE, CORRUPT
-	}
 	public static final int SLOT_COUNT = 3;
-	private static final String COMMENT = "EndlessAdventure save v2";
-	private final Path saveDir = Path.of("saves");
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	
+	private final Path saveDir = Path.of("saves");
+	private final EquipmentCatalog catalog;
+
+	public enum SlotStatus { EMPTY, READABLE, CORRUPT }
+	
+	/** Summary record for a save slot containing the slot number, status, player name, level, and turn count. */
+	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn, String location) {}
+
+	public SaveManager(EquipmentCatalog catalog) {
+		this.catalog = catalog;
+	}
+
 	/** get the file path corresponding to the slot number */
 	private Path getSlotPath(int slot) {
 		if (slot < 1 || slot > SLOT_COUNT) {
 			throw new IllegalArgumentException("Slot must be 1–" + SLOT_COUNT + ", got: " + slot);
 		}
-		return saveDir.resolve("slot" + slot + ".txt");
+		return saveDir.resolve("slot" + slot + ".json");
 	}
-
-	/** Summary record for a save slot containing the slot number, status, player name, level, and turn count. */
-	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn, String location) {}
 
 	/** Validate the save before presenting it as readable in the UI. */
 	public SlotOverview readSummary(int slot) {
@@ -57,167 +61,49 @@ public class SaveManager {
 		}
 		return summaries;
 	}
-
-	/** Write the current game into a slot (overwrites if present). */
-	public void writeSave(int slot, GameState state) throws IOException, BadSaveException{
+	
+	/** Write the current game into a slot, replacing what is there.
+	 *  The file is written to a temporary file first and then moved over the old one,
+	 *  so a crash while writing never leaves a half-written save behind */
+	public void writeSave(int slot, GameState state) throws IOException, BadSaveException {
 		Path path = getSlotPath(slot);
-		if (state == null) {
-			throw new IllegalArgumentException("Cannot write to save: game state is null");
+		if (state == null || state.getPlayer() == null) {
+			throw new IllegalArgumentException("Cannot write to save: no game or player");
 		}
-		else if (state.getPlayer() == null) {
-			throw new IllegalArgumentException("Cannot write to save: player is null");
-		}
-		
-		//write player stats
-		Properties props = new Properties();
-		Player player = state.getPlayer();
-		props.setProperty("name", player.getName());
-		props.setProperty("level", String.valueOf(player.getLevel()));
-		props.setProperty("EXP", String.valueOf(player.getExp()));
-		props.setProperty("hp", String.valueOf(player.getHp()));
-		
-		//write current scene
-		CurrentScene currentScene = state.getCurrentScene();
-		if(currentScene == null) {
+		if (state.getCurrentScene() == null) {
 			throw new BadSaveException(slot, "Generate an opening scene before saving");
 		}
-		props.setProperty("location", currentScene.getLocation());
-		props.setProperty("description", currentScene.getDescription());
-		
-		String[] options = currentScene.getOptions();
-		props.setProperty("option_count", String.valueOf(options.length));
-		for(int i=0;i<options.length;i++) {
-			props.setProperty("options."+i, String.valueOf(options[i]));
+		String json;
+		try {
+			json = GSON.toJson(SaveRecord.from(state));
+		} catch (IllegalArgumentException e) {
+			throw new BadSaveException(slot, e);
 		}
-		
-		//write history
-		List<SceneRecord> history = state.getHistory();
-		int historyCount = history.size();
-		int expectedHC = currentScene.getTurn()-1;
-		if(historyCount != expectedHC) {
-			throw new BadSaveException(slot, "The history size does not match the current turn." + "Got " + historyCount + ", expected: " + expectedHC);
-		}
-		props.setProperty("history.count", String.valueOf(historyCount));
-		for(int i=0;i<history.size();i++) {
-			SceneRecord record = history.get(i);
-			if(record.getTurn() != i + 1) {
-				throw new BadSaveException(slot, "Invalid Record order at history[%d]. Got %d, expected %d".formatted(i, record.getTurn(), i+1));
-			}
-			
-			String prefix = "history." + i + ".";
-			props.setProperty(prefix + "location", record.getLocation());
-			props.setProperty(prefix + "description", record.getDescription());
-			props.setProperty(prefix + "action", record.getPlayerAction());
-		}
-		
-		//TODO implement write save for inventory
-		
 		Files.createDirectories(saveDir);
-		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-			props.store(writer, COMMENT);
-		}
+		Path temp = path.resolveSibling(path.getFileName() + ".tmp");
+		Files.writeString(temp, json, StandardCharsets.UTF_8);
+		Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 	}
 
 	/** Load a new state without modifying the running game.
-	 * @throws IOException if the file cannot be read
-	 * @throws BadSaveException if its contents are invalid */
-	public GameState loadSave(int slot) throws IOException, BadSaveException{
+	 *  @throws NoSuchFileException if the slot is empty
+	 *  @throws IOException if the file cannot be read
+	 *  @throws BadSaveException if its contents are invalid or from another save version */
+	public GameState loadSave(int slot) throws IOException, BadSaveException {
 		Path path = getSlotPath(slot);
-		try {
-			Properties props = loadProps(path);
-
-			//load player stats
-			String name = getStringProperty(props, "name");
-			int hp = getIntProperty(props, "hp");
-			int level = getIntProperty(props, "level");
-			int exp = getIntProperty(props, "EXP");
-
-			// TODO save v3: store attributes and skills; until then they load as 0
-			Player player = new Player(name, level, hp, exp, Map.of(), Map.of());
-			
-			//load history
-			int historyCount = getIntProperty(props,"history.count");
-			
-			if (historyCount < 0) {
-			    throw new IllegalArgumentException(
-			            "Illegal history count: " + historyCount);
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			SaveRecord saveRecord = GSON.fromJson(reader, SaveRecord.class);
+			if (saveRecord == null || saveRecord.version() != SaveRecord.SAVE_CONTRACT_VERSION) {
+				throw new BadSaveException(slot, "Unsupported save version.");
 			}
-			
-			List<SceneRecord> history = new ArrayList<>();
-			
-			for(int i=0; i< historyCount; i++) {
-				String prefix = "history." + i + ".";
-				
-				SceneRecord record = new SceneRecord(
-						getStringProperty(props, prefix + "location"),
-						getStringProperty(props, prefix + "description"),
-						i+1,
-						getStringProperty(props, prefix + "action"));
-				history.add(record);
-			}
-			
-			//load current scene
-			String location = getStringProperty(props, "location");
-			String description = getStringProperty(props, "description");
-			
-			int optionCount = getIntProperty(props, "option_count");
-			if(optionCount < CurrentScene.MIN_OPTION_COUNT || optionCount > CurrentScene.MAX_OPTION_COUNT) {
-				throw new IllegalArgumentException("Illegal option count: " + optionCount);
-			}
-			String[] options = new String[optionCount];
-			for(int i=0; i<optionCount;i++) {
-				options[i] = getStringProperty(props, "options." + i);
-			}
-
-			CurrentScene currentScene = new CurrentScene(location, description, historyCount + 1, options);
-			
-			//TODO implement load save for inventory
-
-			return new GameState(player, currentScene, history);
-		} catch (IllegalArgumentException | PropertyNotFoundException e) {
+			return saveRecord.toGameState(catalog);
+		} catch (JsonParseException | IllegalArgumentException | MissingFieldException e) {
 			throw new BadSaveException(slot, e);
 		}
 	}
-	
+
 	/** Deletes the slot file; returns false if it does not exist. */
 	public boolean deleteSave(int slot) throws IOException{
 		return Files.deleteIfExists(getSlotPath(slot));
-	}
-
-	/** load properties from selected slot file */
-	private Properties loadProps(Path path) throws IOException {
-		Properties props = new Properties();
-		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-			props.load(reader);
-		}
-		return props;
-	}
-	
-	/** helper method for parsing string
-	 * @throws PropertyNotFoundException */
-	private static String getStringProperty(Properties props, String key){
-		String raw = props.getProperty(key);
-		if (raw == null || raw.isBlank()) {
-			throw new PropertyNotFoundException(key);
-		}
-		return raw.strip();
-	}
-
-	/** helper method for parsing int 
-	 * @throws NumberFormatException 
-	 * @throws PropertyNotFoundException */
-	private static int getIntProperty(Properties props, String key){
-		return Integer.parseInt(getStringProperty(props,key));
-	}
-
-	/** helper method for parsing double
-	 * @throws NumberFormatException 
-	 * @throws PropertyNotFoundException */
-	private static double getDoubleProperty(Properties props, String key){
-		double value = Double.parseDouble(getStringProperty(props,key));
-		if (!Double.isFinite(value)) {
-			throw new IllegalArgumentException("Invalid number: " + key);
-		}
-		return value;
 	}
 }

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "drifter_longsword",
+    "name": "Drifter's Longsword",
+    "type": "LONGSWORD",
+    "quality": "COMMON",
+    "description": "A plain blade with more nicks along the edge than marks of the whetstone."
+  },
+  {
+    "id": "drifter_mace",
+    "name": "Drifter's Mace",
+    "type": "MACE",
+    "quality": "COMMON",
+    "description": "An iron head bolted to a cart axle; it dents what it cannot cut."
+  },
+  {
+    "id": "drifter_scimitar",
+    "name": "Drifter's Scimitar",
+    "type": "SCIMITAR",
+    "quality": "COMMON",
+    "description": "A curved blade won at dice from a caravan guard who never asked for it back."
+  },
+  {
+    "id": "drifter_greatsword",
+    "name": "Drifter's Greatsword",
+    "type": "GREATSWORD",
+    "quality": "COMMON",
+    "description": "An old two-handed blade, reground so often it is shorter than it should be."
+  },
+  {
+    "id": "drifter_shortsword",
+    "name": "Drifter's Shortsword",
+    "type": "SHORTSWORD",
+    "quality": "COMMON",
+    "description": "A short blade wrapped in rag at the grip, quick to hand and easy to hide."
+  },
+  {
+    "id": "drifter_dagger",
+    "name": "Drifter's Dagger",
+    "type": "DAGGER",
+    "quality": "COMMON",
+    "description": "A thin knife for bread, rope, and the occasional unwary throat."
+  },
+  {
+    "id": "recruit_longsword",
+    "name": "Recruit's Longsword",
+    "type": "LONGSWORD",
+    "quality": "COMMON",
+    "description": "Issued from the barracks rack; the last owner's name is still scratched on the hilt."
+  },
+  {
+    "id": "recruit_mace",
+    "name": "Recruit's Mace",
+    "type": "MACE",
+    "quality": "COMMON",
+    "description": "A heavy drill mace, balanced for parade more than for battle."
+  },
+  {
+    "id": "recruit_scimitar",
+    "name": "Recruit's Saber",
+    "type": "SCIMITAR",
+    "quality": "COMMON",
+    "description": "A cavalry saber handed to foot soldiers after the horses were sold."
+  },
+  {
+    "id": "recruit_greatsword",
+    "name": "Recruit's Greatsword",
+    "type": "GREATSWORD",
+    "quality": "COMMON",
+    "description": "A wall-guard's blade, long enough to keep a nervous recruit at a safe distance."
+  },
+  {
+    "id": "recruit_shortsword",
+    "name": "Recruit's Shortsword",
+    "type": "SHORTSWORD",
+    "quality": "COMMON",
+    "description": "A standard sidearm, dull from use on crates and kitchen rations."
+  },
+  {
+    "id": "recruit_dagger",
+    "name": "Recruit's Dagger",
+    "type": "DAGGER",
+    "quality": "COMMON",
+    "description": "A plain issue dagger, more often used to open letters from home than to fight."
+  }
+]

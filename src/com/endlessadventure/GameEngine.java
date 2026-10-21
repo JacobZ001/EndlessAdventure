@@ -3,6 +3,7 @@ package com.endlessadventure;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
+import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmRequestException;
 import com.endlessadventure.save.BadSaveException;
@@ -24,16 +25,18 @@ public class GameEngine {
 	private final UIHandler ui;
 	private final SaveManager saveManager;
 	private final StoryGenerator storyGenerator;
+	private final EquipmentCatalog equipmentCatalog;
 
 	private boolean running = true;
 	private int selectedSlot = 1;
 	private GameScreen currentScreen = GameScreen.MAIN_MENU;
 	private GameState gameState = new GameState();
 
-	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator) {
+	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator, EquipmentCatalog equipmentCatalog) {
 		this.ui = ui;
 		this.saveManager = saveManager;
 		this.storyGenerator = storyGenerator;
+		this.equipmentCatalog = equipmentCatalog;
 	}
 
 	/** main game loop */

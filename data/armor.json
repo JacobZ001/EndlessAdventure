@@ -1,0 +1,44 @@
+[
+  {
+    "id": "drifter_leathers",
+    "name": "Drifter's Leathers",
+    "type": "LIGHT",
+    "quality": "COMMON",
+    "description": "Cracked leather patched at the elbows; it lets you run, climb and duck."
+  },
+  {
+    "id": "drifter_brigandine",
+    "name": "Drifter's Brigandine",
+    "type": "MEDIUM",
+    "quality": "COMMON",
+    "description": "Rusty plates sewn inside a coat that has seen too many roads."
+  },
+  {
+    "id": "drifter_scale",
+    "name": "Drifter's Scale Coat",
+    "type": "HEAVY",
+    "quality": "COMMON",
+    "description": "Mismatched scales scavenged from three different coats; heavy on the shoulders."
+  },
+  {
+    "id": "recruit_gambeson",
+    "name": "Recruit's Gambeson",
+    "type": "LIGHT",
+    "quality": "COMMON",
+    "description": "A quilted training jacket, still smelling of the barracks."
+  },
+  {
+    "id": "recruit_mail",
+    "name": "Recruit's Mail",
+    "type": "MEDIUM",
+    "quality": "COMMON",
+    "description": "A ring shirt a size too large, issued without asking."
+  },
+  {
+    "id": "recruit_plate",
+    "name": "Recruit's Plate",
+    "type": "HEAVY",
+    "quality": "COMMON",
+    "description": "Old gate-ward plate; nothing gets through, and you get nowhere fast."
+  }
+]
