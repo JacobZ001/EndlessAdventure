@@ -7,7 +7,7 @@ import com.endlessadventure.entity.Attribute;
 public final class Palette {
 	static final int BG = 0x0C1017;
 	static final int MUTED = 0x5A6274;	//hints and disabled options
-	static final int LINE = mix(BG, MUTED, 0.45); //frames and lines
+	static final int LINE = mix(BG, MUTED, 0.30); //frames and lines
 	static final int TEXT = 0xD8DEE9;
 	static final int KEY = 0xE8C268;		//GOLD
 	static final int TAG = 0x7FB2D9;		//SKY

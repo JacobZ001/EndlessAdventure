@@ -185,7 +185,6 @@ public final class CharacterCreationScreen extends Screen {
 			Player player = gear.buildPlayer();
 			ui.showSuccess("Starting your adventure...");
 			drawAllocationFrame(); //keep this screen up with the message while the story request runs
-			canvas.dim(0, 0, Canvas.WIDTH, Canvas.HEIGHT - 1);
 			return player;
 		}
 		step++;

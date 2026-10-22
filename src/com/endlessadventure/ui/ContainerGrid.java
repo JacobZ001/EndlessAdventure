@@ -9,7 +9,7 @@ import com.endlessadventure.item.Item;
 record ContainerGrid(int cols, int rows) {
 	static final int ICON_W = 12, ICON_H = 6; //a 12 x 12 pixel icon, two pixels per character row
 	static final int BOX_W = ICON_W + 2, BOX_H = ICON_H + 2; //the icon and its frame
-	static final int GAP_X = 2, GAP_Y = 1; //a character is about twice as tall as wide, so the gaps look even
+	static final int GAP_X = 3, GAP_Y = 1; //a character is about twice as tall as wide, so the gaps look even
 	private static final int EMPTY = Palette.mix(Palette.BG, Palette.LINE, 0.6); //frame of an empty box
 
 	int width() { return cols * BOX_W + (cols - 1) * GAP_X; }

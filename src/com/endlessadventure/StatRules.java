@@ -27,13 +27,14 @@ public final class StatRules {
 	public static final int GENERAL_SKILL_PER_LEVEL = 2;
 
 	// derived stats
-	public static final int PLAYER_HP_PER_TIER = 144;
+	public static final int PLAYER_HP_PER_TIER = 144; // MaxHP = 18 * (7 + Level) + 8 * CON; or +18 per Level
 	public static final int PLAYER_HP_PER_CON = 8;
 	
 	//other stats
 	public static final int BASE_SPEED = 4;
 	
-	private static final int[] XP_TO_NEXT = { //index = current level - 1; value = amount of exp required for leveling up
+	//index = current level - 1; value = amount of exp required for leveling up
+	private static final int[] XP_TO_NEXT = { 
 			48, 64, 80, 96,				//1-4
 			196, 224, 252, 280, 308,	//5-9
 			480, 520, 560, 600, 640,	//10-14
