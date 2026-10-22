@@ -5,20 +5,6 @@ import java.util.List;
 public final class Armor extends Equipment {
 	public static final int HEAVY_ARMOR_SPEED_PENALTY = 1;
 	
-	public enum Type {
-		LIGHT(2, "Light"),
-		MEDIUM(4, "Medium"),
-		HEAVY(6, "Heavy");
-		
-		public final int base;
-		public final String label;
-		
-		Type(int base, String label) {
-			this.base = base;
-			this.label = label;
-		}
-	}
-	
 	private final Type type;
 
 	public Armor(String id, String name, String description, Quality quality, Type type) {
@@ -61,5 +47,19 @@ public final class Armor extends Equipment {
 			details.add(Detail.Stat.of("Speed", "-" + getSpeedPenalty(), Tone.BAD));
 		}
 		details.add(allowsDodge() ? Detail.Line.of("Allows dodging", Tone.GOOD) : Detail.Line.of("Cannot dodge", Tone.BAD));
+	}
+	
+	public enum Type {
+		LIGHT(2, "Light"),
+		MEDIUM(4, "Medium"),
+		HEAVY(6, "Heavy");
+		
+		public final int base;
+		public final String label;
+		
+		Type(int base, String label) {
+			this.base = base;
+			this.label = label;
+		}
 	}
 }

@@ -9,6 +9,66 @@ import com.endlessadventure.entity.Attribute;
 public final class Weapon extends Equipment {
 	private static final int VERSATILE_BONUS_PER_TIER = 2;
 	
+    private final Type type;
+
+	public Weapon(String id, String name, String description, Quality quality, Type type) {
+		super(id, name, description, quality);
+		if(type == null) {
+			throw new IllegalArgumentException("Illegal weapon: type cannot be null.");
+		}
+		this.type = type;
+	}
+	
+	public Type getType() {return type;}
+	
+	public int getBaseDmg(boolean doubleGripped) {
+		int bonus = doubleGripped && type.grip == Grip.VERSATILE? VERSATILE_BONUS_PER_TIER : 0;
+		return (type.base + bonus) * getQuality().tier;
+	}
+	
+	public boolean hasProperty(Property p) {
+		return type.properties.contains(p);
+	}
+	
+	public int getPenetration() {
+		return hasProperty(Property.PIERCE)? Property.PIERCE.potencyPerTier * getQuality().tier : 0;
+	}
+
+	@Override
+	public String getCategoryLabel() {
+		return type.label;
+	}
+
+	@Override
+	public boolean fits(Slot slot) {
+		return switch(slot) {
+			case MAIN_HAND -> true;
+			case ARMOR -> false;
+			case OFF_HAND -> getType().grip == Grip.LIGHT;
+		};
+	}
+
+	@Override
+	protected List<Span> tags() {
+		List<Span> tags = super.tags();
+		tags.add(Span.of(type.grip.label, Tone.KEYWORD));
+		return tags;
+	}
+
+	@Override
+	protected void addStats(List<Detail> details) {
+		String power = type.grip == Grip.VERSATILE ? getBaseDmg(false) + " (" + getBaseDmg(true) + ")" : String.valueOf(getBaseDmg(false));
+		details.add(Detail.Stat.of("Scaling", type.attribute.name(), type.attribute));
+		details.add(Detail.Stat.of("Attack Power", power, Tone.PLAIN));
+	}
+
+	@Override
+	protected void addProperties(List<Detail> details) {
+		for (Property p : type.properties) {
+			details.add(new Detail.Trait(Span.of(p.label, Tone.KEYWORD), p.describe(getQuality().tier)));
+		}
+	}
+	
 	public enum Grip { 
 		ONE_HANDED("One Handed"), 
 		LIGHT("Light"), 
@@ -80,66 +140,6 @@ public final class Weapon extends Equipment {
 				spans.add(Span.of(parts[1], Tone.NOTE));
 			}
 			return spans;
-		}
-	}
-
-    private final Type type;
-
-	public Weapon(String id, String name, String description, Quality quality, Type type) {
-		super(id, name, description, quality);
-		if(type == null) {
-			throw new IllegalArgumentException("Illegal weapon: type cannot be null.");
-		}
-		this.type = type;
-	}
-	
-	public Type getType() {return type;}
-	
-	public int getBaseDmg(boolean doubleGripped) {
-		int bonus = doubleGripped && type.grip == Grip.VERSATILE? VERSATILE_BONUS_PER_TIER : 0;
-		return (type.base + bonus) * getQuality().tier;
-	}
-	
-	public boolean hasProperty(Property p) {
-		return type.properties.contains(p);
-	}
-	
-	public int getPenetration() {
-		return hasProperty(Property.PIERCE)? Property.PIERCE.potencyPerTier * getQuality().tier : 0;
-	}
-
-	@Override
-	public String getCategoryLabel() {
-		return type.label;
-	}
-
-	@Override
-	public boolean fits(Slot slot) {
-		return switch(slot) {
-			case MAIN_HAND -> true;
-			case ARMOR -> false;
-			case OFF_HAND -> getType().grip == Grip.LIGHT;
-		};
-	}
-
-	@Override
-	protected List<Span> tags() {
-		List<Span> tags = super.tags();
-		tags.add(Span.of(type.grip.label, Tone.NOTE));
-		return tags;
-	}
-
-	@Override
-	protected void addStats(List<Detail> details) {
-		String power = type.grip == Grip.VERSATILE ? getBaseDmg(false) + " (" + getBaseDmg(true) + ")" : String.valueOf(getBaseDmg(false));
-		details.add(Detail.Stat.of("Scaling", type.attribute.name(), type.attribute));
-		details.add(Detail.Stat.of("Attack Power", power, type.attribute));
-	}
-
-	@Override
-	protected void addProperties(List<Detail> details) {
-		for (Property p : type.properties) {
-			details.add(new Detail.Trait(Span.of(p.label, Tone.KEYWORD), p.describe(getQuality().tier)));
 		}
 	}
 }

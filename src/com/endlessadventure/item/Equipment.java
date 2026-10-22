@@ -38,13 +38,14 @@ public abstract class Equipment extends Item {
     	details.add(new Detail.Tags(tags()));
     	addStats(details);
     	addProperties(details);
+    	details.add(Detail.Description.of(this));
     	return details;
     }
 
     /** quality and kind, e.g. "Rare Longsword"; returns a new list that subclasses may add to */
     protected List<Span> tags() {
     	List<Span> tags = new ArrayList<>();
-    	tags.add(Span.of(quality.label + " " + getCategoryLabel(), quality.tone));
+    	tags.add(Span.of(quality.label + " " + getCategoryLabel(), Tone.NOTE));
     	return tags;
     }
 

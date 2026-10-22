@@ -49,6 +49,13 @@ public interface Displayable {
 				description = List.copyOf(description);
 			}
 		}
+		
+		/** flavor text describing the displayable; the ui decides where it goes */
+		record Description(Span span) implements Detail{
+			public static Description of(Displayable d) {
+				return new Description(Span.of(d.getDescription(), Tone.NOTE));
+			}
+		}
 	}
 
 	/** what a span means; the ui picks the color */

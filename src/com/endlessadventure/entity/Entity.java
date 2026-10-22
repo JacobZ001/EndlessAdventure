@@ -31,7 +31,8 @@ public abstract class Entity implements Displayable {
 		return List.of(
 				Detail.Line.of(getName(), Tone.KEYWORD),
 				Detail.Stat.of("Level", level),
-				Detail.Stat.of("HP", hp + " / " + getMaxHp(), Attribute.CON));
+				Detail.Stat.of("HP", hp + " / " + getMaxHp(), Attribute.CON),
+				Detail.Description.of(this));
 	}
 
 	/** @throws IllegalArgumentException */

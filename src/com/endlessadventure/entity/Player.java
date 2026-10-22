@@ -54,13 +54,11 @@ public class Player extends GameCharacter {
 
 	/** returns the total amount of skill points of the argument skill EnumMap that is within the selected group */
 	private static int getSkillTotal(Map<Skill, Integer> skills, Skill.Group group) {
-		int total = 0;
-		for (Map.Entry<Skill, Integer> e : skills.entrySet()) {
-			if (e.getKey().group == group) {
-				total += e.getValue();
-			}
-		}
-		return total;
+		return skills.entrySet()
+				.stream()
+				.filter(e -> e.getKey().group == group)
+				.mapToInt(Map.Entry::getValue)
+				.sum();
 	}
 
 	/**checks if the argument attributes and skills are valid according to the caps and budgets values
@@ -122,11 +120,10 @@ public class Player extends GameCharacter {
 		}
 
 		public int getRemainingAttributePoints() {
-			int total = 0;
-			for (int v : attributes.values()) {
-				total += v;
-			}
-			return StatRules.getAttributeBudgetLimit(1) - total;
+			return StatRules.getAttributeBudgetLimit(1) - attributes.values()
+					.stream()
+					.mapToInt(Integer::intValue)
+					.sum();
 		}
 
 		public int getRemainingSkillPoints(Skill.Group group) {
