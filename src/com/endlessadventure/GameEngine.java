@@ -81,7 +81,7 @@ public class GameEngine {
 
 	/** run character creation; start the adventure with the new player, or go back to the main menu */
 	private GameScreen handleCharacterCreation() {
-		if(new CharacterCreationScreen(ui).run() instanceof Player p) {
+		if(new CharacterCreationScreen(ui, equipmentCatalog).run() instanceof Player p) {
 			gameState.setPlayer(p);
 			return GameScreen.ADVENTURE;
 		}

@@ -21,7 +21,7 @@ public class UIHandler implements AutoCloseable {
 	private final BindingReader bindingReader;
 	private final Canvas canvas = new Canvas();
 	
-	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
+	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, TAB, BACK_TAB, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
 
 	/** one key or mouse event; button is the clickable area under the mouse for CLICK and HOVER, null otherwise */
 	record Input(InputKey inputKey, char ch, int x, int y, Button button) {
@@ -68,6 +68,8 @@ public class UIHandler implements AutoCloseable {
 		inputKeys.bind(InputKey.MOUSE, MouseSupport.keys(terminal));
 		inputKeys.bind(InputKey.BACKSPACE, "\b", "\177");
 		inputKeys.bind(InputKey.DEL, KeyMap.key(terminal, Capability.key_dc));
+		inputKeys.bind(InputKey.TAB, "\t");
+		inputKeys.bind(InputKey.BACK_TAB, "\033[Z");
 		for (char c = ' '; c <= '~'; c++) {
 			inputKeys.bind(InputKey.CHAR, String.valueOf(c)); //printable ASCII
 		}

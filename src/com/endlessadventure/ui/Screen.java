@@ -40,6 +40,9 @@ abstract class Screen {
 	 *  any other input keeps it. for lists of object rows (save cards) pass only UP and DOWN, so hovering does not change the selection.
 	 *  one-dimensional lists only; a grid needs its own version */
 	protected static int moveFocus(UIHandler.Input in, int current, int bound) {
+		if(bound <= 0) {
+			return current;
+		}
 		return switch (in.inputKey()) {
 			case UP -> Math.floorMod(current - 1, bound);
 			case DOWN -> Math.floorMod(current + 1, bound);

@@ -1,51 +1,61 @@
 package com.endlessadventure.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import com.endlessadventure.StatRules;
+import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.entity.Attribute;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.entity.Skill;
 
-/** step-by-step character creation: name, attributes, combat skills, general skills, review */
+/** step-by-step character creation: name, attributes, combat skills, general skills, starting equipment, review */
 public final class CharacterCreationScreen extends Screen {
-	private static final String[] STEPS = {"ATTRIBUTES", "COMBAT SKILLS", "GENERAL SKILLS", "REVIEW"};
-	private static final int ATTRIBUTES = 0, COMBAT = 1, GENERAL = 2, REVIEW = 3;
+	private static final String[] STEPS = {"ATTRIBUTES", "COMBAT SKILLS", "GENERAL SKILLS", "EQUIPMENT", "REVIEW"};
+	private static final int ATTRIBUTES = 0, COMBAT = 1, GENERAL = 2, EQUIPMENT = 3, REVIEW = 4;
 
-	//layout: two columns from just under the step bar to near the bottom border;
-	//the right column holds the details box and, under it, an action bar whose buttons end level with the panel
+	/** clickable actions: [-] and [+] on a row (a click elsewhere on the row only focuses it), and the two buttons */
+	private enum Action { MINUS, PLUS, BACK, NEXT }
+
+	//name input box, centered
+	private static final int NAME_BOX_W = 52;
+
 	private static final int STEP_BAR_Y = 2;
-	private static final int PANEL_W = 86, DETAIL_W = 86, DETAIL_SPACING = 3;
-	private static final int PANEL_X = (Canvas.WIDTH - PANEL_W - DETAIL_W - DETAIL_SPACING) / 2;
-	private static final int DETAIL_X = PANEL_X + PANEL_W + DETAIL_SPACING;
+	
+	//allocation step two columns: allocation panel and details; the equipment step lays out its own three columns in the same width
+	private static final int PANEL_W = 100, DETAIL_W = 100, DETAIL_SPACING = 3;
 	private static final int PANEL_Y = 4;
 	private static final int PANEL_BOTTOM = Canvas.HEIGHT - 4; //last row of both columns
+	
+	private static final int PIP_EMPTY = Palette.mix(Palette.BG, Palette.MUTED, 0.6); //color of empty stat boxes
+	
+	//action bar buttons
+	private static final int BUTTON_SPACING = 2;
+
+	//auto-calculated based on constants defined above
+	private static final int NAME_BOX_X = (Canvas.WIDTH - NAME_BOX_W) / 2;
+	private static final int NAME_BOX_Y = Canvas.HEIGHT / 2 - 1;
+	
+	private static final int PANEL_X = (Canvas.WIDTH - PANEL_W - DETAIL_W - DETAIL_SPACING) / 2;
+	private static final int DETAIL_X = PANEL_X + PANEL_W + DETAIL_SPACING;
 	private static final int PANEL_H = PANEL_BOTTOM - PANEL_Y + 1;
 
-	private static final int BUTTON_SPACING = 2;
 	private static final int BUTTON_Y = PANEL_BOTTOM - Canvas.BUTTON_HEIGHT + 1;
 	private static final int NEXT_X = DETAIL_X + DETAIL_W - Canvas.BUTTON_WIDTH;
 	private static final int BACK_X = NEXT_X - BUTTON_SPACING - Canvas.BUTTON_WIDTH;
 	private static final int DETAIL_H = BUTTON_Y - 1 - PANEL_Y; //leaves one empty row above the action bar
 
-	//name input box, centered
-	private static final int NAME_BOX_W = 52;
-	private static final int NAME_BOX_X = (Canvas.WIDTH - NAME_BOX_W) / 2;
-	private static final int NAME_BOX_Y = Canvas.HEIGHT / 2 - 1;
-
-	private static final int PIP_EMPTY = Palette.mix(Palette.BG, Palette.MUTED, 0.6);
-	
-	/** clickable actions: [-] and [+] on a row (a click elsewhere on the row only focuses it), and the two buttons */
-	private enum Action { MINUS, PLUS, BACK, NEXT }
+	private final StartingGearPanel gear; //the equipment step, drawn between the step bar and the action bar
 
 	private Player.PlayerBuilder playerBuilder;
 	private int step = ATTRIBUTES;
 	private int focus = 0; //focused row
 
-	public CharacterCreationScreen(UIHandler ui) {
+	public CharacterCreationScreen(UIHandler ui, EquipmentCatalog catalog) {
 		super(ui, "CREATE YOUR CHARACTER");
+		gear = new StartingGearPanel(ui, catalog, () -> playerBuilder.build()); //reads the current builder each time
 	}
 
 	/** returns the new player, or null if the player left for the main menu */
@@ -95,19 +105,22 @@ public final class CharacterCreationScreen extends Screen {
 		while (true) {
 			drawAllocationFrame();
 			UIHandler.Input in = ui.readInput();
+			if (step == EQUIPMENT && gear.handleInput(in)) {
+				continue; //an input about the gear; the common keys below are left for the switch
+			}
 			List<Enum<?>> rows = rows();
-			
+
 			switch (in.inputKey()) {
 				case UP, DOWN, HOVER -> focus = moveFocus(in, focus, rows.size());
 				case LEFT -> adjustStat(rows, focus, -1);
 				case RIGHT -> adjustStat(rows, focus, +1);
 				case ENTER -> {
-					if (next() instanceof Player p) {
+					if (nextStep() instanceof Player p) {
 						return p;
 					}
 				}
 				case ESC -> {
-					if (!back()) {
+					if (!prevStep()) {
 						return null;
 					}
 				}
@@ -115,12 +128,12 @@ public final class CharacterCreationScreen extends Screen {
 					if (in.button() instanceof Button b && b.action() instanceof Action a) {
 						switch(a) {
 							case BACK -> {
-								if (!back()) {
+								if (!prevStep()) {
 									return null;
 								}
 							}
 							case NEXT -> {
-								if (next() instanceof Player p) {
+								if (nextStep() instanceof Player p) {
 									return p;
 								}
 							}
@@ -132,33 +145,6 @@ public final class CharacterCreationScreen extends Screen {
 				default -> {}
 			}
 		}
-	}
-
-	/** moves to the next step if this one is complete; on the review step, builds the player */
-	private Player next() {
-		if (remaining(step) > 0) {
-			ui.showWarning("Spend every point to continue (" + remaining(step) + " left).");
-			return null;
-		}
-		if (step == REVIEW) {
-			Player player = playerBuilder.build();
-			ui.showSuccess("Starting your adventure...");
-			drawAllocationFrame(); //keep this screen up with the message while the story request runs
-			return player;
-		}
-		step++;
-		focus = 0;
-		return null;
-	}
-
-	/** moves to the previous step; returns false when already on the first step */
-	private boolean back() {
-		if (step == ATTRIBUTES) {
-			return false;
-		}
-		step--;
-		focus = 0;
-		return true;
 	}
 
 	private void adjustStat(List<Enum<?>> rows, int index, int delta) {
@@ -188,29 +174,64 @@ public final class CharacterCreationScreen extends Screen {
 		}
 	}
 
-	/** adjustable rows of the current step, in display order */
+	/** moves to the next step if this one is complete; on the review step, builds the player */
+	private Player nextStep() {
+		if (!isStepComplete()) {
+			ui.showWarning(step == EQUIPMENT ? "Equip a weapon and armor to continue."
+					: "Spend every point to continue (" + getRemainingPoints(step) + " left).");
+			return null;
+		}
+		if (step == REVIEW) {
+			Player player = gear.buildPlayer();
+			ui.showSuccess("Starting your adventure...");
+			drawAllocationFrame(); //keep this screen up with the message while the story request runs
+			canvas.dim(0, 0, Canvas.WIDTH, Canvas.HEIGHT - 1);
+			return player;
+		}
+		step++;
+		focus = 0;
+		return null;
+	}
+
+	/** moves to the previous step; returns false when already on the first step */
+	private boolean prevStep() {
+		if (step == ATTRIBUTES) {
+			return false;
+		}
+		step--;
+		focus = 0;
+		return true;
+	}
+
+	/** adjustable rows of the current step, in display order; none on the equipment and review steps */
 	private List<Enum<?>> rows() {
 		List<Enum<?>> rows = new ArrayList<>();
 		switch (step) {
 			case ATTRIBUTES -> rows.addAll(List.of(Attribute.values()));
-			case COMBAT -> rows.addAll(skillsIn(Skill.Group.COMBAT));
-			case GENERAL -> rows.addAll(skillsIn(Skill.Group.GENERAL));
+			case COMBAT -> rows.addAll(findSkillsIn(Skill.Group.COMBAT));
+			case GENERAL -> rows.addAll(findSkillsIn(Skill.Group.GENERAL));
 			default -> {}
 		}
 		return rows;
 	}
 
-	private static List<Skill> skillsIn(Skill.Group group) {
-		List<Skill> skills = new ArrayList<>();
-		for (Skill s : Skill.values()) {
-			if (s.group == group) {
-				skills.add(s);
-			}
-		}
-		return skills;
+	private static List<Skill> findSkillsIn(Skill.Group group) {
+		return Arrays.stream(Skill.values())
+				.filter(skill -> skill.group == group)
+				.toList();
 	}
 
-	private int remaining(int step) {
+	/** whether NEXT is allowed: every point spent, or a weapon and armor equipped on the equipment step */
+	private boolean isStepComplete() {
+		return switch (step) {
+			case EQUIPMENT -> gear.isComplete();
+			case REVIEW -> true;
+			default -> getRemainingPoints(step) == 0;
+		};
+	}
+
+	/** remaining attribute or skill points of a point step; 0 on the other steps */
+	private int getRemainingPoints(int step) {
 		return switch (step) {
 			case ATTRIBUTES -> playerBuilder.getRemainingAttributePoints();
 			case COMBAT -> playerBuilder.getRemainingSkillPoints(Skill.Group.COMBAT);
@@ -219,7 +240,7 @@ public final class CharacterCreationScreen extends Screen {
 		};
 	}
 
-	private int budget(int step) {
+	private int getBudget(int step) {
 		return switch (step) {
 			case ATTRIBUTES -> StatRules.ATTRIBUTE_START_BUDGET;
 			case COMBAT -> StatRules.COMBAT_SKILL_START_BUDGET;
@@ -227,8 +248,9 @@ public final class CharacterCreationScreen extends Screen {
 			default -> 0;
 		};
 	}
-
-
+	
+	
+	
 	//drawing
 	/** question, input box with the typed name and a caret, centered */
 	private void drawNameFrame(TextField name) {
@@ -244,34 +266,8 @@ public final class CharacterCreationScreen extends Screen {
 	
 	private void drawAllocationFrame() {
 		beginFrame();
-		drawStepBar();
-
-		//draw rows
-		List<Enum<?>> rows = rows();
-		if (step == REVIEW) {
-			drawReview();
-		} else {
-			drawAllocation(rows);
-			drawDetails(rows.get(focus));
-		}
-
-		//draw BACK and NEXT buttons
-		boolean complete = remaining(step) == 0;
-		ui.drawButton(BACK_X, BUTTON_Y, "BACK", true, new Button(Action.BACK));
-		ui.drawButton(NEXT_X, BUTTON_Y, step == REVIEW ? "CONFIRM" : "NEXT", complete, new Button(Action.NEXT));
-		if (step != REVIEW) {
-			drawPointsLeft();
-		}
-
-
-		endFrame(List.of(
-				Map.entry("↑/↓", "Select"),
-				Map.entry("←/→", "- / +"),
-				Map.entry("ENTER", step == REVIEW ? "Confirm" : "Next"),
-				Map.entry("ESC", "Back")));
-	}
-
-	private void drawStepBar() {
+		
+		//draw step bar
 		int x = PANEL_X + 2;
 		for (int i = 0; i < STEPS.length; i++) {
 			int color = i == step ? Palette.KEY : (i < step ? Palette.SUCCESS : Palette.MUTED);
@@ -283,20 +279,59 @@ public final class CharacterCreationScreen extends Screen {
 				x += 10;
 			}
 		}
-		String name = playerBuilder.getName();
-		canvas.drawText(DETAIL_X + DETAIL_W - 2 - name.length(), STEP_BAR_Y, name, Palette.TEXT);
+
+		//draw rows
+		if (step == REVIEW) {
+			drawReview();
+		}
+		else if (step == EQUIPMENT) {
+			gear.draw(PANEL_X, PANEL_Y, DETAIL_X + DETAIL_W - PANEL_X, PANEL_H, DETAIL_H);
+		}
+		else {
+			List<Enum<?>> rows = rows();
+			drawAllocation(rows);
+			drawDetails(rows.get(focus));
+		}
+
+		//draw BACK and NEXT buttons
+		ui.drawButton(BACK_X, BUTTON_Y, "BACK", true, new Button(Action.BACK));
+		ui.drawButton(NEXT_X, BUTTON_Y, step == REVIEW ? "CONFIRM" : "NEXT", isStepComplete(), new Button(Action.NEXT));
+
+		//on the point steps, draw the points left at the left of the action bar, level with the button labels
+		if (step <= GENERAL) {
+			int left = getRemainingPoints(step);
+			if (left > 0) {
+				canvas.drawText(DETAIL_X + 2, BUTTON_Y + 1, left + " / " + getBudget(step) + "  POINTS LEFT", Palette.TAG);
+			}
+			else {
+				canvas.drawText(DETAIL_X + 2, BUTTON_Y + 1, "ALL POINTS SPENT", Palette.SUCCESS);
+			}
+		}
+
+
+		endFrame(step != EQUIPMENT? 
+				List.of(
+					Map.entry("↑/↓", "Select"),
+					Map.entry("←/→", "- / +"),
+					Map.entry("ENTER", step == REVIEW ? "Confirm" : "Next"),
+					Map.entry("ESC", "Back")): 
+				List.of(
+					Map.entry("↑↓←→", "Move"),
+					Map.entry("TAB","Switch Tab"),
+					Map.entry("E","Equip / Unequip"),
+					Map.entry("ENTER", "Next"),
+					Map.entry("ESC", "Back")));
 	}
 
 	private void drawAllocation(List<Enum<?>> rows) {
-		int left = remaining(step);
-		canvas.drawBox(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, Palette.MUTED);
-		canvas.drawText(PANEL_X + 2, PANEL_Y, " " + STEPS[step] + " ", Palette.KEY);
+		int left = getRemainingPoints(step);
+		canvas.drawTitledBox(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, Palette.MUTED, STEPS[step]);
 
 		int x = PANEL_X + 2;
 		int w = PANEL_W - 4;
 		switch (step) {
 		case ATTRIBUTES -> {
-			canvas.drawText(x + 2, PANEL_Y + 2, "Spend " + budget(step) + " points. An attribute starts at most at "
+			canvas.drawText(x + 2, PANEL_Y + 2, "Spend " + getBudget(step) + " points. An attribute starts at most at "
 					+ StatRules.ATTRIBUTE_START_CAP + ".", Palette.MUTED);
 			for (int i = 0; i < rows.size(); i++) {
 				Attribute a = (Attribute) rows.get(i);
@@ -305,7 +340,7 @@ public final class CharacterCreationScreen extends Screen {
 			}
 		}
 		case COMBAT -> {
-			canvas.drawText(x + 2, PANEL_Y + 2, "Spend " + budget(step) + " points on fighting skills, up to "
+			canvas.drawText(x + 2, PANEL_Y + 2, "Spend " + getBudget(step) + " points on fighting skills, up to "
 					+ StatRules.SKILL_START_CAP + " each.", Palette.MUTED);
 			for (int i = 0; i < rows.size(); i++) {
 				Skill s = (Skill) rows.get(i);
@@ -314,7 +349,7 @@ public final class CharacterCreationScreen extends Screen {
 			}
 		}
 		case GENERAL -> {
-			canvas.drawParagraph(x + 2, PANEL_Y + 2, w, "Spend " + budget(step) + " points, up to " + StatRules.SKILL_START_CAP
+			canvas.drawParagraph(x + 2, PANEL_Y + 2, w - 4, "Spend " + getBudget(step) + " points, up to " + StatRules.SKILL_START_CAP
 					+ " each. Group headers show your matching attribute."
 					+ " The attribute used in actual gameplay can change based on the scenario", Palette.MUTED);
 			int y = PANEL_Y + 4;
@@ -367,21 +402,10 @@ public final class CharacterCreationScreen extends Screen {
 		ui.addButtonBox(x, y, w, 1, new Button(index));
 	}
 
-	/** points left in this step, at the left of the action bar, level with the button labels */
-	private void drawPointsLeft() {
-		int left = remaining(step);
-		if (left > 0) {
-			canvas.drawText(DETAIL_X + 2, BUTTON_Y + 1, left + " / " + budget(step) + "  POINTS LEFT", Palette.TAG);
-		} else {
-			canvas.drawText(DETAIL_X + 2, BUTTON_Y + 1, "ALL POINTS SPENT", Palette.SUCCESS);
-		}
-	}
-
 	private void drawDetails(Enum<?> row) {
 		int x = DETAIL_X + 3;
 		int width = DETAIL_W - 6;
-		canvas.drawBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED);
-		canvas.drawText(DETAIL_X + 2, PANEL_Y, " DETAILS ", Palette.KEY);
+		canvas.drawTitledBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED, "DETAILS");
 
 		int y = PANEL_Y + 2;
 		switch (row) {
@@ -405,40 +429,14 @@ public final class CharacterCreationScreen extends Screen {
 		default -> {}
 		}
 	}
-
+	
+	/** the finished character with its gear on the left, the prompt to confirm on the right */
 	private void drawReview() {
-		canvas.drawBox(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, Palette.MUTED);
-		canvas.drawText(PANEL_X + 2, PANEL_Y, " REVIEW ", Palette.KEY);
+		CharacterPanel.draw(canvas, ui, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, gear.buildPlayer(), null, null);
 
-		int x = PANEL_X + 4;
-		int y = PANEL_Y + 2;
-		canvas.drawText(x, y, playerBuilder.getName(), Palette.KEY);
-		canvas.drawText(x, y + 1, "Level 1   Max HP " + StatRules.getPlayerMaxHp(1, playerBuilder.getAttribute(Attribute.CON)), Palette.TEXT);
-
-		y += 3;
-		canvas.drawText(x, y++, "ATTRIBUTES", Palette.TAG);
-		for (Attribute a : Attribute.values()) {
-			canvas.drawText(x, y, a.displayName, Palette.TEXT);
-			canvas.drawText(x + 15, y++, "%2d".formatted(playerBuilder.getAttribute(a)), Palette.TEXT);
-		}
-		y++;
-		canvas.drawText(x, y++, "COMBAT SKILLS", Palette.TAG);
-		for (Skill s : skillsIn(Skill.Group.COMBAT)) {
-			canvas.drawText(x, y++, "%-14s %2d".formatted(s.displayName, playerBuilder.getSkill(s)), Palette.TEXT);
-		}
-
-		int x2 = PANEL_X + 44;
-		int y2 = PANEL_Y + 5;
-		canvas.drawText(x2, y2++, "GENERAL SKILLS", Palette.TAG);
-		for (Skill s : skillsIn(Skill.Group.GENERAL)) {
-			if (playerBuilder.getSkill(s) > 0) {
-				canvas.drawText(x2, y2++, "%-18s %2d".formatted(s.displayName, playerBuilder.getSkill(s)), Palette.TEXT);
-			}
-		}
-
-		canvas.drawBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED);
-		canvas.drawText(DETAIL_X + 2, PANEL_Y, " READY? ", Palette.KEY);
+		canvas.drawTitledBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED, "READY?");
 		canvas.drawParagraph(DETAIL_X + 3, PANEL_Y + 2, DETAIL_W - 6,
-				"Confirm to begin your adventure. Use BACK to change any earlier step; your points are kept.", Palette.TEXT);
+				"Confirm to begin your adventure. Use BACK to change any earlier step; your points and gear are kept.",
+				Palette.TEXT);
 	}
 }

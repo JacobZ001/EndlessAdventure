@@ -9,18 +9,18 @@ public class Canvas {
 	public static final int WIDTH = 209;
 	public static final int BUTTON_HEIGHT = 3;
 	public static final int BUTTON_WIDTH = 18;
-	
+
 	//ANSI escape codes
 	public static final String ESC = "\033[";
 	public static final int FOREGROUND = 38;
 	public static final int BACKGROUND = 48;
-	
+
 	//Canvas component ASCII	
 	private static final char[] CORNERS = {'┌','┐',
-		         						   '└','┘'};
+										   '└','┘'};
 	private static final char ROW_BORDER = '─';
 	private static final char COL_BORDER = '│';
-	
+
 	private final char[][] characters = new char[HEIGHT][WIDTH];
 	private final int[][] foreground = new int[HEIGHT][WIDTH];
 	private final int[][] background = new int[HEIGHT][WIDTH];
@@ -39,7 +39,7 @@ public class Canvas {
 	void clear(int bg) {
 		fill(0, 0, WIDTH, HEIGHT, bg);
 	}
-	
+
 	/** fills the are starting from {@code x, y} to {@code x + w, y + h} with whitespace with {@code c} */
 	void fill(int x, int y, int width, int height, int color) {
 		for (int i = y; i < y + height; i++) {
@@ -48,7 +48,7 @@ public class Canvas {
 			}
 		}
 	}
-	
+
 	/** scrim: pull the colors of every cell in the rectangle toward the background */
 	void dim(int x, int y, int width, int height) {
 		for (int i = Math.max(0, y); i < Math.min(HEIGHT, y + height); i++) {
@@ -57,12 +57,12 @@ public class Canvas {
 			}
 		}
 	}
-	
+
 	/** overload of dim that defaults to dim the whole canvas */
 	void dim() {
 		dim(0, 0, WIDTH, HEIGHT);
 	}
-	
+
 	/** draws a box border at x,y with width w and height h */
 	void drawBox(int x, int y, int width, int height, int fg, int bg) {
 		if (x < 0 || y < 0 || width < 0 || height < 0 || x + width > WIDTH || y + height > HEIGHT) {
@@ -90,18 +90,24 @@ public class Canvas {
 			}
 		}
 	}
-	
-	/** overload of drawBox() with defualt bg*/
+
+	/** overload of drawBox() with default bg*/
 	void drawBox(int x, int y, int width, int height, int fg) {
 		drawBox(x, y, width, height, fg, Palette.BG);
 	}
-	
-	
+
+	/** draw a box border with title and default bg */
+	void drawTitledBox(int x, int y, int width, int height, int fg, String title) {
+		drawBox(x, y, width, height, fg);
+		drawText(x + 2, y, " " + title + " ", Palette.KEY);
+	}
+
+
 	/** draw the border around the whole canvas */
 	void drawScreenBorder() {
 		drawBox(0, 0, WIDTH, HEIGHT, Palette.LINE);
 	}
-	
+
 	/** draw a divider from x,y to x+w, y*/
 	void drawDivider(int x, int y, int width) {
 		for(int i = 0; i < width; i++) {
@@ -115,17 +121,17 @@ public class Canvas {
 			set(x + i, y, text.charAt(i), fg, bg);
 		}
 	}
-	
+
 	/** overload of drawText with default bg */
 	void drawText(int x, int y, String text, int fg) {
 		drawText(x, y, text, fg, Palette.BG);
 	}
-	
+
 	/** write text centered horizontally on canvas row y */
 	void drawTextCentered(int y, String text, int fg) {
 		drawText((Canvas.WIDTH - text.length()) / 2, y, text, fg);
 	}
-	
+
 	/** draws wrapped text and returns the row after the last line */
 	int drawParagraph(int x, int y, int width, String text, int fg) {
 		for (String line : wrapText(text, width)) {
@@ -167,7 +173,7 @@ public class Canvas {
 		}
 		return lines;
 	}
-	
+
 	/** draw "[key] description" hints on the bottom border, left to right */
 	void drawHints(List<Map.Entry<String, String>> hints) {
 		int x = 2;
@@ -186,7 +192,7 @@ public class Canvas {
 		drawBox(x, y, BUTTON_WIDTH, BUTTON_HEIGHT, border);
 		drawText(x + (BUTTON_WIDTH - label.length()) / 2, y + 1, label, enabled ? Palette.TEXT : Palette.MUTED);
 	}
-	
+
 	//pixel drawing
 	/** draw the pixel at px,py */
 	void drawPixel(int px, int py, int color) {
@@ -204,7 +210,7 @@ public class Canvas {
 			background[y][px] = color;
 		}
 	}
-	
+
 	/** draw a '#' bitmap centered horizontally at pixel row py0, with a shadow one pixel down-right;
 	 *  each '#' becomes 2x2 pixels, colored from topColor to bottomColor */
 	void drawPixelTitle(String[] bitmap, int py0, int topColor, int bottomColor) {
@@ -213,7 +219,7 @@ public class Canvas {
 		drawBitmap(bitmap, px0 + 1, py0 + 1, shadow, shadow); //drop shadow
 		drawBitmap(bitmap, px0, py0, topColor, bottomColor);
 	}
-	
+
 	/** draw each '#' of the bitmap as 2x2 pixels, colored from top to bottom as a vertical gradient */
 	private void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor) {
 		for (int row = 0; row < bitmap.length; row++) {
