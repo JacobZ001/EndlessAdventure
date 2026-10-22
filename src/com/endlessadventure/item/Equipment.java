@@ -27,14 +27,14 @@ public abstract class Equipment extends Item {
     
     @Override
     public Enum<?> getNameMeaning() {
-    	return quality.tone;
+    	return quality;
     }
 
     /** the layout every piece of equipment shares: name, tags, stats, properties; subclasses fill the parts */
     @Override
     public final List<Detail> getDetails() {
     	List<Detail> details = new ArrayList<>();
-    	details.add(Detail.Line.of(getName(), quality.tone));
+    	details.add(Detail.Line.of(getName(), quality));
     	details.add(new Detail.Tags(tags()));
     	addStats(details);
     	addProperties(details);
@@ -67,20 +67,18 @@ public abstract class Equipment extends Item {
 	}
 	
 	public enum Quality {
-		COMMON(1, "Common", Tone.TIER_1),
-		FINE(2, "Fine", Tone.TIER_2),
-		RARE(3,"Rare", Tone.TIER_3),
-		MASTER(4,"Master", Tone.TIER_4),
-		EPIC(5, "Epic", Tone.TIER_5);
-		
+		COMMON(1, "Common"),
+		FINE(2, "Fine"),
+		RARE(3, "Rare"),
+		MASTER(4, "Master"),
+		EPIC(5, "Epic");
+
 		public final int tier;
 		public final String label;
-		public final Tone tone;
-		
-		Quality(int tier, String label, Tone tone){
+
+		Quality(int tier, String label){
 			this.tier = tier;
 			this.label = label;
-			this.tone = tone;
 		}
 	}
 

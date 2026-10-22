@@ -67,6 +67,7 @@ public abstract class GameCharacter extends Entity {
 		inventory.add(item);
 	}
 	
+	/** remove the item (first occurrence) from the inventory; returns true if successful, false if the item is not in the inventory */
 	public boolean removeItem(Item item) {
 		return inventory.remove(item);
 	}
@@ -122,8 +123,30 @@ public abstract class GameCharacter extends Entity {
 		return e instanceof Weapon w && w.getType().grip == Weapon.Grip.TWO_HANDED;
 	}
 	
+	/** overload of equip that takes a piece and automatically chooses the corresponding slot to equip */ 
 	public List<Equipment> equip(Equipment piece){
 		return equip(piece, chooseSlot(piece));
+	}
+	
+	/** wears a piece from the inventory by the default slot rules (§7.1); whatever comes off goes back to the inventory.
+	 *  @throws IllegalArgumentException if the piece is null or not in the inventory; nothing changes then */
+	public void equipFromInventory(Equipment piece) {
+		if (piece == null || !inventory.contains(piece)) {
+			throw new IllegalArgumentException("Invalid equipment when equipping from inventory: not in the inventory: " + piece);
+		}
+		List<Equipment> removed = equip(piece); //throws before changing anything if the piece fits no slot
+		inventory.remove(piece);
+		inventory.addAll(removed);
+	}
+	
+	/** takes off what the slot holds and puts it in the inventory; returns false when the slot is empty */
+	public boolean unequipToInventory(Equipment.Slot slot) {
+		Equipment piece = unequip(slot);
+		if (piece == null) {
+			return false;
+		}
+		addItem(piece);
+		return true;
 	}
 	
 	/** returns the default slot for the equipped */

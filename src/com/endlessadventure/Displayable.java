@@ -58,28 +58,9 @@ public interface Displayable {
 		}
 	}
 
-	/** what a span means; the ui picks the color */
-	public enum Tone {
-		PLAIN, NOTE, KEYWORD, GOOD, BAD,
-		TIER_1, TIER_2, TIER_3, TIER_4, TIER_5;
-
-		/** tier color for anything tiered; tiers beyond the last share its color */
-		public static Tone getToneByTier(int tier) {
-			return switch (tier) {
-				case 1 -> TIER_1;
-				case 2 -> TIER_2;
-				case 3 -> TIER_3;
-				case 4 -> TIER_4;
-				case 5 -> TIER_5;
-				default -> {
-					if (tier < 1) {
-						throw new IllegalArgumentException("Illegal tier: " + tier);
-					}
-					yield TIER_5;
-				}
-			};
-		}
-	}
+	/** how much a span stands out and in which direction; the ui picks the color.
+	 *  domain enums such as Attribute or Equipment.Quality can be a span's meaning too, with colors of their own */
+	public enum Tone { PLAIN, NOTE, KEYWORD, GOOD, BAD }
 
 	String getName();
 

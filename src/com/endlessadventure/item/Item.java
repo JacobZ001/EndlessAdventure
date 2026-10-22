@@ -58,6 +58,6 @@ public abstract class Item implements Displayable {
 
 	@Override
 	public String toString() {
-		return name;
+		return "%s(%s)".formatted(id, name);
 	}
 }

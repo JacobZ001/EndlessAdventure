@@ -2,6 +2,7 @@ package com.endlessadventure.ui;
 
 import com.endlessadventure.Displayable.Tone;
 import com.endlessadventure.entity.Attribute;
+import com.endlessadventure.item.Equipment;
 
 /** shared rgb colors and helpers; a color is an int in 0xRRGGBB form */
 public final class Palette {
@@ -24,7 +25,7 @@ public final class Palette {
 	private static final int WIL = 0xE0A458;
 	private static final int CHA = 0xD98BB8;
 	
-	//tier colors: the usual RPG rarity order, more saturated than the interface colors so loot stands out
+	//equipment quality colors: the usual RPG rarity order, more saturated than the interface colors so loot stands out
 	private static final int T1 = 0xC8CDD5;	//pale steel
 	private static final int T2 = 0x7DD97B;	//green
 	private static final int T3 = 0x4FA3F7;	//azure
@@ -76,10 +77,11 @@ public final class Palette {
 		return switch(meaning) {
 			case Tone t -> getToneColor(t);
 			case Attribute a -> getAttributeColor(a);
+			case Equipment.Quality q -> getQualityColor(q);
 			default -> TEXT;
 		};
 	}
-	
+
 	private static int getToneColor(Tone t) {
 		return switch(t) {
 			case PLAIN -> TEXT;
@@ -87,14 +89,16 @@ public final class Palette {
 			case KEYWORD -> TAG;
 			case GOOD -> SUCCESS;
 			case BAD -> ERROR;
-			case TIER_1 -> T1;
-			case TIER_2 -> T2;
-			case TIER_3 -> T3;
-			case TIER_4 -> T4;
-			case TIER_5 -> T5;
-			default -> {
-				throw new IllegalArgumentException("Illegal tone to get color: " + t);
-			}
+		};
+	}
+
+	private static int getQualityColor(Equipment.Quality q) {
+		return switch(q) {
+			case COMMON -> T1;
+			case FINE -> T2;
+			case RARE -> T3;
+			case MASTER -> T4;
+			case EPIC -> T5;
 		};
 	}
 	
