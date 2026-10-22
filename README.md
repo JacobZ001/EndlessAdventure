@@ -10,7 +10,7 @@ As of October 17, 2026, the narrative adventure loop and all menus run on a full
 - **Character creation:** name, then step-by-step allocation of seven attributes, combat skills and general skills within the starting budgets, then a review step.
 - **Narrative gameplay:** LLM-generated opening and continuation scenes with 1–3 suggested choices or a typed custom action (up to two lines). Successful continuation replaces the current scene and records the previous scene with the player's action. Java assigns turn numbers; the model receives the current scene, player facts and the full history.
 - **Saves:** three JSON slots with overwrite and delete confirmation, storing the player (attributes, skills, equipment and items), the current scene and choices, and the story history.
-- **Not implemented:** combat, the inventory screen, usable skills, mechanical rewards and leveling. Story generation is narrative-only; mentioning an item or enemy does not create a gameplay object.
+- **Not implemented:** combat, inventory sorting, categories and paging, usable skills, mechanical rewards and leveling. Story generation is narrative-only; mentioning an item or enemy does not create a gameplay object.
 
 ### Known gaps
 
