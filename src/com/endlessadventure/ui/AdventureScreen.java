@@ -20,7 +20,7 @@ public final class AdventureScreen extends Screen {
 							 INPUT_W = CONTENT_W - ROW_TEXT_OFFSET, //inputField text lines up with the option texts
 							 INPUT_LINES = 2; //right after the last option: rows 47-48 with 3 options
 	
-	public enum Action { ACT, SAVE, BACK }
+	public enum Action { ACT, SAVE, INV, BACK }
 	public record Choice(Action action, String text) {} // text: the chosen option or the typed action, null otherwise
 
 	private final CurrentScene scene;
@@ -74,6 +74,7 @@ public final class AdventureScreen extends Screen {
 					else if(!typing()) {
 						switch(Character.toUpperCase(in.ch())){
 							case 'S' -> action = Action.SAVE;
+							case 'I' -> action = Action.INV;
 							//TODO implement other hot keys
 						}
 					}
@@ -126,6 +127,7 @@ public final class AdventureScreen extends Screen {
 				yield new Choice(Action.ACT, playerAction);
 			}
 			case SAVE -> new Choice(Action.SAVE, null);
+			case INV -> new Choice(Action.INV, null);
 			case BACK -> {
 				boolean confirmed = ConfirmDialog.show(ui,
 						"RETURN TO MAIN MENU",
@@ -145,12 +147,12 @@ public final class AdventureScreen extends Screen {
 		
 		//draw header: where and when on the left, the toolbar on the right, a rule underneath
 		String location = scene.getLocation().toUpperCase();
-		canvas.drawText(CONTENT_X, HEADER_Y, "📍 " + location, Palette.TAG);
+		canvas.drawText(CONTENT_X, HEADER_Y, location, Palette.TAG);
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
 		
 		//draw toolbar
-		String[] labels = {"Main Menu", "Save"};
-		Action[] actions = {Action.BACK, Action.SAVE};
+		String[] labels = {"Main Menu", "Save", "Inventory"}; //TODO add new tool bar buttons
+		Action[] actions = {Action.BACK, Action.SAVE, Action.INV};
 		String divider = "  |  ";
 		int x = CONTENT_X + CONTENT_W;
 		for (int i = 0; i < labels.length; i++) {
@@ -210,6 +212,7 @@ public final class AdventureScreen extends Screen {
 						Map.entry("1-" + options.length, "Select"),
 						Map.entry("↑/↓", "Move"),
 						Map.entry("ENTER", "Act"),
+						Map.entry("I", "Inventory"),
 						Map.entry("S", "Save"),
 						Map.entry("ESC","Main Menu")));
 	}

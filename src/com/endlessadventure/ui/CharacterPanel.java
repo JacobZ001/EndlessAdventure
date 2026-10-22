@@ -3,6 +3,7 @@ package com.endlessadventure.ui;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import com.endlessadventure.entity.Attribute;
 import com.endlessadventure.entity.GameCharacter;
@@ -14,9 +15,9 @@ import com.endlessadventure.item.Equipment;
 final class CharacterPanel {
 	private CharacterPanel() {}
 
-	/** draws the framed column at x, y; open is the slot drawn as selected and hovered the one under the mouse, either may be null */
+	/** draws the framed column at x, y; slotColor gives each equipment slot's frame color, so each screen applies its own focus rules */
 	static void draw(Canvas canvas, UIHandler ui, int x, int y, int width, int height, GameCharacter c,
-			Equipment.Slot open, Equipment.Slot hovered) {
+			Function<Equipment.Slot, Integer> slotColor) {
 		canvas.drawTitledBox(x, y, width, height, Palette.MUTED, "CHARACTER");
 		int cx = x + 3, cw = width - 6;
 		int tileW = (cw - 4) / 3; //three columns two apart, shared by the stat tiles and the equipment slots
@@ -81,16 +82,16 @@ final class CharacterPanel {
 		Equipment.Slot[] slots = Equipment.Slot.values();
 		for (int i = 0; i < slots.length; i++) {
 			int sx = cols[i] + (tileW - ContainerGrid.ICON_W - 2) / 2; //centered under its tile column
-			drawSlot(canvas, ui, slots[i], sx, y + 28, c.getEquipped(slots[i]), open, hovered);
+			drawSlot(canvas, ui, slots[i], sx, y + 28, c.getEquipped(slots[i]), slotColor);
 		}
 	}
 
 	/** one equipment slot: its name above, the icon of what it holds in a frame the size of a grid cell */
 	private static void drawSlot(Canvas canvas, UIHandler ui, Equipment.Slot slot, int x, int y, Equipment piece,
-			Equipment.Slot open, Equipment.Slot hovered) {
+			Function<Equipment.Slot, Integer> slotColor) {
 		int w = ContainerGrid.ICON_W + 2, h = ContainerGrid.ICON_H + 2;
-		int color = slot == open ? Palette.TAG : slot == hovered ? Palette.TEXT : Palette.LINE;
-		canvas.drawText(x, y, slot.label.toUpperCase(), slot == open || slot == hovered ? color : Palette.MUTED);
+		int color = slotColor.apply(slot);
+		canvas.drawText(x, y, slot.label.toUpperCase(), color == Palette.LINE ? Palette.MUTED : color);
 		canvas.drawBox(x, y + 1, w, h, color);
 		if (piece != null) {
 			ContainerGrid.drawIcon(canvas, x + 1, y + 2, piece, 1);

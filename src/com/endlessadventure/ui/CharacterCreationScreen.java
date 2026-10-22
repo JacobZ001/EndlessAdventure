@@ -279,7 +279,7 @@ public final class CharacterCreationScreen extends Screen {
 			}
 		}
 
-		//draw rows
+		//draw step elements
 		if (step == REVIEW) {
 			drawReview();
 		}
@@ -316,7 +316,7 @@ public final class CharacterCreationScreen extends Screen {
 					Map.entry("ESC", "Back")): 
 				List.of(
 					Map.entry("↑↓←→", "Move"),
-					Map.entry("TAB","Switch Tab"),
+					Map.entry("TAB / SHIFT TAB","Switch Tab"),
 					Map.entry("E","Equip / Unequip"),
 					Map.entry("ENTER", "Next"),
 					Map.entry("ESC", "Back")));
@@ -431,7 +431,7 @@ public final class CharacterCreationScreen extends Screen {
 	
 	/** the finished character with its gear on the left, the prompt to confirm on the right */
 	private void drawReview() {
-		CharacterPanel.draw(canvas, ui, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, gear.buildPlayer(), null, null);
+		CharacterPanel.draw(canvas, ui, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, gear.buildPlayer(), s -> Palette.LINE);
 
 		canvas.drawTitledBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED, "READY?");
 		canvas.drawParagraph(DETAIL_X + 3, PANEL_Y + 2, DETAIL_W - 6,

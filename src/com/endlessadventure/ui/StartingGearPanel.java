@@ -120,7 +120,8 @@ final class StartingGearPanel {
 		int gearX = x + CHAR_W + SPACING;
 		int detailX = gearX + GEAR_W + SPACING;
 
-		CharacterPanel.draw(canvas, ui, x, y, CHAR_W, height, buildPlayer(), focusedTab, hoveredTab);
+		CharacterPanel.draw(canvas, ui, x, y, CHAR_W, height, buildPlayer(), 
+				s -> s == focusedTab? Palette.TAG : s == hoveredTab ? Palette.TEXT : Palette.LINE);
 
 		//draw the gear column: tabs, the grid, the instruction
 		canvas.drawTitledBox(gearX, y, GEAR_W, height, Palette.MUTED, "STARTING GEAR");

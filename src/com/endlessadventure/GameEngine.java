@@ -12,6 +12,7 @@ import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.AdventureScreen;
 import com.endlessadventure.ui.CharacterCreationScreen;
+import com.endlessadventure.ui.InventoryScreen;
 import com.endlessadventure.ui.MainMenuScreen;
 import com.endlessadventure.ui.SaveScreen;
 import com.endlessadventure.ui.UIHandler;
@@ -154,12 +155,13 @@ public class GameEngine {
 			}
 			case BACK -> GameScreen.MAIN_MENU;
 			case SAVE -> GameScreen.WRITE_SAVE;
+			case INV -> GameScreen.INVENTORY;
 		};
 	}
 
 	/** handle inventory screen */
 	private GameScreen handleInventory() {
-		// TODO create handle inventory
+		new InventoryScreen(ui, gameState.getPlayer()).run();
 		return GameScreen.ADVENTURE;
 	}
 
