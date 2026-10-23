@@ -1,0 +1,52 @@
+package com.endlessadventure.entity;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import com.endlessadventure.StatRules;
+import com.endlessadventure.item.Equipment;
+
+public final class Enemy extends GameCharacter {
+
+	public enum Stance { PRESSING }
+	
+	private final Role role;
+	private final Stance stance;
+	private final List<Equipment> gear = new ArrayList<>();
+
+	public Enemy(String name, int level, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills, Role role, Stance stance, List<Equipment> gear) {
+		super(name, level, attributes, skills);
+		if(role == null) {
+			throw new IllegalArgumentException("Invalid enemy constructing: role cannot be null.");
+		}
+		if(stance == null) {
+			throw new IllegalArgumentException("Invalid enemy constructing: stance cannot be null.");
+		}
+		this.role = role;
+		this.stance = stance;
+		gear.forEach(piece -> equip(piece));
+		setHp(getMaxHp());
+	}
+
+	@Override
+	public String getDescription() {
+		return getName() + "  Lv." + getLevel();
+	}
+
+	@Override
+	public int getMaxHp() {
+		return StatRules.scaleToLevel(role.hpPerTier,getLevel());
+	}
+	
+	public enum Role {
+		MOB(21),
+		NORMAL(42);
+		
+		public final int hpPerTier;
+
+		Role(int hpPerTier) {
+			this.hpPerTier = hpPerTier;
+		}
+	}
+}
