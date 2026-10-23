@@ -50,6 +50,11 @@ final class PixelImage {
 		return load(ASSETS.resolve("scenes").resolve(sceneId + ".png"));
 	}
 
+	/** a picture for behind a whole menu screen, drawn inside the screen frame, or empty if there is none with this id */
+	static Optional<PixelImage> backdrop(String backdropId) {
+		return load(ASSETS.resolve("backdrops").resolve(backdropId + ".png"));
+	}
+
 	/** reads a PNG once and keeps it; a missing or unreadable file gives empty, so screens fall back to their placeholder */
 	private static Optional<PixelImage> load(Path path) {
 		return cache.computeIfAbsent(path, p -> {

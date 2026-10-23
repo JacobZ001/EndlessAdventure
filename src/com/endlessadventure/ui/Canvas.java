@@ -194,6 +194,19 @@ public class Canvas {
 	}
 
 	//pixel drawing
+	/** draw the image with its top-left sample at pixel px,py (one character column per sample, two samples per row);
+	 *  transparent samples leave what is underneath, so images can be layered, e.g. a sprite over map ground */
+	void drawImage(int px, int py, PixelImage image) {
+		for (int y = 0; y < image.getHeight(); y++) {
+			for (int x = 0; x < image.getWidth(); x++) {
+				int color = image.getColor(x, y);
+				if (color >= 0) {
+					drawPixel(px + x, py + y, color);
+				}
+			}
+		}
+	}
+
 	/** draw the pixel at px,py */
 	void drawPixel(int px, int py, int color) {
 		int y = py / 2;
@@ -214,24 +227,31 @@ public class Canvas {
 	/** draw a '#' bitmap centered horizontally at pixel row py0, with a shadow one pixel down-right;
 	 *  each '#' becomes 2x2 pixels, colored from topColor to bottomColor */
 	void drawPixelTitle(String[] bitmap, int py0, int topColor, int bottomColor) {
-		int px0 = (WIDTH - bitmap[0].length() * 2) / 2;
-		int shadow = Palette.mix(bottomColor, Palette.BG, 0.75);
-		drawBitmap(bitmap, px0 + 1, py0 + 1, shadow, shadow); //drop shadow
-		drawBitmap(bitmap, px0, py0, topColor, bottomColor);
+		drawPixelTitle(bitmap, py0, topColor, bottomColor, 2);
 	}
 
-	/** draw each '#' of the bitmap as 2x2 pixels, colored from top to bottom as a vertical gradient */
-	private void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor) {
+	/** same with each '#' as scale x scale pixels; at scale 1 the strokes are a single pixel wide, too thin for a shadow */
+	void drawPixelTitle(String[] bitmap, int py0, int topColor, int bottomColor, int scale) {
+		int px0 = (WIDTH - bitmap[0].length() * scale) / 2;
+		if (scale > 1) {
+			int shadow = Palette.mix(bottomColor, Palette.BG, 0.75);
+			drawBitmap(bitmap, px0 + 1, py0 + 1, shadow, shadow, scale); //drop shadow
+		}
+		drawBitmap(bitmap, px0, py0, topColor, bottomColor, scale);
+	}
+
+	/** draw each '#' of the bitmap as scale x scale pixels, colored from top to bottom as a vertical gradient */
+	private void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor, int scale) {
 		for (int row = 0; row < bitmap.length; row++) {
 			for (int col = 0; col < bitmap[row].length(); col++) {
 				if (bitmap[row].charAt(col) != '#') {
 					continue;
 				}
-				for (int dy = 0; dy < 2; dy++) {
-					for (int dx = 0; dx < 2; dx++) {
-						int py = row * 2 + dy;
-						double ratio = (double) py / (bitmap.length * 2 - 1); //ratio of current pixel y to last row
-						drawPixel(px0 + col * 2 + dx, py0 + py, Palette.mix(topColor, bottomColor, ratio));
+				for (int dy = 0; dy < scale; dy++) {
+					for (int dx = 0; dx < scale; dx++) {
+						int py = row * scale + dy;
+						double ratio = (double) py / (bitmap.length * scale - 1); //ratio of current pixel y to last row
+						drawPixel(px0 + col * scale + dx, py0 + py, Palette.mix(topColor, bottomColor, ratio));
 					}
 				}
 			}

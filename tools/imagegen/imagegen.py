@@ -1,7 +1,7 @@
 """Offline asset pipeline for Endless Adventure: text-to-image -> cleanup -> game-sized PNGs.
 
     python tools/imagegen/imagegen.py generate [ids...]   # call the image API for sources that are missing
-    python tools/imagegen/imagegen.py convert  [ids...]   # turn sources into assets/icons and assets/scenes
+    python tools/imagegen/imagegen.py convert  [ids...]   # turn sources into assets/icons, scenes and backdrops
     python tools/imagegen/imagegen.py prompts  [ids...]   # print the full prompts of missing sources
     python tools/imagegen/imagegen.py check                # self-test of the conversion, no network
 
@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
+from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -33,15 +34,22 @@ MODEL = "@cf/black-forest-labs/flux-1-schnell"
 
 ICON_SIZES = (12, 24)          # grid box (12 x 6 characters) and details panel (24 x 12 characters)
 SCENE_SIZE = (150, 56)         # adventure scene area: 150 x 28 characters
+BACKDROP_SIZE = (207, 98)      # a whole screen inside its frame: 207 x 49 characters
+BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a backdrop's sky and the ground under text become it
 ICON_FILL = 0.94               # the object's longer side fills this much of the square before shrinking
+HOLE_MIN = 0.001               # an enclosed background-colored area this share of the picture or larger is a hole;
+                               # measured: a knuckle guard's hole 0.7 %, highlights and chainmail gaps under 0.01 %
 
 # short on purpose: the model follows a few strong words better than a long list of don'ts.
 # the black outline also walls the object off from the white background, so the matte cannot eat into it
-ICON_STYLE = ("16x16 pixel art RPG item icon, chunky stubby proportions, thick black outline, 4 flat colors, "
+ICON_STYLE = ("16x16 pixel art RPG item icon, chunky bold shapes, thick black outline, 4 flat colors, "
               "centered on plain white background: ")
-SCENE_STYLE = ("Wide panoramic fantasy RPG background scene, important shapes large and "
-               "simple, strong silhouettes, muted earthy palette with one warm accent, "
-               "painted pixel-art game background style, no people, no text, no frame, no interface. Scene: ")
+# the scene area is 150:56 (about 8:3); a picture with other proportions loses its sides or its top and bottom
+SCENE_STYLE = ("8:3 ultra-wide panorama, low resolution pixel art RPG background, large simple shapes, "
+               "limited muted palette, no people: ")
+# a backdrop's subject also says where it stays empty, because menus are drawn over it
+BACKDROP_STYLE = "Wide pixel art fantasy RPG title screen background at night, no text, no characters. "
+STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE}
 
 
 def load_specs():
@@ -53,15 +61,24 @@ def selected(specs, ids):
 
 
 def prompt(spec):
-    return (ICON_STYLE if spec["kind"] == "icon" else SCENE_STYLE) + spec["subject"]
+    return STYLES[spec["kind"]] + spec["subject"]
+
+
+def source_of(spec):
+    """the saved source image, whatever format the image tool gave (Gemini saves JPG), or None"""
+    found = [p for p in (SOURCE / (spec["id"] + ext) for ext in (".png", ".jpg", ".jpeg", ".webp")) if p.exists()]
+    if len(found) > 1:
+        print(f"{spec['id']}: WARNING several sources, using {found[0].name}")
+    return found[0] if found else None
 
 
 def missing(ids):
-    return [s for s in selected(load_specs(), ids) if not (SOURCE / (s["id"] + ".png")).exists()]
+    return [s for s in selected(load_specs(), ids) if source_of(s) is None]
 
 
 def prompts(ids):
-    for spec in missing(ids):
+    """the named assets (to redo them), or every asset that has no source yet"""
+    for spec in selected(load_specs(), ids) if ids else missing(ids):
         print(f"{spec['id']}\n{prompt(spec)}\n")
 
 
@@ -111,7 +128,8 @@ def generate(ids):
 # ---------------------------------------------------------------- conversion
 
 def matte(image):
-    """RGBA with the flat, edge-connected background made transparent; enclosed dark parts of the object stay."""
+    """RGBA with the flat background made transparent: every background-colored area that touches the picture's edge,
+    and every enclosed one big enough to be a hole (inside a knuckle guard). small enclosed ones are highlights and stay"""
     if image.mode in ("RGBA", "LA", "P") and image.convert("RGBA").getchannel("A").getextrema()[0] < 128:
         return image.convert("RGBA")    # the tool already gave a transparent background (e.g. ChatGPT)
     a = np.asarray(image.convert("RGB")).astype(np.int16)
@@ -119,11 +137,11 @@ def matte(image):
     border = np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]])
     color = np.median(border, axis=0)
     near = np.abs(a - color).max(axis=2) <= 24
-    # flood the near-background region from outside the picture, so only edge-connected background is removed
-    grid = Image.fromarray(np.pad(near, 1, constant_values=True).astype(np.uint8) * 255).copy()  # a writable copy: floodfill does not change an image that only wraps an array
-    ImageDraw.floodfill(grid, (0, 0), 128)
-    outside = np.asarray(grid)[1:-1, 1:-1] == 128
-    rgba = np.dstack([a.astype(np.uint8), np.where(outside, 0, 255).astype(np.uint8)])
+    labels, _ = ndimage.label(near)     # connected background-colored areas, numbered from 1; 0 is the object
+    edge = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
+    hole = np.bincount(labels.ravel()) >= HOLE_MIN * h * w
+    clear = (np.isin(labels, edge) | hole[labels]) & (labels > 0)
+    rgba = np.dstack([a.astype(np.uint8), np.where(clear, 0, 255).astype(np.uint8)])
     return Image.fromarray(rgba, "RGBA")
 
 
@@ -144,19 +162,55 @@ def to_icon(source):
     return {n: shrink(square, (n, n)) for n in ICON_SIZES}
 
 
+def unletterbox(source):
+    """the picture without the near-black bars above and below it"""
+    rgb = source.convert("RGB")
+    content = np.flatnonzero(np.asarray(rgb).max(axis=(1, 2)) > 24)    # rows with anything brighter than near-black
+    return rgb.crop((0, content[0], rgb.width, content[-1] + 1)) if content.size else rgb
+
+
 def to_scene(source):
+    """the middle of the picture with the scene area's proportions, shrunk to the scene size"""
     w, h = source.size
-    band = round(w * SCENE_SIZE[1] / SCENE_SIZE[0])    # the widest crop with the scene area's proportions
-    top = max(0, (h - band) // 2)
-    return source.convert("RGB").crop((0, top, w, top + band)).resize(SCENE_SIZE, Image.Resampling.BOX)
+    cw = min(w, round(h * SCENE_SIZE[0] / SCENE_SIZE[1]))   # too wide: cut the sides
+    ch = min(h, round(w * SCENE_SIZE[1] / SCENE_SIZE[0]))   # too tall: cut the top and bottom
+    left, top = (w - cw) // 2, (h - ch) // 2
+    return source.convert("RGB").crop((left, top, left + cw, top + ch)).resize(SCENE_SIZE, Image.Resampling.BOX)
+
+
+def to_backdrop(source, text_cells):
+    """a full-width picture for behind a menu: shrunk to the screen's width and kept from the bottom up, the sky
+    recolored to BG, and faded to BG around the text cells [x, row, width, rows] that the menu draws over it"""
+    w, h = BACKDROP_SIZE
+    picture = unletterbox(source)
+    height = round(w * picture.height / picture.width)
+    a = np.asarray(picture.resize((w, height), Image.Resampling.BOX)).astype(float)[-h:]
+    height = a.shape[0]
+    # the sky's color in each row, from the middle third of the top 40 %, which the prompt keeps empty; every pixel of
+    # a row moves by the same amount, so the sky becomes BG and the land keeps its contrast against it. below 40 %
+    # the shift of the last measured row is kept, and the sky low between the hills stays a little lighter, like haze
+    top = max(2, int(height * 0.4))
+    sky = np.median(a[:top, w // 3:2 * w // 3], axis=1)
+    sky = np.vstack([sky, np.repeat(sky[-1:], height - top, axis=0)])
+    a += (np.array(BG) - sky)[:, None]
+    # the picture's top row is screen pixel row 100 - height; its left column is screen column 1
+    ys, xs = np.mgrid[0:height, 0:w]
+    ys, xs = ys + 100 - height, xs + 1
+    fade = np.zeros((height, w))
+    for x, row, cw, ch in text_cells:
+        dx = np.maximum(np.maximum(x - 3 - xs, xs - (x + cw - 1) - 3), 0)
+        dy = np.maximum(np.maximum(row * 2 - 3 - ys, ys - (row + ch) * 2 + 1 - 3), 0)
+        fade = np.maximum(fade, 1 - np.minimum(1, np.hypot(dx, dy * 1.6) / 12))
+    a += (np.array(BG) - a) * (fade ** 1.5)[..., None]
+    return Image.fromarray(np.clip(np.rint(a), 0, 255).astype(np.uint8), "RGB")
 
 
 def convert(ids):
-    (ASSETS / "icons").mkdir(parents=True, exist_ok=True)
-    (ASSETS / "scenes").mkdir(parents=True, exist_ok=True)
+    for folder in ("icons", "scenes", "backdrops"):
+        (ASSETS / folder).mkdir(parents=True, exist_ok=True)
     for spec in selected(load_specs(), ids):
-        path = SOURCE / (spec["id"] + ".png")
-        if not path.exists():
+        path = source_of(spec)
+        if path is None:
             print(f"{spec['id']}: no source yet, skipped")
             continue
         with Image.open(path) as source:
@@ -168,8 +222,18 @@ def convert(ids):
                 if min(corners) >= 128:
                     print(f"{spec['id']}: WARNING the background was not removed (a frame or a busy background?);"
                           " delete its source and generate again")
+                left, top, right, bottom = matte(source).getchannel("A").getbbox()
+                if min(left, top) == 0 or right == source.width or bottom == source.height:
+                    print(f"{spec['id']}: WARNING the object touches the picture's edge and may be cut off")
+            elif spec["kind"] == "backdrop":
+                to_backdrop(source, spec["text"]).save(ASSETS / "backdrops" / f"{spec['id']}.png")
             else:
-                to_scene(source).save(ASSETS / "scenes" / f"{spec['id']}.png")
+                picture = unletterbox(source)
+                to_scene(picture).save(ASSETS / "scenes" / f"{spec['id']}.png")
+                ratio = picture.width / picture.height / (SCENE_SIZE[0] / SCENE_SIZE[1])
+                if min(ratio, 1 / ratio) < 0.7:
+                    print(f"{spec['id']}: WARNING only {min(ratio, 1 / ratio):.0%} of the picture fits the scene area;"
+                          " make an 8:3 picture")
         print(f"{spec['id']}: converted")
 
 
@@ -178,20 +242,39 @@ def check():
     im = Image.new("RGB", (200, 200), bg)
     d = ImageDraw.Draw(im)
     d.ellipse((60, 20, 140, 180), fill=(220, 220, 225))        # the object
-    d.rectangle((90, 90, 110, 110), fill=bg)                   # an enclosed dark part of it
+    d.rectangle((90, 90, 110, 110), fill=bg)                   # a hole through it (1 % of the picture)
+    d.point((100, 40), fill=bg)                                # a highlight in the background's color
     icons = to_icon(im)
     small = icons[12]
     assert small.size == (12, 12)
     assert small.getpixel((0, 0))[3] == 0, "background should be transparent"
     assert small.getpixel((6, 1))[3] > 128, "object should be opaque"
-    assert icons[24].getpixel((12, 12))[3] > 128, "enclosed dark part must stay part of the object"
+    assert icons[24].getpixel((12, 12))[3] < 128, "a hole should be transparent"
+    assert matte(im).getpixel((100, 40))[3] == 255, "a small enclosed spot is part of the object"
     clear = Image.new("RGBA", (200, 200), (255, 255, 255, 0))
     ImageDraw.Draw(clear).ellipse((60, 20, 140, 180), fill=(20, 20, 20, 255))  # a dark object on transparency
     assert to_icon(clear)[12].getpixel((6, 6))[3] > 128, "a transparent source keeps its own alpha"
+    letterboxed = Image.new("RGB", (1536, 1024), (0, 0, 0))
+    letterboxed.paste(Image.new("RGB", (1536, 576), bg), (0, 224))        # an 8:3 picture between black bars
+    assert unletterbox(letterboxed).size == (1536, 576), "black bars should be cut off"
     scene = to_scene(Image.new("RGB", (1024, 1024), bg))
     assert scene.size == SCENE_SIZE
+    assert to_scene(Image.new("RGB", (2048, 476), bg)).getpixel((75, 55)) == bg, "a too wide picture loses its sides"
+    night = Image.new("RGB", (2048, 768), (6, 17, 37))
+    ImageDraw.Draw(night).rectangle((0, 560, 2047, 767), fill=(40, 70, 40))   # the land along the bottom
+    backdrop = to_backdrop(night, [[100, 40, 10, 1]])                           # one line of text at row 40
+    assert backdrop.width == BACKDROP_SIZE[0] and backdrop.height <= BACKDROP_SIZE[1]
+    assert backdrop.getpixel((5, 0)) == BG, "the sky becomes BG"
+    assert backdrop.getpixel((104, 80 - (100 - backdrop.height))) == BG, "the picture fades to BG under text"
+    shift = tuple(b - s for b, s in zip(BG, (6, 17, 37)))
+    assert backdrop.getpixel((5, backdrop.height - 1)) == tuple(c + d for c, d in zip((40, 70, 40), shift)), \
+        "land away from the text moves with the sky, keeping its contrast"
     specs = load_specs()
     assert len({s["id"] for s in specs}) == len(specs), "duplicate asset ids"
+    gear = [ROOT / "data" / f for f in ("weapons.json", "armor.json", "shields.json")]  # every item gets an icon
+    catalog = {row["id"] for f in gear for row in json.loads(f.read_text(encoding="utf-8"))}
+    icons = {s["id"] for s in specs if s["kind"] == "icon"}
+    assert icons == catalog, f"icons without an item: {icons - catalog}, items without an icon: {catalog - icons}"
     print("check passed")
 
 

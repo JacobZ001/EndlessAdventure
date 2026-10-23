@@ -5,24 +5,32 @@ import java.util.Map;
 
 /** main menu screen: draws itself and reads input until the player picks an option */
 public final class MainMenuScreen extends Screen {
-	//title bitmaps, each '#' is drawn as 2x2 pixels
+	//title bitmaps: ENDLESS in a serif face drawn 2x2 pixels per '#', ADVENTURE in small spaced capitals 1 pixel per '#'
 	private static final String[] TITLE_ENDLESS = {
-			"#####.#...#.####..#.....#####..####..####",
-			"#.....##..#.#...#.#.....#.....#.....#....",
-			"#.....##..#.#...#.#.....#.....#.....#....",
-			"####..#.#.#.#...#.#.....####...###...###.",
-			"#.....#..##.#...#.#.....#.........#.....#",
-			"#.....#..##.#...#.#.....#.........#.....#",
-			"#####.#...#.####..#####.#####.####..####."};
+			"######.###..###.#####...####...######..####...####.",
+			".##..#..##...#...##..#...##.....##..#.##...#.##...#",
+			".##.....###..#...##...#..##.....##....##.....##....",
+			".##.#...#.##.#...##...#..##.....##.#..###....###...",
+			".####...#..###...##...#..##.....####...####...####.",
+			".##.#...#...##...##...#..##.....##.#.....###....###",
+			".##.....#....#...##...#..##.....##........##.....##",
+			".##..#..#....#...##..#...##..#..##..#.#...##.#...##",
+			"######.###...#..#####...######.######..####...####."};
 	private static final String[] TITLE_ADVENTURE = {
-			".###..####..#...#.#####.#...#.#####.#...#.####..#####",
-			"#...#.#...#.#...#.#.....##..#...#...#...#.#...#.#....",
-			"#...#.#...#.#...#.#.....##..#...#...#...#.#...#.#....",
-			"#####.#...#.#...#.####..#.#.#...#...#...#.####..####.",
-			"#...#.#...#..#.#..#.....#..##...#...#...#.#.#...#....",
-			"#...#.#...#..#.#..#.....#..##...#...#...#.#..#..#....",
-			"#...#.####....#...#####.#...#...#....###..#...#.#####"};
-	
+			".###.....####.....#...#....#####....#...#....#####....#...#....####.....#####",
+			"#...#....#...#....#...#....#........##..#......#......#...#....#...#....#....",
+			"#...#....#...#....#...#....#........##..#......#......#...#....#...#....#....",
+			"#####....#...#....#...#....####.....#.#.#......#......#...#....####.....####.",
+			"#...#....#...#.....#.#.....#........#..##......#......#...#....#.#......#....",
+			"#...#....#...#.....#.#.....#........#..##......#......#...#....#..#.....#....",
+			"#...#....####.......#......#####....#...#......#.......###.....#...#....#####"};
+	//moonlit silver over ember, to match the backdrop's night sky and the town's warm windows
+	private static final int TITLE_TOP = 0xEEF1F5, TITLE_BOTTOM = 0x98A6BA;
+	private static final int SUBTITLE_TOP = 0xD99058, SUBTITLE_BOTTOM = 0xB25A34;
+	//the backdrop fades to Palette.BG under the divider, the menu rows and the key hints; moving them means converting
+	//the backdrop again with the new rows (tools/imagegen/assets.json, "main_menu")
+	private static final int DIVIDER_Y = 29, MENU_Y = 34;
+
 	public enum Choice {
 		NEW_GAME("New Game"),
 		LOAD_GAME("Load Game"),
@@ -77,15 +85,16 @@ public final class MainMenuScreen extends Screen {
 	private void drawFrame() {
 		beginFrame();
 
-		int y = 20;
-		canvas.drawPixelTitle(TITLE_ENDLESS, y, Palette.KEY, Palette.WARNING);
-		canvas.drawPixelTitle(TITLE_ADVENTURE, y + 16, Palette.mix(Palette.TEXT, Palette.TAG, 0.5), Palette.TAG);
+		//the backdrop rests on the bottom border; its sky is Palette.BG, so the title and the text sit on it cleanly
+		PixelImage.backdrop("main_menu").ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
 
-		y += TITLE_ENDLESS.length + TITLE_ADVENTURE.length - 3;
-		canvas.drawTextCentered(y, "────────────────────  +  ────────────────────", Palette.MUTED);
+		canvas.drawPixelTitle(TITLE_ENDLESS, 22, TITLE_TOP, TITLE_BOTTOM);
+		canvas.drawPixelTitle(TITLE_ADVENTURE, 45, SUBTITLE_TOP, SUBTITLE_BOTTOM, 1);
+		canvas.drawTextCentered(DIVIDER_Y, "────────────────────  ·  ────────────────────", Palette.LINE);
+		canvas.drawTextCentered(DIVIDER_Y, "·", Palette.KEY);
 
 		int x = (Canvas.WIDTH / 2) - 9;
-		y += 5;
+		int y = MENU_Y;
 		for (int i = 0; i < CHOICES.length; i++) {
 			boolean enabled = CHOICES[i] != Choice.LOAD_GAME || hasSave; //Load Game is dimmed without saves
 			drawListRow(i, x, y, 20, String.valueOf(i + 1), CHOICES[i].label, i == focus, enabled);
