@@ -16,8 +16,11 @@ public final class SaveScreen extends Screen {
 							 BUTTON_SPACING = 2,
 							 BUTTON_Y = CARD_Y + SaveManager.SLOT_COUNT * CARD_STEP + 2,
 							 BUTTON_X = CARD_X + CARD_W - 3 * Canvas.BUTTON_WIDTH - 2 * BUTTON_SPACING;
-	
-	
+	//the main menu's picture, dimmed until it is barely there; it fades to Palette.BG under the line below the title and
+	//the key hints (tools/imagegen/assets.json, "save_dim"), and the cards and buttons are solid panels over it
+	private static final String BACKDROP = "save_dim";
+
+
 	public enum Mode { LOAD, SAVE }
 	public enum Action {CONFIRM, DELETE, BACK }
 	public record Choice(Action action, int slot) {}
@@ -108,7 +111,8 @@ public final class SaveScreen extends Screen {
 	
 	private void drawFrame() {
 		beginFrame();
-		
+		PixelImage.backdrop(BACKDROP).ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
+
 		int y = START_Y;
 		canvas.drawTextCentered(y, "Choose a slot to " + mode.toString().toLowerCase(), Palette.MUTED);
 		
@@ -128,6 +132,7 @@ public final class SaveScreen extends Screen {
 			    case CORRUPT -> Palette.ERROR;
 			};
 			
+			canvas.fill(CARD_X, y, CARD_W, CARD_H, Palette.BG); //drawBox only draws the frame, so clear the backdrop inside
 			canvas.drawBox(CARD_X, y, CARD_W, CARD_H, frameColor);
 			canvas.drawText(CARD_X + CARD_P, y+2 , String.valueOf(i+1), markerColor);
 			
@@ -156,6 +161,7 @@ public final class SaveScreen extends Screen {
 		
 		for(int i=0; i < labels.length; i++) {
 			int x = BUTTON_X + i * (Canvas.BUTTON_WIDTH + BUTTON_SPACING);
+			canvas.fill(x, BUTTON_Y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, Palette.BG);
 			ui.drawButton(x, BUTTON_Y, labels[i], enabled[i], new Button(Action.values()[i])); //labels follow Action order
 		}
 		String modeHint = Character.toUpperCase(mode.toString().charAt(0)) + mode.toString().substring(1);

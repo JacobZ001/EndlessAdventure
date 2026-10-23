@@ -5,7 +5,7 @@
     python tools/imagegen/imagegen.py prompts  [ids...]   # print the full prompts of missing sources
     python tools/imagegen/imagegen.py check                # self-test of the conversion, no network
 
-Run from the project root. Needs Python 3 with Pillow and NumPy. The API (Cloudflare Workers AI, FLUX.1 schnell)
+Run from the project root. Needs Python 3 with Pillow, NumPy and SciPy. The API (Cloudflare Workers AI, FLUX.1 schnell)
 reads CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN from the project's .env; their values are never printed.
 Source images are kept in tools/imagegen/source/ (not committed); only the small converted PNGs are committed.
 A source can also come from any other image tool: paste the printed prompt there and save the result as
@@ -36,6 +36,7 @@ ICON_SIZES = (12, 24)          # grid box (12 x 6 characters) and details panel 
 SCENE_SIZE = (150, 56)         # adventure scene area: 150 x 28 characters
 BACKDROP_SIZE = (207, 98)      # a whole screen inside its frame: 207 x 49 characters
 BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a backdrop's sky and the ground under text become it
+DIM = 0.2                      # a "dim" backdrop keeps this share of the picture's contrast against BG
 ICON_FILL = 0.94               # the object's longer side fills this much of the square before shrinking
 HOLE_MIN = 0.001               # an enclosed background-colored area this share of the picture or larger is a hole;
                                # measured: a knuckle guard's hole 0.7 %, highlights and chainmail gaps under 0.01 %
@@ -65,8 +66,10 @@ def prompt(spec):
 
 
 def source_of(spec):
-    """the saved source image, whatever format the image tool gave (Gemini saves JPG), or None"""
-    found = [p for p in (SOURCE / (spec["id"] + ext) for ext in (".png", ".jpg", ".jpeg", ".webp")) if p.exists()]
+    """the saved source image, whatever format the image tool gave (Gemini saves JPG), or None.
+    an entry with "source" reuses the picture of the entry it names"""
+    name = spec.get("source", spec["id"])
+    found = [p for p in (SOURCE / (name + ext) for ext in (".png", ".jpg", ".jpeg", ".webp")) if p.exists()]
     if len(found) > 1:
         print(f"{spec['id']}: WARNING several sources, using {found[0].name}")
     return found[0] if found else None
@@ -79,7 +82,7 @@ def missing(ids):
 def prompts(ids):
     """the named assets (to redo them), or every asset that has no source yet"""
     for spec in selected(load_specs(), ids) if ids else missing(ids):
-        print(f"{spec['id']}\n{prompt(spec)}\n")
+        print(f"{spec['id']}\n" + (f"(made from the picture of {spec['source']})" if "source" in spec else prompt(spec)) + "\n")
 
 
 # ---------------------------------------------------------------- generation
@@ -178,9 +181,10 @@ def to_scene(source):
     return source.convert("RGB").crop((left, top, left + cw, top + ch)).resize(SCENE_SIZE, Image.Resampling.BOX)
 
 
-def to_backdrop(source, text_cells):
+def to_backdrop(source, text_cells, look=None):
     """a full-width picture for behind a menu: shrunk to the screen's width and kept from the bottom up, the sky
-    recolored to BG, and faded to BG around the text cells [x, row, width, rows] that the menu draws over it"""
+    recolored to BG, and faded to BG around the text cells [x, row, width, rows] that the menu draws over it.
+    look "dim" keeps only a trace of the picture, for screens where it should stay in the background"""
     w, h = BACKDROP_SIZE
     picture = unletterbox(source)
     height = round(w * picture.height / picture.width)
@@ -193,6 +197,8 @@ def to_backdrop(source, text_cells):
     sky = np.median(a[:top, w // 3:2 * w // 3], axis=1)
     sky = np.vstack([sky, np.repeat(sky[-1:], height - top, axis=0)])
     a += (np.array(BG) - sky)[:, None]
+    if look == "dim":
+        a = np.array(BG) + (a - np.array(BG)) * DIM
     # the picture's top row is screen pixel row 100 - height; its left column is screen column 1
     ys, xs = np.mgrid[0:height, 0:w]
     ys, xs = ys + 100 - height, xs + 1
@@ -226,7 +232,7 @@ def convert(ids):
                 if min(left, top) == 0 or right == source.width or bottom == source.height:
                     print(f"{spec['id']}: WARNING the object touches the picture's edge and may be cut off")
             elif spec["kind"] == "backdrop":
-                to_backdrop(source, spec["text"]).save(ASSETS / "backdrops" / f"{spec['id']}.png")
+                to_backdrop(source, spec["text"], spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
             else:
                 picture = unletterbox(source)
                 to_scene(picture).save(ASSETS / "scenes" / f"{spec['id']}.png")
@@ -266,6 +272,9 @@ def check():
     assert backdrop.width == BACKDROP_SIZE[0] and backdrop.height <= BACKDROP_SIZE[1]
     assert backdrop.getpixel((5, 0)) == BG, "the sky becomes BG"
     assert backdrop.getpixel((104, 80 - (100 - backdrop.height))) == BG, "the picture fades to BG under text"
+    dim = np.asarray(to_backdrop(night, [], "dim")).astype(int)
+    full = np.asarray(to_backdrop(night, [])).astype(int)
+    assert np.abs((dim - BG) - (full - BG) * DIM).max() <= 1, "a dim backdrop keeps DIM of the contrast against BG"
     shift = tuple(b - s for b, s in zip(BG, (6, 17, 37)))
     assert backdrop.getpixel((5, backdrop.height - 1)) == tuple(c + d for c, d in zip((40, 70, 40), shift)), \
         "land away from the text moves with the sky, keeping its contrast"
