@@ -66,6 +66,7 @@ GROUND_STYLE = "top-down pixel art texture, {} seen from above, flat even lighti
 STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE, "portrait": PORTRAIT_STYLE,
           "figure": FIGURE_STYLE}
 FIGURE_HEIGHT = 17                 # battle figures: about 1.4 map cells tall; props give their own "height"
+LARGE_FIGURE_HEIGHT = 26           # the same figure in the battle side panels (the player and the target details)
 GROUND_SIZE = (120, 84)            # the whole 10 x 7 battle map, 12 x 12 pixels per cell
 GROUND_LOOK = (0.45, 0.5)          # saturation and brightness kept, so figures stand out from the ground
 
@@ -298,6 +299,8 @@ def convert(ids):
                 to_portrait(source).save(ASSETS / "portraits" / f"{spec['id']}.png")
             elif spec["kind"] in ("figure", "prop"):
                 to_figure(source, spec.get("height", FIGURE_HEIGHT)).save(ASSETS / "figures" / f"{spec['id']}.png")
+                if spec["kind"] == "figure":
+                    to_figure(source, LARGE_FIGURE_HEIGHT).save(ASSETS / "figures" / f"{spec['id']}-large.png")
             elif spec["kind"] == "ground":
                 to_ground(source).save(ASSETS / "grounds" / f"{spec['id']}.png")
             elif spec["kind"] == "backdrop":

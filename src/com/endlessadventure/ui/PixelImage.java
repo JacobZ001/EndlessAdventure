@@ -61,6 +61,11 @@ final class PixelImage {
 		return load(ASSETS.resolve("figures").resolve(figureId + ".png"));
 	}
 
+	/** the same figure at its side-panel size (26 pixels tall), or empty if there is none with this id */
+	static Optional<PixelImage> largeFigure(String figureId) {
+		return load(ASSETS.resolve("figures").resolve(figureId + "-large.png"));
+	}
+
 	/** the ground of a whole battle map, 12 x 12 pixels per cell, or empty if there is none with this id */
 	static Optional<PixelImage> ground(String groundId) {
 		return load(ASSETS.resolve("grounds").resolve(groundId + ".png"));
