@@ -175,24 +175,33 @@ public abstract class GameCharacter extends Entity {
 		throw new IllegalStateException("Equipment cannot fit into existing slots: " + piece.getName());
 	}
 	
-	public Attribute getAttackAttribute() {
+	public Attribute getMainAttackAttribute() {
 		return getEquipped(Slot.MAIN_HAND) instanceof Weapon w? w.getType().attribute : Attribute.STR;
 	}
 	
+	public Attribute getOffHandAttackAttribute() {
+		return getEquipped(Slot.OFF_HAND) instanceof Weapon w? w.getType().attribute : null;
+	}
+	
 	/** returns the value for checking hit chance when the target is dodging */
-	public int getMeleeCheck() {
+	public int getMainMeleeCheck() {
 		//TODO use range skill when ranged weapons implemented 
-		return getAttribute(getAttackAttribute()) + getSkill(Skill.MELEE);
+		return getAttribute(getMainAttackAttribute()) + getSkill(Skill.MELEE);
+	}
+	
+	/** returns the melee check for an off-hand attack */
+	public int getOffHandMeleeCheck() {
+		return  getAttribute(getOffHandAttackAttribute()) + getSkill(Skill.MELEE);
 	}
 
 	/** the value an attacker's melee check is compared against while this character is dodging */
-	public int getDodgePower() {
+	public int getDodgeCheck() {
 		return getAttribute(Attribute.DEX) + getLevel() + 11;
 	}
 	
 	public int getMainAttackPower() {
 		//TODO use range skill when ranged weapons implemented 
-		return getAttribute(getAttackAttribute()) + getSkill(Skill.MELEE) + 
+		return getAttribute(getMainAttackAttribute()) + getSkill(Skill.MELEE) + 
 				(getEquipped(Slot.MAIN_HAND) instanceof Weapon w? w.getBaseDmg(getEquipped(Slot.OFF_HAND) == null) : 0);
 	}
 	

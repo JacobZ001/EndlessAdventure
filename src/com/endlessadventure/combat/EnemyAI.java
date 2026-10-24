@@ -42,8 +42,8 @@ class EnemyAI {
 		boolean adjacent = map.canStep(self.getPosition(), tpos);
 		
 		//if adjacent to target and can attack, attack
-		if(adjacent && battle.previewAttack(target).legal()) {
-			return battle.attack(target);
+		if(adjacent && battle.previewAttack(target, Combatant.AttackType.MAIN).legal()) {
+			return battle.attack(target, Combatant.AttackType.MAIN);
 		}
 		
 		//create BFS paths and choose the closest attackable position

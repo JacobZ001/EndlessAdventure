@@ -4,13 +4,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.random.RandomGenerator;
-import java.util.stream.Collectors;
 
-import com.endlessadventure.StatRules;
 import com.endlessadventure.combat.Battle.CombatEvent.Defeated;
-import com.endlessadventure.combat.Combatant.DefenseType;
+import com.endlessadventure.combat.Combatant.AttackType;
 import com.endlessadventure.combat.Combatant.Side;
 import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.Player;
@@ -21,7 +18,7 @@ public class Battle {
 	public sealed interface CombatEvent {
 	    record TurnStarted(Combatant unit, int round) implements CombatEvent {}
 	    record Moved(Combatant unit, List<Position> path, int apSpent) implements CombatEvent {}
-	    record Attacked(Combatant attacker, Combatant target, boolean hit, int raw, int damage, int hpAfter) implements CombatEvent{}
+	    record Attacked(Combatant attacker, Combatant target, AttackType type, boolean hit, boolean crit, int raw, int damage, int hpAfter) implements CombatEvent{}
 	    record Defended(Combatant unit, Combatant.DefenseType type, int guard) implements CombatEvent{}
 	    record Defeated(Combatant unit) implements CombatEvent{}
 	    record Evacuated(Combatant unit) implements CombatEvent{}
@@ -29,13 +26,26 @@ public class Battle {
 	}
 	
 	/** what moving to the destination looks like; nothing changes until move() is invoked */
-	public record MovePreview(boolean legal, String reason, List<Position> path, int apCost) {}
+	public record MovePreview(boolean legal, String reason, List<Position> path, int apCost) {
+		static MovePreview illegal(String reason) {
+			return new MovePreview(false, reason, List.of(), 0);
+		}
+	}
 	
 	/** what attacking this target would do; nothing changes until attack() is invoked */
-	public record AttackPreview(boolean legal, String reason, int raw, int armor, int damage, int hitChance) {}
+	public record AttackPreview(boolean legal, String reason, int raw, boolean crit, int effectiveArmor, int guardIgnored, int penetration,
+			int damage, int hitChance) {
+		static AttackPreview illegal(String reason) {
+			return new AttackPreview(false, reason, 0, false, 0, 0, 0, 0, 0);
+		}
+	}
 	
 	/** what defending would do; nothing changes until defend() is invoked */
-	public record DefensePreview(boolean legal, String reason, Combatant.DefenseType type, int guard, Map<Combatant,Integer> dodgeChances) {}
+	public record DefensePreview(boolean legal, String reason, Combatant.DefenseType type, int guard, Map<Combatant,Integer> dodgeChances) {
+		static DefensePreview illegal(Combatant.DefenseType type, String reason) {
+			return new DefensePreview(false, reason, type, 0, Map.of());
+		}
+	}
 	
 	/** whether evacuation can be executed; nothing changes until evacuate() is invoked */
 	public record EvacuatePreview(boolean legal, String reason) {}
@@ -152,16 +162,15 @@ public class Battle {
 	public MovePreview previewMove(Position dest) {
 		Combatant actor = currentActor();
 		if(!map.inBounds(dest)) {
-			return new MovePreview(false, "destination out of bound.", List.of(), 0);
+			return MovePreview.illegal("destination out of bound.");
 		}
 		
 		BattleMap.SearchedPaths paths = pathsFor(actor);
 		int steps = paths.stepsTo(dest);
 		if(steps < 1 ) {
-			return new MovePreview(false, "in-place or unreachable destination", List.of(), 0);
+			return MovePreview.illegal("in-place or unreachable destination");
 		}
-		int left = actor.getStepsLeft();
-		int cost = left >= steps ? 0 : Math.ceilDiv((steps - left), actor.getCharacter().getSpeed()) * Combatant.MOVE_COST;
+		int cost = actor.costOfMove(steps);
 		if(cost > actor.getAp()) {
 			return new MovePreview(false, "unaffordable", paths.pathTo(dest), cost);
 		}
@@ -179,54 +188,34 @@ public class Battle {
 		return List.of(new CombatEvent.Moved(actor, preview.path(), preview.apCost()));
 	}
 	
-	public AttackPreview previewAttack(Combatant target) {
+	public AttackPreview previewAttack(Combatant target, AttackType type) {
 		if(target == null) {
 			throw new IllegalArgumentException("Invalid attack preview: target cannot be null.");
 		}
 		Combatant actor = currentActor();
-		int armor = target.getCharacter().getArmor() + target.getGuard(); //effective armor: worn armor plus the active defense
 		if(!target.getCharacter().isAlive() || actor.getSide() == target.getSide()) {
-			return new AttackPreview(false, "not a valid target", 0, armor, 0, 0);
+			return AttackPreview.illegal("not a valid target");
 		}
 		if(!map.canStep(actor.getPosition(), target.getPosition())) {
-			return new AttackPreview(false, "unreachable target", 0, armor, 0, 0);
+			return AttackPreview.illegal("unreachable target");
 		}
-		if(actor.getAp() < Combatant.ATTACK_COST) {
-			return new AttackPreview(false, "not enough AP", 0, armor, 0, 0);
-		}
-
-		int raw = actor.getCharacter().getMainAttackPower();
-		int hitChance = target.getDefense() != DefenseType.DODGE? 100 :
-			StatRules.checkChance(actor.getCharacter().getMeleeCheck(), target.getCharacter().getDodgePower());
-		return new AttackPreview(true, "", raw, armor, Math.max(0, raw - armor), hitChance);
+		return actor.previewAttack(target, type);
 	}
 	
-	public List<CombatEvent> attack(Combatant target){
+	public List<CombatEvent> attack(Combatant target, AttackType type){
 		requireOngoing("attack");
-		AttackPreview preview = previewAttack(target);
+		AttackPreview preview = previewAttack(target, type);
 		if(!preview.legal()) {
 			throw new IllegalArgumentException("Illegal attack action: " + preview.reason());
 		}
+		
 		List<CombatEvent> events = new ArrayList<>();
 		Combatant actor = currentActor();
-		actor.spendAp(Combatant.ATTACK_COST);
-
-		boolean hit = true;
-		if(preview.hitChance() < 100) {
-			hit = rng.nextInt(100) < preview.hitChance();
-		}
-		int dmg = preview.damage();
-		if(target.getSide() == Side.PLAYER && !target.hasActed() && target.getCharacter().getHp() <= dmg){
-			//activates first-round-protection
-			dmg = target.getCharacter().getHp() - 1; 
-		}
-		if(hit) {
-			target.getCharacter().takeDamage(dmg);
-		}
-		else {
-			dmg = 0;
-		}
-		events.add(new CombatEvent.Attacked(actor, target, hit, preview.raw(), dmg, target.getCharacter().getHp()));
+		//the battle rolls the dice; only an attack on a dodging target can miss
+		boolean hit = preview.hitChance() >= 100 || rng.nextInt(100) < preview.hitChance();
+		int dmg = actor.attack(target, type, preview, hit);
+		events.add(new CombatEvent.Attacked(actor, target, type, hit, preview.crit(),preview.raw(),
+				dmg, target.getCharacter().getHp()));
 		checkEnd(target, events);
 		return events;
 	}
@@ -260,31 +249,10 @@ public class Battle {
 		if(type == null) {
 			throw new IllegalArgumentException("Invalid defend action: type cannot be null");
 		}
-		if(actor.getDefense() != null) {
-			return new DefensePreview(false, "already in defense", type, 0, Map.of());
-		}
-		if(actor.getAp() < Combatant.DEFEND_COST) {
-			return new DefensePreview(false, "not enough AP", type, 0, Map.of());
-		}
-		Map<Combatant, Integer> chances = Map.of();
-		switch(type) {
-			case SHIELD -> {
-				if(actor.getCharacter().getShieldGuard() == 0) {
-					return new DefensePreview(false, "shield is not equipped", type, 0, Map.of());
-				}
-			}
-			case DODGE -> {
-				if(!actor.getCharacter().canDodge()) {
-					return new DefensePreview(false, "dodge is disabled", type, 0, Map.of());
-				}
-				chances = participants.stream()
-						.filter(c -> c.getSide() != actor.getSide() && c.getCharacter().isAlive())
-						.collect(Collectors.toMap(Function.identity(),
-								c -> StatRules.checkChance(c.getCharacter().getMeleeCheck(), actor.getCharacter().getDodgePower())));
-			}
-			default -> {}
-		}
-		return new DefensePreview(true, "", type, actor.getGuard(type), chances);
+		List<Combatant> opponents = participants.stream()
+				.filter(c -> c.getSide() != actor.getSide() && c.getCharacter().isAlive())
+				.toList();
+		return actor.previewDefend(type, opponents);
 	}
 	
 	public List<CombatEvent> defend(Combatant.DefenseType type){
@@ -297,7 +265,7 @@ public class Battle {
 		Combatant actor = currentActor();
 		List<CombatEvent> events = new ArrayList<>();
 		actor.defend(type);
-		events.add(new CombatEvent.Defended(actor, type, actor.getGuard()));
+		events.add(new CombatEvent.Defended(actor, type, actor.getGuardValue()));
 		return events;
 	}
 	

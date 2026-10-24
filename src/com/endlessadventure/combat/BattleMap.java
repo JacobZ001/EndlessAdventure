@@ -17,7 +17,7 @@ class BattleMap {
 	private static final int[][] DIRECTIONS = {
 			{0, -1}, {1, 0}, {0, 1}, {-1, 0},
 			{1, -1}, {1, 1}, {-1, 1}, {-1, -1}};
-
+	
 	private final Terrain[][] map;
 	private final Position playerSpawn;
 	private final List<Position> enemySpawns;

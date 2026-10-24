@@ -33,6 +33,7 @@ public final class StatRules {
 	//other stats
 	public static final int BASE_SPEED = 4;
 	public static final int SIMPLE_GUARD_PER_TIER = 3;
+	public static final int CRIT_MULTIPLIER = 2;
 	
 	//index = current level - 1; value = amount of exp required for leveling up
 	private static final int[] XP_TO_NEXT = { 

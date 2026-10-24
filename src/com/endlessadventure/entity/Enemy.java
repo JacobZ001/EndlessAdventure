@@ -1,6 +1,5 @@
 package com.endlessadventure.entity;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
