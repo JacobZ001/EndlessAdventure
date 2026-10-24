@@ -35,6 +35,7 @@ MODEL = "@cf/black-forest-labs/flux-1-schnell"
 ICON_SIZES = (12, 24)          # grid box (12 x 6 characters) and details panel (24 x 12 characters)
 SCENE_SIZE = (150, 56)         # adventure scene area: 150 x 28 characters
 BACKDROP_SIZE = (207, 98)      # a whole screen inside its frame: 207 x 49 characters
+PORTRAIT_SIZE = (32, 62)       # the paper doll between the equipment slots: at most 32 x 31 characters
 BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a backdrop's sky and the ground under text become it
 DIM = 0.2                      # a "dim" backdrop keeps this share of the picture's contrast against BG
 ICON_FILL = 0.94               # the object's longer side fills this much of the square before shrinking
@@ -50,7 +51,12 @@ SCENE_STYLE = ("8:3 ultra-wide panorama, medium resolution pixel art RPG backgro
                "limited muted palette, no people: ")
 # a backdrop's subject also says where it stays empty, because menus are drawn over it
 BACKDROP_STYLE = "Wide pixel art fantasy RPG title screen background at night, no text, no characters. "
-STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE}
+# a whole standing figure in the paper doll's proportions (32 x 62 is about 1:2), so it scales straight into place;
+# at this size the face is a few pixels anyway: the silhouette and the large color areas carry the character
+# the pose belongs to each character's subject: "standing straight, front view" here made every figure stand at attention
+PORTRAIT_STYLE = ("1:2 tall portrait, full body pixel art RPG character, "
+                  "whole figure from head to feet filling the height, flat colors, centered on plain white background: ")
+STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE, "portrait": PORTRAIT_STYLE}
 
 
 def load_specs():
@@ -165,6 +171,20 @@ def to_icon(source):
     return {n: shrink(square, (n, n)) for n in ICON_SIZES}
 
 
+def to_portrait(source):
+    """the figure without its background, shrunk to fit PORTRAIT_SIZE and standing on its bottom edge"""
+    rgba = matte(source)
+    box = rgba.getchannel("A").getbbox()
+    if box is None:
+        raise ValueError("no figure found against the background")
+    figure = rgba.crop(box)
+    k = min(PORTRAIT_SIZE[0] / figure.width, PORTRAIT_SIZE[1] / figure.height)
+    small = shrink(figure, (max(1, round(figure.width * k)), max(1, round(figure.height * k))))
+    out = Image.new("RGBA", PORTRAIT_SIZE, (0, 0, 0, 0))
+    out.paste(small, ((PORTRAIT_SIZE[0] - small.width) // 2, PORTRAIT_SIZE[1] - small.height))
+    return out
+
+
 def unletterbox(source):
     """the picture without the near-black bars above and below it"""
     rgb = source.convert("RGB")
@@ -212,7 +232,7 @@ def to_backdrop(source, text_cells, look=None):
 
 
 def convert(ids):
-    for folder in ("icons", "scenes", "backdrops"):
+    for folder in ("icons", "scenes", "backdrops", "portraits"):
         (ASSETS / folder).mkdir(parents=True, exist_ok=True)
     for spec in selected(load_specs(), ids):
         path = source_of(spec)
@@ -231,6 +251,8 @@ def convert(ids):
                 left, top, right, bottom = matte(source).getchannel("A").getbbox()
                 if min(left, top) == 0 or right == source.width or bottom == source.height:
                     print(f"{spec['id']}: WARNING the object touches the picture's edge and may be cut off")
+            elif spec["kind"] == "portrait":
+                to_portrait(source).save(ASSETS / "portraits" / f"{spec['id']}.png")
             elif spec["kind"] == "backdrop":
                 to_backdrop(source, spec["text"], spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
             else:
@@ -278,6 +300,11 @@ def check():
     shift = tuple(b - s for b, s in zip(BG, (6, 17, 37)))
     assert backdrop.getpixel((5, backdrop.height - 1)) == tuple(c + d for c, d in zip((40, 70, 40), shift)), \
         "land away from the text moves with the sky, keeping its contrast"
+    tall = Image.new("RGB", (400, 1000), (255, 255, 255))
+    ImageDraw.Draw(tall).rectangle((150, 100, 250, 900), fill=(40, 40, 40))       # a standing figure
+    portrait = to_portrait(tall)
+    assert portrait.size == PORTRAIT_SIZE and portrait.getpixel((16, 61))[3] > 128, "the figure stands on the bottom edge"
+    assert portrait.getpixel((0, 0))[3] == 0, "the background around the figure is transparent"
     specs = load_specs()
     assert len({s["id"] for s in specs}) == len(specs), "duplicate asset ids"
     gear = [ROOT / "data" / f for f in ("weapons.json", "armor.json", "shields.json")]  # every item gets an icon

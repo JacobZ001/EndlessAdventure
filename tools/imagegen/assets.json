@@ -49,6 +49,8 @@
   {"id": "monster_lair", "kind": "scene", "subject": "monster lair, dark cavern with a huge nest of bones and broken branches in the center, a giant horned skull, a shaft of pale light from a crack above"},
   {"id": "treasure_vault", "kind": "scene", "subject": "treasure vault interior, heavy iron door, chests, piles of gold coins"},
 
+  {"id": "player", "kind": "portrait", "subject": "young adventurer in a hooded travel cloak over a plain tunic, belt with pouches, leather boots, unarmed, confident and firm stance ready to take on an adventure. For idle portrait in the inventory screen"},
+
   {"id": "main_menu", "kind": "backdrop", "subject": "On the left edge, a dark forest of round leafy trees and one tall pine. A dirt road winds from the bottom left corner over gentle rolling hills to a small walled town on a hilltop at the right, with a keep, slender towers with pointed roofs, a small pennant, and warm amber lit windows. The landscape stays low in the middle, in the bottom fifth of the image, and rises toward both sides. Above it, a large, calm, empty, very dark navy night sky with sparse small stars and a thin crescent moon in the upper left. Large simple shapes, muted blue-grey palette with small warm amber lights, peaceful and inviting mood.", "text": [[82, 29, 45, 1], [95, 34, 16, 5], [2, 50, 49, 1]]},
   {"id": "save_dim", "kind": "backdrop", "source": "main_menu", "look": "dim", "text": [[94, 6, 21, 1], [2, 50, 76, 1]]}
 ]

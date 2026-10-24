@@ -9,6 +9,7 @@ The game draws an image 1:1, two pixels per character cell (the top and bottom h
 | Icon, inventory grid box | `assets/icons/<id>-12.png` | 12 × 12 | 12 × 6 characters |
 | Icon, item details | `assets/icons/<id>-24.png` | 24 × 24 | 24 × 12 characters |
 | Scene, adventure screen | `assets/scenes/<id>.png` | 150 × 56 | 150 × 28 characters |
+| Portrait, paper doll (character column) | `assets/portraits/<id>.png` | at most 32 × 62, standing on the bottom edge | up to 32 × 31 characters |
 | Backdrop, behind a whole menu | `assets/backdrops/<id>.png` | 207 wide, up to 98 high | inside the screen frame, resting on its bottom |
 
 ## Setup
@@ -38,7 +39,7 @@ python tools/imagegen/imagegen.py check
 
 - `prompts` prints each id with its full prompt, ready to paste into an image tool. With ids it prints those ids; without, every asset that has no source yet.
 - `generate` asks Cloudflare Workers AI (FLUX.1 schnell) for every missing source and saves it as `source/<id>.png`. It never overwrites a source, and it stops at the first error with the API's message. The free tier allows 10,000 neurons a day and resets at 00:00 UTC.
-- `convert` turns sources into game images: all of them, or only the given ids. Icons lose their background (the flat color around the object, including larger patches of it that the object encloses, such as the inside of a knuckle guard; or the image's own transparency), are cropped to the object, padded to a square and shrunk. Scenes lose any black bars above and below, then are cropped from the middle to the scene area's proportions and shrunk.
+- `convert` turns sources into game images: all of them, or only the given ids. Icons lose their background (the flat color around the object, including larger patches of it that the object encloses, such as the inside of a knuckle guard; or the image's own transparency), are cropped to the object, padded to a square and shrunk. Portraits lose their background like icons and are shrunk to fit, standing on the bottom edge. Scenes lose any black bars above and below, then are cropped from the middle to the scene area's proportions and shrunk.
 - `check` is an offline self-test of the conversion. It also checks that the icons in `assets.json` match the items in `data/weapons.json`, `data/armor.json` and `data/shields.json` one to one.
 
 ## Adding or redoing an image
