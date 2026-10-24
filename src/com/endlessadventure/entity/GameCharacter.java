@@ -17,8 +17,15 @@ public abstract class GameCharacter extends Entity {
 	private final EnumMap<Equipment.Slot, Equipment> equipped = new EnumMap<>(Equipment.Slot.class);
 	private final List<Item> inventory = new ArrayList<>();
 
-	public GameCharacter(String name, int level) {
+	public GameCharacter(String name, int level, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills) {
 		super(name, level);
+		attributes.forEach(this::setAttribute);
+		skills.forEach(this::setSkill);
+	}
+	
+	/** returns the initiative, defaults to PER + SCOUTING */ //TODO implement calculation when dynamic initiative picking is implemented
+	public int getInitiative() {
+		return getAttribute(Attribute.PER) + getSkill(Skill.SCOUTING);
 	}
 
 	public int getAttribute(Attribute a) {
@@ -168,16 +175,25 @@ public abstract class GameCharacter extends Entity {
 		throw new IllegalStateException("Equipment cannot fit into existing slots: " + piece.getName());
 	}
 	
-	public int getAttackPower() {
+	public Attribute getAttackAttribute() {
+		return getEquipped(Slot.MAIN_HAND) instanceof Weapon w? w.getType().attribute : Attribute.STR;
+	}
+	
+	/** returns the value for checking hit chance when the target is dodging */
+	public int getMeleeCheck() {
 		//TODO use range skill when ranged weapons implemented 
-		if(getEquipped(Slot.MAIN_HAND) instanceof Weapon w) {
-			return w.getBaseDmg(getEquipped(Slot.OFF_HAND) == null) +
-					getAttribute(w.getType().attribute) +
-					getSkill(Skill.MELEE);
-		}
-		else {
-			return getAttribute(Attribute.STR) + getSkill(Skill.MELEE);
-		}
+		return getAttribute(getAttackAttribute()) + getSkill(Skill.MELEE);
+	}
+
+	/** the value an attacker's melee check is compared against while this character is dodging */
+	public int getDodgePower() {
+		return getAttribute(Attribute.DEX) + getLevel() + 11;
+	}
+	
+	public int getMainAttackPower() {
+		//TODO use range skill when ranged weapons implemented 
+		return getAttribute(getAttackAttribute()) + getSkill(Skill.MELEE) + 
+				(getEquipped(Slot.MAIN_HAND) instanceof Weapon w? w.getBaseDmg(getEquipped(Slot.OFF_HAND) == null) : 0);
 	}
 	
 	public int getOffHandAttackPower() {

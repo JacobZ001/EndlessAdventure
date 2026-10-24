@@ -47,7 +47,7 @@ final class ItemDetails {
 	static List<Detail> compare(GameCharacter before, GameCharacter after, List<Equipment> removed) {
 		List<Detail> lines = new ArrayList<>();
 		lines.add(Detail.Line.of("IF EQUIPPED", Tone.KEYWORD));
-		addChange(lines, "Attack", before.getAttackPower(), after.getAttackPower());
+		addChange(lines, "Attack", before.getMainAttackPower(), after.getMainAttackPower());
 		addChange(lines, "Off-hand Attack", before.getOffHandAttackPower(), after.getOffHandAttackPower());
 		addChange(lines, "Armor", before.getArmor(), after.getArmor());
 		addChange(lines, "Guard", before.getShieldGuard(), after.getShieldGuard());

@@ -12,10 +12,8 @@ public class Player extends GameCharacter {
 	/** constructor for loading a saved player; attributes and skills may not exceed what the level allows
 	 *  @throws IllegalArgumentException */
 	public Player(String name, int level, int hp, int exp, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills) {
-		super(name, level);
+		super(name, level, attributes, skills);
 		checkGrowthLimits(level, attributes, skills);
-		attributes.forEach(this::setAttribute);
-		skills.forEach(this::setSkill);
 		setExp(exp);
 		setHp(hp);
 	}

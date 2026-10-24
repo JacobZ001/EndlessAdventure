@@ -79,12 +79,11 @@ public abstract class Entity implements Displayable {
 
 	/** take the amount as damage and subtract from hp; return true if the entity is still alive afterwards
 	 *  @throws IllegalArgumenException */
-	public boolean takeDamage(int amount) {
+	public void takeDamage(int amount) {
 		if (amount < 0) {
 			throw new IllegalArgumentException("Invalid damage: " + amount);
 		}
 		hp = Math.max(0, hp - amount);
-		return isAlive();
 	}
 
 	/** take the amount as restoration and add it to hp

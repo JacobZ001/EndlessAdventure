@@ -1,6 +1,6 @@
 package com.endlessadventure.data;
 
-public class MissingFieldException extends Exception {
+public class MissingFieldException extends RuntimeException {
 	private static final long serialVersionUID = 1L;
 	
 	private final String field;

@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 
 import com.endlessadventure.GameState;
 import com.endlessadventure.data.EquipmentCatalog;
+import com.endlessadventure.data.MissingFieldException;
 import com.endlessadventure.entity.Player;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

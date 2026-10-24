@@ -32,6 +32,7 @@ public final class StatRules {
 	
 	//other stats
 	public static final int BASE_SPEED = 4;
+	public static final int SIMPLE_GUARD_PER_TIER = 3;
 	
 	//index = current level - 1; value = amount of exp required for leveling up
 	private static final int[] XP_TO_NEXT = { 
@@ -82,5 +83,10 @@ public final class StatRules {
 	public static int getXpToNext(int level) {
 		if (level < 1 || level >= MAX_LEVEL) return Integer.MAX_VALUE;
 		return XP_TO_NEXT[level - 1];
+	}
+	
+	/** percent chance that value beats difficulty: 75% plus 5% per point of difference, kept within 0–100 */
+	public static int checkChance(int value, int difficulty) {
+		return Math.max(0, Math.min(100, 75 + 5 * (value - difficulty)));
 	}
 }

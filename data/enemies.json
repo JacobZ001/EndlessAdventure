@@ -1,0 +1,12 @@
+[
+  {
+    "id": "bandit",
+    "name": "Bandit",
+    "level": 1,
+    "role": "NORMAL",
+    "behavior": "PRESSING",
+    "attributes": { "DEX": 4, "PER": 3 },
+    "skills": { "MELEE": 8, "SCOUTING": 4 },
+    "equipment": ["drifter_scimitar", "drifter_brigandine"]
+  }
+]

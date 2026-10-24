@@ -13,10 +13,10 @@ import java.util.function.Function;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 
-public class Catalog<T> {
+public abstract class Catalog<T> {
 	
-	protected final Map<String, T> catalog = new LinkedHashMap<>();
-	protected final Function<T, String> idOf;
+	private final Map<String, T> catalog = new LinkedHashMap<>();
+	private final Function<T, String> idOf;
 	
 	public Catalog(Function<T, String> idOf){
 		this.idOf = idOf;
@@ -38,11 +38,11 @@ public class Catalog<T> {
 
 		for (int i = 0; i < rows.length; i++) {
 			try {
-				R row = DataValidation.require(rows[i], "entry." + i);
+				R row = DataValidation.require(rows[i], "entry." + (i + 1));
 				T entry = build.apply(row);
 				add(entry, file);
 			} catch (IllegalArgumentException | MissingFieldException e) {
-				throw new IOException(file + ": load error: " + e.getMessage(), e);
+				throw new IOException(file + " load error: entry." + (i + 1) + ": " + e.getMessage(), e);
 			}
 		}
 	}

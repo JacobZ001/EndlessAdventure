@@ -3,6 +3,7 @@ package com.endlessadventure;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
+import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.save.SaveManager;
@@ -11,10 +12,12 @@ import com.endlessadventure.ui.UIHandler;
 
 public class Driver {	
     public static void main(String[] args) {
-    	EquipmentCatalog catalog;
+    	EquipmentCatalog equipCat;
+    	EnemyCatalog enemyCat;
     	try {
     		// read predefined data from files
-			 catalog = new EquipmentCatalog();
+			 equipCat = new EquipmentCatalog();
+			 enemyCat = new EnemyCatalog(equipCat);
     	} catch(IOException e) {
             System.out.println("Cannot load game data: " + e.getMessage());
             return;
@@ -22,9 +25,9 @@ public class Driver {
     	
     	//load game save, LLM client, and start game
 		try(UIHandler ui = new UIHandler()) {
-			SaveManager saveManager = new SaveManager(catalog);
+			SaveManager saveManager = new SaveManager(equipCat);
 			StoryGenerator storyGenerator = new StoryGenerator(new LlmClient());
-			new GameEngine(ui, saveManager, storyGenerator, catalog).run();
+			new GameEngine(ui, saveManager, storyGenerator, equipCat).run();
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());
 		} catch (NoSuchElementException e) {

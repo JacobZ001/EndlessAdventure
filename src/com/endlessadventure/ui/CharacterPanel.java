@@ -49,7 +49,7 @@ final class CharacterPanel {
 
 		//derived combat stats as small tiles, three to a row
 		List<Map.Entry<String, String>> stats = List.of(
-				Map.entry("ATTACK", String.valueOf(c.getAttackPower())),
+				Map.entry("ATTACK", String.valueOf(c.getMainAttackPower())),
 				Map.entry("OFF-HAND", c.getOffHandAttackPower() > 0 ? String.valueOf(c.getOffHandAttackPower()) : "–"),
 				Map.entry("SPEED", String.valueOf(c.getSpeed())),
 				Map.entry("ARMOR", String.valueOf(c.getArmor())),
