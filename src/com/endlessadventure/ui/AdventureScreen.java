@@ -2,6 +2,7 @@ package com.endlessadventure.ui;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.endlessadventure.GameState;
 import com.endlessadventure.entity.Player;
@@ -165,7 +166,12 @@ public final class AdventureScreen extends Screen {
 		}
 		
 		//TODO draw scene visuals, stub for now
-		canvas.fill(CONTENT_X, ART_Y, CONTENT_W, ART_H, Palette.LINE);
+		Optional<PixelImage> art = PixelImage.scene("forest_path");   //TODO the scene id will come from the story
+		if (art.isPresent()) {
+		    canvas.drawImage(CONTENT_X, ART_Y * 2, art.get());
+		} else {
+		    canvas.fill(CONTENT_X, ART_Y, CONTENT_W, ART_H, Palette.LINE);
+		}
 		
 		//draw description
 		List<String> description = Canvas.wrapText(scene.getDescription(), CONTENT_W);

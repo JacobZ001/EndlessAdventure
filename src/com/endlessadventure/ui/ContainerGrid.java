@@ -1,6 +1,7 @@
 package com.endlessadventure.ui;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import com.endlessadventure.item.Item;
@@ -57,6 +58,11 @@ record ContainerGrid(int cols, int rows) {
 	 *  wrapped, centered and in its quality color. the caller draws any frame */
 	static void drawIcon(Canvas canvas, int x, int y, Item item, int scale) {
 		int w = ICON_W * scale, h = ICON_H * scale;
+		Optional<PixelImage> icon = PixelImage.icon(item.getId(), w); // 12 or 24 samples
+		if(icon.isPresent()) {
+			canvas.drawImage(x, y * 2, icon.get());   // x is a column, y a character row = two sample rows
+			return;
+		}
 		List<String> lines = Canvas.wrapText(item.getName(), w - 2);
 		int top = y + (h - lines.size()) / 2;
 		for (int i = 0; i < lines.size(); i++) {
