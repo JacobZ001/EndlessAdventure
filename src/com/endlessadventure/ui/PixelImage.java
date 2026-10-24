@@ -50,6 +50,11 @@ final class PixelImage {
 		return load(ASSETS.resolve("scenes").resolve(sceneId + ".png"));
 	}
 
+	/** a full-body character portrait for the paper doll, standing on transparency, or empty if there is none with this id */
+	static Optional<PixelImage> portrait(String portraitId) {
+		return load(ASSETS.resolve("portraits").resolve(portraitId + ".png"));
+	}
+
 	/** a picture for behind a whole menu screen, drawn inside the screen frame, or empty if there is none with this id */
 	static Optional<PixelImage> backdrop(String backdropId) {
 		return load(ASSETS.resolve("backdrops").resolve(backdropId + ".png"));

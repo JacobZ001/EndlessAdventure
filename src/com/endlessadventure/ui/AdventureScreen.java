@@ -21,7 +21,7 @@ public final class AdventureScreen extends Screen {
 							 INPUT_W = CONTENT_W - ROW_TEXT_OFFSET, //inputField text lines up with the option texts
 							 INPUT_LINES = 2; //right after the last option: rows 47-48 with 3 options
 	
-	public enum Action { ACT, SAVE, INV, BACK }
+	public enum Action { ACT, SAVE, INV, CHAR, BACK }
 	public record Choice(Action action, String text) {} // text: the chosen option or the typed action, null otherwise
 
 	private final CurrentScene scene;
@@ -76,6 +76,7 @@ public final class AdventureScreen extends Screen {
 						switch(Character.toUpperCase(in.ch())){
 							case 'S' -> action = Action.SAVE;
 							case 'I' -> action = Action.INV;
+							case 'C' -> action = Action.CHAR;
 							//TODO implement other hot keys
 						}
 					}
@@ -129,6 +130,7 @@ public final class AdventureScreen extends Screen {
 			}
 			case SAVE -> new Choice(Action.SAVE, null);
 			case INV -> new Choice(Action.INV, null);
+			case CHAR -> new Choice(Action.CHAR, null);
 			case BACK -> {
 				boolean confirmed = ConfirmDialog.show(ui,
 						"RETURN TO MAIN MENU",
@@ -152,8 +154,8 @@ public final class AdventureScreen extends Screen {
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
 		
 		//draw toolbar
-		String[] labels = {"Main Menu", "Save", "Inventory"}; //TODO add new tool bar buttons
-		Action[] actions = {Action.BACK, Action.SAVE, Action.INV};
+		String[] labels = {"Main Menu", "Save", "Inventory", "Character"}; //TODO add new tool bar buttons
+		Action[] actions = {Action.BACK, Action.SAVE, Action.INV, Action.CHAR};
 		String divider = "  |  ";
 		int x = CONTENT_X + CONTENT_W;
 		for (int i = 0; i < labels.length; i++) {
@@ -219,6 +221,7 @@ public final class AdventureScreen extends Screen {
 						Map.entry("↑/↓", "Move"),
 						Map.entry("ENTER", "Act"),
 						Map.entry("I", "Inventory"),
+						Map.entry("C", "Character"),
 						Map.entry("S", "Save"),
 						Map.entry("ESC","Main Menu")));
 	}

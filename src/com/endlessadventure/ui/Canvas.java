@@ -99,7 +99,7 @@ public class Canvas {
 	/** draw a box border with title and default bg */
 	void drawTitledBox(int x, int y, int width, int height, int fg, String title) {
 		drawBox(x, y, width, height, fg);
-		drawText(x + 2, y, " " + title + " ", Palette.KEY);
+		drawText(x + 2, y, " " + title + " ", Palette.TEXT);
 	}
 
 

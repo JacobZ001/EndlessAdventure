@@ -13,8 +13,8 @@ import com.endlessadventure.item.Equipment;
 /** the starting-gear step of character creation: the character column, a grid of the common gear with one tab per slot,
  *  and the item details with a comparison. the creation screen keeps the step bar, the action bar and ENTER / ESC */
 final class StartingGearPanel {
-	private static final ContainerGrid GRID = new ContainerGrid(5, 4);
-	private static final int CHAR_W = 52, GEAR_W = 93, SPACING = 2; //the details column takes the rest
+	private static final ContainerGrid GRID = new ContainerGrid(4, 4);
+	private static final int CHAR_W = CharacterPanel.WIDTH, GEAR_W = 77, SPACING = 2; //the details column takes the rest
 
 	private final UIHandler ui;
 	private final Canvas canvas;

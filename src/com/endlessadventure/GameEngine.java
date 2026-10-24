@@ -12,6 +12,7 @@ import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.AdventureScreen;
 import com.endlessadventure.ui.CharacterCreationScreen;
+import com.endlessadventure.ui.CharacterScreen;
 import com.endlessadventure.ui.InventoryScreen;
 import com.endlessadventure.ui.MainMenuScreen;
 import com.endlessadventure.ui.SaveScreen;
@@ -20,7 +21,7 @@ import com.endlessadventure.ui.UIHandler;
 /** core game loop, screen routing, and fundamental back-end logic */
 public class GameEngine {
 	private enum GameScreen {
-		MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE, WRITE_SAVE, ADVENTURE, INVENTORY, COMBAT
+		MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE, WRITE_SAVE, ADVENTURE, INVENTORY, CHARACTER, COMBAT
 	}
 
 	private final UIHandler ui;
@@ -50,6 +51,7 @@ public class GameEngine {
 				case WRITE_SAVE -> handleSaveScreen(SaveScreen.Mode.SAVE);
 				case ADVENTURE -> handleAdventure();
 				case INVENTORY -> handleInventory();
+				case CHARACTER -> handleCharacter();
 				case COMBAT -> handleCombat();
 			};
 		}
@@ -156,13 +158,24 @@ public class GameEngine {
 			case BACK -> GameScreen.MAIN_MENU;
 			case SAVE -> GameScreen.WRITE_SAVE;
 			case INV -> GameScreen.INVENTORY;
+			case CHAR -> GameScreen.CHARACTER;
 		};
 	}
 
 	/** handle inventory screen */
 	private GameScreen handleInventory() {
-		new InventoryScreen(ui, gameState.getPlayer()).run();
-		return GameScreen.ADVENTURE;
+		return switch(new InventoryScreen(ui, gameState.getPlayer()).run()) {
+			case CLOSE -> GameScreen.ADVENTURE;
+			case CHARACTER -> GameScreen.CHARACTER;
+		};
+	}
+
+	/** handle character screen */
+	private GameScreen handleCharacter() {
+		return switch(new CharacterScreen(ui, gameState.getPlayer()).run()) {
+			case CLOSE -> GameScreen.ADVENTURE;
+			case INVENTORY -> GameScreen.INVENTORY;
+		};
 	}
 
 	/** handle combat screen */

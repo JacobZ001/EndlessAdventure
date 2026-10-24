@@ -279,7 +279,7 @@ public final class CharacterCreationScreen extends Screen {
 			}
 		}
 
-		//draw step elements
+		//draw current step elements
 		if (step == REVIEW) {
 			drawReview();
 		}
@@ -429,12 +429,16 @@ public final class CharacterCreationScreen extends Screen {
 		}
 	}
 	
-	/** the finished character with its gear on the left, the prompt to confirm on the right */
+	/** the finished character as the character screen shows it, then the prompt to confirm above the action bar */
 	private void drawReview() {
-		CharacterPanel.draw(canvas, ui, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, gear.buildPlayer(), s -> Palette.LINE);
+		Player player = gear.buildPlayer();
+		int detailsX = PANEL_X + CharacterPanel.WIDTH + 2, detailsW = 64;
+		int readyX = detailsX + detailsW + 2, readyW = DETAIL_X + DETAIL_W - readyX;
+		CharacterPanel.draw(canvas, ui, PANEL_X, PANEL_Y, CharacterPanel.WIDTH, PANEL_H, player, s -> Palette.LINE);
+		CharacterDetails.draw(canvas, detailsX, PANEL_Y, detailsW, PANEL_H, player);
 
-		canvas.drawTitledBox(DETAIL_X, PANEL_Y, DETAIL_W, DETAIL_H, Palette.MUTED, "READY?");
-		canvas.drawParagraph(DETAIL_X + 3, PANEL_Y + 2, DETAIL_W - 6,
+		canvas.drawTitledBox(readyX, PANEL_Y, readyW, DETAIL_H, Palette.MUTED, "READY?");
+		canvas.drawParagraph(readyX + 3, PANEL_Y + 2, readyW - 6,
 				"Confirm to begin your adventure. Use BACK to change any earlier step; your points and gear are kept.",
 				Palette.TEXT);
 	}

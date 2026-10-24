@@ -11,13 +11,13 @@ import com.endlessadventure.item.Item;
 public final class InventoryScreen extends Screen {
 	/** the backpack grid and the worn slots are two areas; TAB switches between them, the mouse moves to whichever it points at */
 	private enum Area { BACKPACK, WORN }
-	private enum Action { CLOSE }
+	public enum Action { CLOSE, CHARACTER }
 
-	private static final ContainerGrid GRID = new ContainerGrid(5, 4);
-	
+	private static final ContainerGrid GRID = new ContainerGrid(4, 4);
+
 	//same frame as character creation: three columns, the details column leaves room for the CLOSE button under it
 	private static final int X = 3, Y = 4, H = 44, DETAIL_H = 40;
-	private static final int CHAR_W = 52, GEAR_W = 93, SPACING = 2;
+	private static final int CHAR_W = CharacterPanel.WIDTH, GEAR_W = 77, SPACING = 2;
 	
 	private static final int GEAR_X = X + CHAR_W + SPACING,
 							 DETAIL_X = GEAR_X + GEAR_W + SPACING,
@@ -34,13 +34,13 @@ public final class InventoryScreen extends Screen {
 	}
 	
 	/** shows the inventory until the player closes it; equipping and unequipping change the player at once */
-	public void run() {
+	public Action run() {
 		while (true) {
 			drawFrame();
 			UIHandler.Input in = ui.readInput();
 			List<Item> items = player.getInventory();
 			switch (in.inputKey()) {
-				case ESC -> {return;}
+				case ESC -> {return Action.CLOSE;}
 				case TAB, BACK_TAB -> {
 					area = area == Area.BACKPACK ? Area.WORN : Area.BACKPACK;
 					if (area == Area.BACKPACK && gridFocus < 0 && !items.isEmpty()) {
@@ -69,20 +69,18 @@ public final class InventoryScreen extends Screen {
 					}
 				}
 				case CHAR -> {
-					char c = Character.toLowerCase(in.ch());
-					if (c == 'i') {
-						return;
-					}
-					if (c == 'e') {
-						act(items);
+					switch(Character.toLowerCase(in.ch())) {
+						case 'c' -> {return Action.CHARACTER;}
+						case 'i' -> {return Action.CLOSE;}
+						case 'e' -> performItemOperation(items);
 					}
 				}
 				case CLICK -> {
-					if (in.button() instanceof Button b && b.action() == Action.CLOSE) {
-						return;
+					if (in.button() instanceof Button b && b.action() instanceof Action a) { //CLOSE or the CHARACTER tab
+						return a;
 					}
 					if (in.button() != null) { //a box or a slot: the hover already moved the focus there
-						act(items);
+						performItemOperation(items);
 					}
 				}
 				default -> {}
@@ -91,7 +89,7 @@ public final class InventoryScreen extends Screen {
 	}
 	
 	/** equips the focused backpack item, or puts the focused worn piece back in the backpack */
-	private void act(List<Item> items) {
+	private void performItemOperation(List<Item> items) {
 		if (area == Area.WORN) {
 			if (!player.unequipToInventory(slotFocus)) {
 				ui.showWarning("Nothing worn there.");
@@ -120,6 +118,7 @@ public final class InventoryScreen extends Screen {
 	
 	private void drawFrame() {
 		beginFrame();
+		drawTabs(new String[] {"CHARACTER", "INVENTORY"}, new Enum<?>[] {Action.CHARACTER, null}, 1);
 		List<Item> items = player.getInventory();
 
 		CharacterPanel.draw(canvas, ui, X, Y, CHAR_W, H, player, 
@@ -148,6 +147,7 @@ public final class InventoryScreen extends Screen {
 				Map.entry("↑↓←→", "Move"),
 				Map.entry("TAB / SHIFT TAB", "Backpack / Worn"),
 				Map.entry("E", "Equip / Unequip"),
+				Map.entry("C", "Character Details"),
 				Map.entry("ESC", "Close")));
 	}
 }

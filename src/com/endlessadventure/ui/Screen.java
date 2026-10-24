@@ -1,5 +1,6 @@
 package com.endlessadventure.ui;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -8,7 +9,7 @@ import java.util.Map;
 abstract class Screen {
 	/** focus style shared by every list: a gold bar at the row's start, then the marker and the text at these offsets */
 	protected static final String FOCUS_INDICATOR = "▌";
-	protected static final int ROW_MARKER_OFFSET = 2, ROW_TEXT_OFFSET = 6;
+	protected static final int ROW_MARKER_OFFSET = 2, ROW_TEXT_OFFSET = 6, TAB_SPACING = 5;
 
 	protected final UIHandler ui;
 	protected final Canvas canvas;
@@ -34,6 +35,23 @@ abstract class Screen {
 	protected void endFrame(List<Map.Entry<String, String>> hints) {
 		canvas.drawHints(hints);
 		ui.present();
+	}
+
+	/** tabs at the top left where character creation has its step bar, for screens that act as tabs of one window
+	 *  (inventory and character): the current one gold and underlined, the others text buttons carrying their action */
+	protected void drawTabs(String[] labels, Enum<?>[] actions, int current) {
+		int tlength = Arrays.stream(labels).mapToInt(String::length).sum();
+		int x = (Canvas.WIDTH - tlength - (labels.length - 1) * TAB_SPACING) / 2;
+		for (int i = 0; i < labels.length; i++) {
+			if (i == current) {
+				canvas.drawText(x, 2, labels[i], Palette.KEY);
+				canvas.drawText(x, 3, "━".repeat(labels[i].length()), Palette.KEY);
+			}
+			else {
+				ui.drawTextButton(x, 2, labels[i], new Button(actions[i]));
+			}
+			x += labels[i].length() + TAB_SPACING;
+		}
 	}
 
 	/** focus in a vertical list of count rows: UP and DOWN wrap around, HOVER over one of the rows moves the focus there;
