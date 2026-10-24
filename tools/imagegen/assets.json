@@ -52,5 +52,9 @@
   {"id": "player", "kind": "portrait", "subject": "young adventurer in a hooded travel cloak over a plain tunic, belt with pouches, leather boots, unarmed, confident and firm stance ready to take on an adventure. For idle portrait in the inventory screen"},
 
   {"id": "main_menu", "kind": "backdrop", "subject": "On the left edge, a dark forest of round leafy trees and one tall pine. A dirt road winds from the bottom left corner over gentle rolling hills to a small walled town on a hilltop at the right, with a keep, slender towers with pointed roofs, a small pennant, and warm amber lit windows. The landscape stays low in the middle, in the bottom fifth of the image, and rises toward both sides. Above it, a large, calm, empty, very dark navy night sky with sparse small stars and a thin crescent moon in the upper left. Large simple shapes, muted blue-grey palette with small warm amber lights, peaceful and inviting mood.", "text": [[82, 29, 45, 1], [95, 34, 16, 5], [2, 50, 49, 1]]},
-  {"id": "save_dim", "kind": "backdrop", "source": "main_menu", "look": "dim", "text": [[94, 6, 21, 1], [2, 50, 76, 1]]}
+  {"id": "save_dim", "kind": "backdrop", "source": "main_menu", "look": "dim", "text": [[94, 6, 21, 1], [2, 50, 76, 1]]},
+  {"id": "player", "kind": "figure", "source": "player"},
+  {"id": "bandit", "kind": "figure", "subject": "bandit in a dark brown hooded cloak and leather armor, red sash, face half covered, curved scimitar in the right hand"},
+  {"id": "forest_tree", "kind": "prop", "height": 20, "subject": "tree, whole tree from roots to top, short brown trunk and a round bushy dark green crown"},
+  {"id": "forest_floor", "kind": "ground", "subject": "grass field, muted green meadow ground, small dirt specks"}
 ]

@@ -18,6 +18,7 @@ public class Canvas {
 	//Canvas component ASCII	
 	private static final char[] CORNERS = {'┌','┐',
 										   '└','┘'};
+	private static final int SHADOW = 0x030403;	//ground shadows pull colors toward this
 	private static final char ROW_BORDER = '─';
 	private static final char COL_BORDER = '│';
 
@@ -203,6 +204,44 @@ public class Canvas {
 				if (color >= 0) {
 					drawPixel(px + x, py + y, color);
 				}
+			}
+		}
+	}
+
+	/** the color showing at pixel px,py: a half of a '▀' cell, or the background of any other cell; -1 off the canvas */
+	int getPixel(int px, int py) {
+		int y = py / 2;
+		if (px < 0 || px >= WIDTH || py < 0 || y >= HEIGHT) {
+			return -1;
+		}
+		return characters[y][px] == '▀' && py % 2 == 0 ? foreground[y][px] : background[y][px];
+	}
+
+	/** pull the pixel at px,py toward black by amount (0 to 1), e.g. for a shadow on the ground */
+	void shadePixel(int px, int py, double amount) {
+		int color = getPixel(px, py);
+		if (color >= 0) {
+			drawPixel(px, py, Palette.mix(color, SHADOW, amount));
+		}
+	}
+
+	/** a top-light contact shadow for an image whose bottom row stands at pixel row footPy: an oval three rows high,
+	 *  as wide as what the figure stands on (its bottom share of rows), not its widest part. the middle row reaches one
+	 *  pixel past the feet on each side; the rows above and below are as wide as the feet and a little lighter.
+	 *  draw it before the image, so the image covers the part behind the feet */
+	void drawContactShadow(int px, int footPy, PixelImage image, double share) {
+		int[] foot = image.footprint(share);
+		if (foot[0] < 0) {
+			return;
+		}
+		for (int x = foot[0] - 1; x <= foot[1] + 1; x++) {
+			boolean edge = x < foot[0] || x > foot[1];
+			shadePixel(px + x, footPy, edge ? 0.5 : 0.66);
+		}
+		for (int dy : new int[] {-1, 1}) {
+			for (int x = foot[0]; x <= foot[1]; x++) {
+				boolean edge = x == foot[0] || x == foot[1];
+				shadePixel(px + x, footPy + dy, edge ? 0.42 : 0.56);
 			}
 		}
 	}

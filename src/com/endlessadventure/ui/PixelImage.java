@@ -55,6 +55,32 @@ final class PixelImage {
 		return load(ASSETS.resolve("portraits").resolve(portraitId + ".png"));
 	}
 
+	/** a figure or prop that stands on the battle map (player, bandit, forest_tree), standing on its bottom edge,
+	 *  or empty if there is none with this id */
+	static Optional<PixelImage> figure(String figureId) {
+		return load(ASSETS.resolve("figures").resolve(figureId + ".png"));
+	}
+
+	/** the ground of a whole battle map, 12 x 12 pixels per cell, or empty if there is none with this id */
+	static Optional<PixelImage> ground(String groundId) {
+		return load(ASSETS.resolve("grounds").resolve(groundId + ".png"));
+	}
+
+	/** the leftmost and rightmost solid columns in the bottom share of the rows (0 to 1): what the figure stands on,
+	 *  used for the width of its ground shadow; {-1, -1} if those rows are empty */
+	int[] footprint(double share) {
+		int left = -1, right = -1;
+		for (int y = height - Math.max(1, (int) Math.round(height * share)); y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				if (getColor(x, y) >= 0) {
+					left = left < 0 ? x : Math.min(left, x);
+					right = Math.max(right, x);
+				}
+			}
+		}
+		return new int[] {left, right};
+	}
+
 	/** a picture for behind a whole menu screen, drawn inside the screen frame, or empty if there is none with this id */
 	static Optional<PixelImage> backdrop(String backdropId) {
 		return load(ASSETS.resolve("backdrops").resolve(backdropId + ".png"));

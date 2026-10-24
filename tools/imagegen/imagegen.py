@@ -22,7 +22,7 @@ from io import BytesIO
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,7 +56,18 @@ BACKDROP_STYLE = "Wide pixel art fantasy RPG title screen background at night, n
 # the pose belongs to each character's subject: "standing straight, front view" here made every figure stand at attention
 PORTRAIT_STYLE = ("1:2 tall portrait, full body pixel art RPG character, "
                   "whole figure from head to feet filling the height, flat colors, centered on plain white background: ")
-STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE, "portrait": PORTRAIT_STYLE}
+# a battlefield figure is shrunk to 17 pixels tall, so the prompt asks for a clear silhouette and few colors;
+# an entry with "source" reuses another picture instead, e.g. the player's figure comes from the portrait
+FIGURE_STYLE = ("full body pixel art RPG character, standing, three-quarter front view, realistic proportions, "
+                "whole figure from head to feet, clear silhouette, flat shaded colors, centered on plain white background: ")
+# things that stand on the battle map (trees, rocks): side view like the figures, standing on the bottom edge
+PROP_STYLE = "pixel art RPG {}, side view, whole object, flat shaded colors, centered on plain white background"
+GROUND_STYLE = "top-down pixel art texture, {} seen from above, flat even lighting"
+STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE, "portrait": PORTRAIT_STYLE,
+          "figure": FIGURE_STYLE}
+FIGURE_HEIGHT = 17                 # battle figures: about 1.4 map cells tall; props give their own "height"
+GROUND_SIZE = (120, 84)            # the whole 10 x 7 battle map, 12 x 12 pixels per cell
+GROUND_LOOK = (0.45, 0.5)          # saturation and brightness kept, so figures stand out from the ground
 
 
 def load_specs():
@@ -68,6 +79,10 @@ def selected(specs, ids):
 
 
 def prompt(spec):
+    if spec["kind"] == "prop":
+        return PROP_STYLE.format(spec["subject"])
+    if spec["kind"] == "ground":
+        return GROUND_STYLE.format(spec["subject"])
     return STYLES[spec["kind"]] + spec["subject"]
 
 
@@ -185,6 +200,34 @@ def to_portrait(source):
     return out
 
 
+def to_figure(source, height):
+    """a battle-map figure or prop: no background and no grey floor shadow under it, shrunk to height pixels with its
+    proportions kept, and on/off transparency, since the game draws a pixel only when it is at least half opaque"""
+    a = np.asarray(matte(source)).copy()
+    rgb = a[..., :3].astype(int)
+    floor = (np.abs(rgb - rgb.mean(axis=2, keepdims=True)).max(axis=2) < 10) & (rgb.mean(axis=2) > 150)
+    a[floor, 3] = 0                                 # image models like to draw a light grey ellipse under figures
+    rgba = Image.fromarray(a, "RGBA")
+    box = rgba.getchannel("A").getbbox()
+    if box is None:
+        raise ValueError("no figure found against the background")
+    figure = rgba.crop(box)
+    small = shrink(figure, (max(1, round(figure.width * height / figure.height)), height))
+    small = ImageEnhance.Contrast(small).enhance(1.2)
+    alpha = small.getchannel("A").point(lambda v: 255 if v >= 128 else 0)
+    small.putalpha(alpha)
+    return small
+
+
+def to_ground(source):
+    """a map ground: the middle of the picture with the map's proportions, shrunk and toned down"""
+    w, h = source.size
+    cw, ch = min(w, round(h * GROUND_SIZE[0] / GROUND_SIZE[1])), min(h, round(w * GROUND_SIZE[1] / GROUND_SIZE[0]))
+    left, top = (w - cw) // 2, (h - ch) // 2
+    ground = source.convert("RGB").crop((left, top, left + cw, top + ch)).resize(GROUND_SIZE, Image.Resampling.BOX)
+    return ImageEnhance.Brightness(ImageEnhance.Color(ground).enhance(GROUND_LOOK[0])).enhance(GROUND_LOOK[1])
+
+
 def unletterbox(source):
     """the picture without the near-black bars above and below it"""
     rgb = source.convert("RGB")
@@ -232,7 +275,7 @@ def to_backdrop(source, text_cells, look=None):
 
 
 def convert(ids):
-    for folder in ("icons", "scenes", "backdrops", "portraits"):
+    for folder in ("icons", "scenes", "backdrops", "portraits", "figures", "grounds"):
         (ASSETS / folder).mkdir(parents=True, exist_ok=True)
     for spec in selected(load_specs(), ids):
         path = source_of(spec)
@@ -253,6 +296,10 @@ def convert(ids):
                     print(f"{spec['id']}: WARNING the object touches the picture's edge and may be cut off")
             elif spec["kind"] == "portrait":
                 to_portrait(source).save(ASSETS / "portraits" / f"{spec['id']}.png")
+            elif spec["kind"] in ("figure", "prop"):
+                to_figure(source, spec.get("height", FIGURE_HEIGHT)).save(ASSETS / "figures" / f"{spec['id']}.png")
+            elif spec["kind"] == "ground":
+                to_ground(source).save(ASSETS / "grounds" / f"{spec['id']}.png")
             elif spec["kind"] == "backdrop":
                 to_backdrop(source, spec["text"], spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
             else:
@@ -305,8 +352,12 @@ def check():
     portrait = to_portrait(tall)
     assert portrait.size == PORTRAIT_SIZE and portrait.getpixel((16, 61))[3] > 128, "the figure stands on the bottom edge"
     assert portrait.getpixel((0, 0))[3] == 0, "the background around the figure is transparent"
+    figure = to_figure(tall, 17)
+    assert figure.height == 17 and set(np.asarray(figure)[..., 3].ravel()) <= {0, 255}, "figures have on/off alpha"
+    assert to_ground(Image.new("RGB", (1024, 1024), (90, 160, 60))).size == GROUND_SIZE
     specs = load_specs()
-    assert len({s["id"] for s in specs}) == len(specs), "duplicate asset ids"
+    # an id names one thing in each kind's folder: the player's portrait and battle figure share the id "player"
+    assert len({(s["id"], s["kind"]) for s in specs}) == len(specs), "duplicate asset ids"
     gear = [ROOT / "data" / f for f in ("weapons.json", "armor.json", "shields.json")]  # every item gets an icon
     catalog = {row["id"] for f in gear for row in json.loads(f.read_text(encoding="utf-8"))}
     icons = {s["id"] for s in specs if s["kind"] == "icon"}
