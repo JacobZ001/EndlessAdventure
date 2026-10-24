@@ -22,3 +22,6 @@
 
 # Local coursework instructions for coding agents
 /AGENTS.md
+
+# Image generator sources (large; only the converted assets are committed)
+/tools/imagegen/source/

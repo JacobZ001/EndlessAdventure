@@ -46,7 +46,7 @@ HOLE_MIN = 0.001               # an enclosed background-colored area this share 
 ICON_STYLE = ("16x16 pixel art RPG item icon, chunky bold shapes, thick black outline, 4 flat colors, "
               "centered on plain white background: ")
 # the scene area is 150:56 (about 8:3); a picture with other proportions loses its sides or its top and bottom
-SCENE_STYLE = ("8:3 ultra-wide panorama, low resolution pixel art RPG background, large simple shapes, "
+SCENE_STYLE = ("8:3 ultra-wide panorama, medium resolution pixel art RPG background, large simple shapes, "
                "limited muted palette, no people: ")
 # a backdrop's subject also says where it stays empty, because menus are drawn over it
 BACKDROP_STYLE = "Wide pixel art fantasy RPG title screen background at night, no text, no characters. "
