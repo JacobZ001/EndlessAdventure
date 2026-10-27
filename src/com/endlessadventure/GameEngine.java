@@ -1,8 +1,12 @@
 package com.endlessadventure;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.random.RandomGenerator;
 
+import com.endlessadventure.combat.Battle;
+import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmRequestException;
@@ -11,6 +15,7 @@ import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.AdventureScreen;
+import com.endlessadventure.ui.CombatScreen;
 import com.endlessadventure.ui.CharacterCreationScreen;
 import com.endlessadventure.ui.CharacterScreen;
 import com.endlessadventure.ui.InventoryScreen;
@@ -28,17 +33,19 @@ public class GameEngine {
 	private final SaveManager saveManager;
 	private final StoryGenerator storyGenerator;
 	private final EquipmentCatalog equipmentCatalog;
+	private final EnemyCatalog enemyCatalog;
 
 	private boolean running = true;
 	private int selectedSlot = 1;
 	private GameScreen currentScreen = GameScreen.MAIN_MENU;
 	private GameState gameState = new GameState();
 
-	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator, EquipmentCatalog equipmentCatalog) {
+	public GameEngine(UIHandler ui, SaveManager saveManager, StoryGenerator storyGenerator, EquipmentCatalog equipmentCatalog, EnemyCatalog enemyCatalog) {
 		this.ui = ui;
 		this.saveManager = saveManager;
 		this.storyGenerator = storyGenerator;
 		this.equipmentCatalog = equipmentCatalog;
+		this.enemyCatalog = enemyCatalog;
 	}
 
 	/** main game loop */
@@ -159,6 +166,7 @@ public class GameEngine {
 			case SAVE -> GameScreen.WRITE_SAVE;
 			case INV -> GameScreen.INVENTORY;
 			case CHAR -> GameScreen.CHARACTER;
+			case FIGHT -> GameScreen.COMBAT;// TODO remove when encounters arrive (step 4)
 		};
 	}
 
@@ -180,7 +188,13 @@ public class GameEngine {
 
 	/** handle combat screen */
 	private GameScreen handleCombat() {
-		// TODO create handle combat
-		return GameScreen.ADVENTURE;
+		Battle battle = Battle.onRandomMap(gameState.getPlayer(),
+		        List.of(enemyCatalog.createFromId("bandit")), RandomGenerator.getDefault());
+		
+		return switch(new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run()) {
+			case BACK -> GameScreen.ADVENTURE;
+			case INVENTORY -> GameScreen.INVENTORY;
+			case CHARACTER -> GameScreen.CHARACTER;
+		};
 	}
 }

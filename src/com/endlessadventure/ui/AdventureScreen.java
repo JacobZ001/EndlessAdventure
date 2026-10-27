@@ -21,7 +21,7 @@ public final class AdventureScreen extends Screen {
 							 INPUT_W = CONTENT_W - ROW_TEXT_OFFSET, //inputField text lines up with the option texts
 							 INPUT_LINES = 2; //right after the last option: rows 47-48 with 3 options
 	
-	public enum Action { ACT, SAVE, INV, CHAR, BACK }
+	public enum Action { ACT, SAVE, INV, CHAR, FIGHT, BACK }// TODO remove FIGHT when encounters arrive (step 4)
 	public record Choice(Action action, String text) {} // text: the chosen option or the typed action, null otherwise
 
 	private final CurrentScene scene;
@@ -32,7 +32,7 @@ public final class AdventureScreen extends Screen {
 	private boolean waiting = false;
 
 	public AdventureScreen(UIHandler ui, GameState state) {
-		super(ui, "ENDLESS ADVENTURE");
+		super(ui);
 		scene = state.getCurrentScene();
 		player = state.getPlayer();
 		options = scene.getOptions();
@@ -131,6 +131,7 @@ public final class AdventureScreen extends Screen {
 			case SAVE -> new Choice(Action.SAVE, null);
 			case INV -> new Choice(Action.INV, null);
 			case CHAR -> new Choice(Action.CHAR, null);
+			case FIGHT -> new Choice(Action.FIGHT, null);// TODO remove when encounters arrive (step 4)
 			case BACK -> {
 				boolean confirmed = ConfirmDialog.show(ui,
 						"RETURN TO MAIN MENU",
@@ -154,20 +155,11 @@ public final class AdventureScreen extends Screen {
 		canvas.drawText(CONTENT_X + location.length(), HEADER_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.MUTED);
 		
 		//draw toolbar
-		String[] labels = {"Main Menu", "Save", "Inventory", "Character"}; //TODO add new tool bar buttons
-		Action[] actions = {Action.BACK, Action.SAVE, Action.INV, Action.CHAR};
+		String[] labels = {"Main Menu", "Save", "Inventory", "Character", "Fight"}; //TODO add new tool bar buttons // TODO remove FIGHT when encounters arrive (step 4)
+		Action[] actions = {Action.BACK, Action.SAVE, Action.INV, Action.CHAR, Action.FIGHT};// TODO remove FIGHT when encounters arrive (step 4)
 		String divider = "  |  ";
-		int x = CONTENT_X + CONTENT_W;
-		for (int i = 0; i < labels.length; i++) {
-			x -= labels[i].length();
-			ui.drawTextButton(x, HEADER_Y, labels[i], new Button(actions[i]));
-			if (i < labels.length - 1) {
-				x -= divider.length();
-				canvas.drawText(x, HEADER_Y, divider, Palette.MUTED);
-			}
-		}
+		drawToolBar(CONTENT_X + CONTENT_W, HEADER_Y, labels, actions, divider);
 		
-		//TODO draw scene visuals, stub for now
 		Optional<PixelImage> art = PixelImage.scene("forest_path");   //TODO the scene id will come from the story
 		if (art.isPresent()) {
 		    canvas.drawImage(CONTENT_X, ART_Y * 2, art.get());

@@ -50,6 +50,8 @@ public class Battle {
 	/** whether evacuation can be executed; nothing changes until evacuate() is invoked */
 	public record EvacuatePreview(boolean legal, String reason) {}
 	
+	
+	
 	private final BattleMap map;
 	private final List<Combatant> participants = new ArrayList<>(); //ordered by turn order
 	private final RandomGenerator rng;
@@ -75,7 +77,7 @@ public class Battle {
 				.thenComparing(Combatant::getSide));
 	}
 	
-	BattleMap getMap() {return map;}
+	public BattleMap getMap() {return map;}
 	
 	/** shortest paths for this combatant */
 	BattleMap.SearchedPaths pathsFor(Combatant mover){
@@ -84,17 +86,36 @@ public class Battle {
 	
 	public List<Combatant> getParticipants(){return List.copyOf(participants);}
 	
+	/** helper method to retrieve only the participants who are alive */
+	public List<Combatant> getParticipantsAlive(){
+		return List.copyOf(participants.stream()
+				.filter(c -> c.getCharacter().isAlive())
+				.toList());
+	}
+
+	
 	public Outcome getOutcome() {return outcome;}
 	
-	private Combatant currentActor() {
+	public int getRound() {return round;}
+	
+	/**returns the owner of the current turn based on current index in List<Combatant> participants */
+	public Combatant getCurrentActor() {
 		return participants.get(currentInd);
 	}
 	
+	/** helper method to check if the battle is ongoing, used in the beginning of several action methods */
 	private void requireOngoing(String action) {
 		if(outcome != null) {
 			throw new IllegalStateException("Illegal " + action + " action: the battle has already ended.");
 		}
 	}
+	
+	/** a fight on one of the preset maps, picked at random */
+	public static Battle onRandomMap(Player player, List<Enemy> enemies, RandomGenerator rng) {
+		BattleMap m = rng.nextBoolean() ? BattleMapTemplates.NEAR : BattleMapTemplates.FAR;
+		return new Battle(m, player, enemies, rng);
+	}
+	
 	
 	
 	
@@ -108,7 +129,7 @@ public class Battle {
 	
 	/** reset the actor's states */
 	private void startTurn(List<CombatEvent> events) {
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		actor.startTurn();
 		events.add(new CombatEvent.TurnStarted(actor, round));
 	}
@@ -117,7 +138,7 @@ public class Battle {
 	 * runs the following enemy turns and stops at the next beginning of player turn */
 	public List<CombatEvent> endPlayerTurn(){
 		requireOngoing("end turn");
-		if (currentActor().getSide() != Side.PLAYER) {
+		if (getCurrentActor().getSide() != Side.PLAYER) {
 			throw new IllegalStateException("Illegal battle endTurn invocation: Not the player's turn.");
 		}
 		List<CombatEvent> events = new ArrayList<>();
@@ -126,8 +147,8 @@ public class Battle {
 	}
 	
 	private List<CombatEvent> runEnemyTurns(List<CombatEvent> events){
-		while(outcome == null && currentActor().getSide() == Side.ENEMY) {
-			events.addAll(EnemyAI.takeTurn(this, currentActor()));
+		while(outcome == null && getCurrentActor().getSide() == Side.ENEMY) {
+			events.addAll(EnemyAI.takeTurn(this, getCurrentActor()));
 			if(outcome == null) {
 				nextTurn(events);
 			}
@@ -142,14 +163,14 @@ public class Battle {
 			if(currentInd == 0) {
 				round++;
 			}
-		} while(!currentActor().getCharacter().isAlive()); //skip until the next living combatant
+		} while(!getCurrentActor().getCharacter().isAlive()); //skip until the next living combatant
 		startTurn(events);
 	}
 	
 	/** cells the mover cannot enter: where other living combatants stand */
 	private boolean occupiedByOther(Combatant mover, Position p) {
-	    for (Combatant c : participants) {
-	        if (c != mover && c.getCharacter().isAlive() && c.getPosition().equals(p)) {
+	    for (Combatant c : getParticipantsAlive()) {
+	        if (c != mover && c.getPosition().equals(p)) {
 	            return true;
 	        }
 	    }
@@ -160,26 +181,26 @@ public class Battle {
 	
 	//actions
 	public MovePreview previewMove(Position dest) {
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		if(!map.inBounds(dest)) {
-			return MovePreview.illegal("destination out of bound.");
+			return MovePreview.illegal("Destination out of bound.");
 		}
 		
 		BattleMap.SearchedPaths paths = pathsFor(actor);
 		int steps = paths.stepsTo(dest);
 		if(steps < 1 ) {
-			return MovePreview.illegal("in-place or unreachable destination");
+			return MovePreview.illegal("In-place or unreachable destination");
 		}
 		int cost = actor.costOfMove(steps);
 		if(cost > actor.getAp()) {
-			return new MovePreview(false, "unaffordable", paths.pathTo(dest), cost);
+			return new MovePreview(false, "Unaffordable", paths.pathTo(dest), cost);
 		}
 		return new MovePreview(true, "", paths.pathTo(dest), cost);
 	}
 	
 	public List<CombatEvent> move(Position dest){
 		requireOngoing("move");
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		MovePreview preview = previewMove(dest);
 		if(!preview.legal()) {
 			throw new IllegalArgumentException("Illegal move action: " + preview.reason());
@@ -192,12 +213,12 @@ public class Battle {
 		if(target == null) {
 			throw new IllegalArgumentException("Invalid attack preview: target cannot be null.");
 		}
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		if(!target.getCharacter().isAlive() || actor.getSide() == target.getSide()) {
-			return AttackPreview.illegal("not a valid target");
+			return AttackPreview.illegal("Not a valid target");
 		}
 		if(!map.canStep(actor.getPosition(), target.getPosition())) {
-			return AttackPreview.illegal("unreachable target");
+			return AttackPreview.illegal("Unreachable target");
 		}
 		return actor.previewAttack(target, type);
 	}
@@ -210,7 +231,7 @@ public class Battle {
 		}
 		
 		List<CombatEvent> events = new ArrayList<>();
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		//the battle rolls the dice; only an attack on a dodging target can miss
 		boolean hit = preview.hitChance() >= 100 || rng.nextInt(100) < preview.hitChance();
 		int dmg = actor.attack(target, type, preview, hit);
@@ -229,8 +250,8 @@ public class Battle {
 		}
 		else{
 			boolean victory = true;
-			for(Combatant p : participants) {
-				if(p.getSide() == Side.ENEMY && p.getCharacter().isAlive()) {
+			for(Combatant p : getParticipantsAlive()) {
+				if(p.getSide() == Side.ENEMY) {
 					victory = false;
 					break;
 				}
@@ -245,12 +266,12 @@ public class Battle {
 	}
 	
 	public DefensePreview previewDefend(Combatant.DefenseType type) {
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		if(type == null) {
 			throw new IllegalArgumentException("Invalid defend action: type cannot be null");
 		}
-		List<Combatant> opponents = participants.stream()
-				.filter(c -> c.getSide() != actor.getSide() && c.getCharacter().isAlive())
+		List<Combatant> opponents = getParticipantsAlive().stream()
+				.filter(c -> c.getSide() != actor.getSide())
 				.toList();
 		return actor.previewDefend(type, opponents);
 	}
@@ -262,7 +283,7 @@ public class Battle {
 			throw new IllegalArgumentException("Illegal defend action: " + preview.reason());
 		}
 		
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		List<CombatEvent> events = new ArrayList<>();
 		actor.defend(type);
 		events.add(new CombatEvent.Defended(actor, type, actor.getGuardValue()));
@@ -270,18 +291,18 @@ public class Battle {
 	}
 	
 	public EvacuatePreview previewEvacuate() {
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		if(actor.getSide() != Side.PLAYER) { //TODO change when enemy evacuation is implemented
-			return new EvacuatePreview(false, "only player can evacuate");
+			return new EvacuatePreview(false, "Only player can evacuate");
 		}
 		if(!actor.getPosition().equals(actor.getTurnStartPosition())) {
-			return new EvacuatePreview(false, "cannot evacuate after moving in the same turn");
+			return new EvacuatePreview(false, "Cannot evacuate after moving in the same turn");
 		}
 		if(!map.isEdge(actor.getPosition())) {
-			return new EvacuatePreview(false, "must be on the edge of the map");
+			return new EvacuatePreview(false, "Must be on the edge of the map");
 		}
 		if(actor.getAp() < Combatant.EVACUATE_COST) {
-			return new EvacuatePreview(false, "not enough AP");
+			return new EvacuatePreview(false, "Not enough AP");
 		}
 		return new EvacuatePreview(true, "");
 	}
@@ -293,7 +314,7 @@ public class Battle {
 			throw new IllegalArgumentException("Illegal evacuate action: " + preview.reason());
 		}
 		
-		Combatant actor = currentActor();
+		Combatant actor = getCurrentActor();
 		actor.spendAp(Combatant.EVACUATE_COST);
 		outcome = Outcome.EVACUATED;
 		return List.of(new CombatEvent.Evacuated(actor), new CombatEvent.BattleEnded(outcome));

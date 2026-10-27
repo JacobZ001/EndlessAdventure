@@ -11,7 +11,7 @@ class BattleMapTemplates {
 		    ".T.......T");
 
 	static final BattleMap NEAR = BattleMap.from(
-"..........",
+".T....T.T.",
 		    ".T....TT..",
 		    "..P.......",
 		    "......E.T.",

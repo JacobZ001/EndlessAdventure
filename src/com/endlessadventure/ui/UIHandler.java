@@ -115,7 +115,7 @@ public class UIHandler implements AutoCloseable {
 	}
 	
 	public void showError(String msg) {
-		setStatusMsg(msg,Palette.ERROR);
+		setStatusMsg(msg,Palette.DANGER);
 	}
 
 	public void showSuccess(String msg) {

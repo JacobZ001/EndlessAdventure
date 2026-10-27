@@ -35,6 +35,7 @@ public class EnemyCatalog extends Catalog<EnemyCatalog.EnemyTemplate> {
 			}
 		}
 		return new Enemy(
+				DataValidation.require(t.id(), "enemy.id"),
 				DataValidation.require(t.name(), "enemy.name"),
 				DataValidation.require(t.level(), "enemy.level"),
 				DataValidation.requireEntries(t.attributes(), "enemy.attributes"),

@@ -31,7 +31,7 @@ public final class SaveScreen extends Screen {
 	private int hovered;
 	
 	public SaveScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
-		super(ui, mode.toString() + " GAME");
+		super(ui);
 		this.mode = mode;
 		this.slots = slots;
 		selected = selectedSlot - 1; //1-indexing to 0-indexing
@@ -129,7 +129,7 @@ public final class SaveScreen extends Screen {
 			int textColor = switch (slot.status()) {
 			    case READABLE -> focused ? Palette.KEY : Palette.TEXT;
 			    case EMPTY -> Palette.MUTED;
-			    case CORRUPT -> Palette.ERROR;
+			    case CORRUPT -> Palette.DANGER;
 			};
 			
 			canvas.fill(CARD_X, y, CARD_W, CARD_H, Palette.BG); //drawBox only draws the frame, so clear the backdrop inside

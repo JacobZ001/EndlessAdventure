@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.endlessadventure.Displayable.Span;
+
 public class Canvas {
 	public static final int HEIGHT = 51;
 	public static final int WIDTH = 209;
@@ -41,7 +43,7 @@ public class Canvas {
 		fill(0, 0, WIDTH, HEIGHT, bg);
 	}
 
-	/** fills the are starting from {@code x, y} to {@code x + w, y + h} with whitespace with {@code c} */
+	/** fills the area starting from {@code x, y} to {@code x + w, y + h} with whitespace with {@code c} */
 	void fill(int x, int y, int width, int height, int color) {
 		for (int i = y; i < y + height; i++) {
 			for (int j = x; j < x + width; j++) {
@@ -54,7 +56,7 @@ public class Canvas {
 	void dim(int x, int y, int width, int height) {
 		for (int i = Math.max(0, y); i < Math.min(HEIGHT, y + height); i++) {
 			for (int j = Math.max(0, x); j < Math.min(WIDTH, x + width); j++) {
-				set(j, i, characters[i][j], Palette.mix(foreground[i][j], Palette.BG, 0.65), Palette.mix(background[i][j], Palette.BG, 0.65));
+				set(j, i, characters[i][j], Palette.mix(foreground[i][j], Palette.BG, 0.55), Palette.mix(background[i][j], Palette.BG, 0.55));
 			}
 		}
 	}
@@ -94,7 +96,7 @@ public class Canvas {
 
 	/** overload of drawBox() with default bg*/
 	void drawBox(int x, int y, int width, int height, int fg) {
-		drawBox(x, y, width, height, fg, Palette.BG);
+		drawBox(x, y, width, height, fg, background[y][x]);
 	}
 
 	/** draw a box border with title and default bg */
@@ -112,7 +114,7 @@ public class Canvas {
 	/** draw a divider from x,y to x+w, y*/
 	void drawDivider(int x, int y, int width) {
 		for(int i = 0; i < width; i++) {
-			set(x + i, y, ROW_BORDER, Palette.LINE, Palette.BG);
+			set(x + i, y, ROW_BORDER, Palette.LINE, background[y][x]);
 		}
 	}
 
@@ -123,9 +125,11 @@ public class Canvas {
 		}
 	}
 
-	/** overload of drawText with default bg */
+	/** overload of drawText without altering the bg*/
 	void drawText(int x, int y, String text, int fg) {
-		drawText(x, y, text, fg, Palette.BG);
+		for (int i = 0; i < text.length() && x + i < WIDTH; i++) {
+			set(x + i, y, text.charAt(i), fg, background[y][x + i]);
+		}
 	}
 
 	/** write text centered horizontally on canvas row y */
@@ -139,6 +143,23 @@ public class Canvas {
 			drawText(x, y++, line, fg);
 		}
 		return y;
+	}
+	
+	/** the spans as one paragraph, wrapped at spaces within width; returns the row after it */
+	int drawSpans(int x, int y, int width, List<Span> spans) {
+		int col = 0;
+		for (Span s : spans) {
+			int color = Palette.colorOf(s.meaning());
+			for (String word : s.text().split("(?<= )")) { //split after each space, so every word keeps its space
+				if (col > 0 && col + word.stripTrailing().length() > width) {
+					y++;
+					col = 0;
+				}
+				drawText(x + col, y, word, color);
+				col += word.length();
+			}
+		}
+		return y + 1;
 	}
 
 	/** split text into lines of at most width characters, breaking at spaces; longer words are cut */
@@ -191,7 +212,7 @@ public class Canvas {
 	void drawButton(int x, int y, String label, boolean enabled, boolean highlighted) {
 		int border = highlighted && enabled ? Palette.KEY : Palette.MUTED;
 		drawBox(x, y, BUTTON_WIDTH, BUTTON_HEIGHT, border);
-		drawText(x + (BUTTON_WIDTH - label.length()) / 2, y + 1, label, enabled ? Palette.TEXT : Palette.MUTED);
+		drawText(x + (BUTTON_WIDTH - label.length()) / 2, y + 1, label, enabled ? highlighted? Palette.KEY : Palette.TEXT : Palette.MUTED);
 	}
 
 	//pixel drawing

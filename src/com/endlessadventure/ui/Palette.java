@@ -8,13 +8,16 @@ import com.endlessadventure.item.Equipment;
 public final class Palette {
 	static final int BG = 0x0C1017;
 	static final int MUTED = 0x5A6274;	//hints and disabled options
+	static final int PANEL = mix(BG, 0xFFFFFF, 0.035);	//panels: a shade lighter than the background
+	static final int PANEL_LIGHT = mix(BG, 0xFFFFFF, 0.075); //highlight on panels
+	static final int FAINT = mix(MUTED, BG, 0.3); //panel titles
 	static final int LINE = mix(BG, MUTED, 0.30); //frames and lines
 	static final int TEXT = 0xD8DEE9;
 	static final int KEY = 0xE8C268;		//GOLD
 	static final int TAG = 0x7FB2D9;		//SKY
 	static final int SUCCESS = 0x8FC27A;	//SAGE
 	static final int WARNING = 0xD96F2B;	//AMBER
-	static final int ERROR = 0xD9686B; 	//ROSE
+	static final int DANGER = 0xD9686B; 	//ROSE
 	
 	//attribute colors
 	private static final int STR = 0xD9776B;
@@ -88,7 +91,7 @@ public final class Palette {
 			case NOTE -> MUTED;
 			case KEYWORD -> TAG;
 			case GOOD -> SUCCESS;
-			case BAD -> ERROR;
+			case BAD -> DANGER;
 		};
 	}
 

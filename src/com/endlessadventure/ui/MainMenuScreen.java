@@ -49,7 +49,7 @@ public final class MainMenuScreen extends Screen {
 	private int focus = 0;
 
 	public MainMenuScreen(UIHandler ui, boolean hasSave) {
-		super(ui, null);
+		super(ui);
 		this.hasSave = hasSave;
 	}
 

@@ -12,15 +12,20 @@ public final class Enemy extends GameCharacter {
 	
 	private final Role role;
 	private final Behavior behavior;
+	private final String id;
 
-	public Enemy(String name, int level, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills, Role role, Behavior behavior, List<Equipment> gear) {
+	public Enemy(String id, String name, int level, Map<Attribute, Integer> attributes, Map<Skill, Integer> skills, Role role, Behavior behavior, List<Equipment> gear) {
 		super(name, level, attributes, skills);
+		if(id == null) {
+			throw new IllegalArgumentException("Invalid enmy constructing: id cannot be null.");
+		}
 		if(role == null) {
 			throw new IllegalArgumentException("Invalid enemy constructing: role cannot be null.");
 		}
 		if(behavior == null) {
 			throw new IllegalArgumentException("Invalid enemy constructing: behavior cannot be null.");
 		}
+		this.id = id;
 		this.role = role;
 		this.behavior = behavior;
 		for(Equipment piece : gear) {
@@ -40,6 +45,10 @@ public final class Enemy extends GameCharacter {
 	public int getMaxHp() {
 		return StatRules.scaleToLevel(role.hpPerTier,getLevel());
 	}
+	
+	public String getId() {return id;}
+	
+	public Role getRole() {return role;}
 	
 	public Behavior getBehavior( ) {return behavior;}
 	

@@ -29,7 +29,7 @@ public final class InventoryScreen extends Screen {
 	private Equipment.Slot slotFocus = Equipment.Slot.MAIN_HAND;
 
 	public InventoryScreen(UIHandler ui, Player player) {
-		super(ui, "INVENTORY");
+		super(ui);
 		this.player = player;
 	}
 	

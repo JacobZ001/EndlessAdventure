@@ -54,7 +54,7 @@ public final class CharacterCreationScreen extends Screen {
 	private int focus = 0; //focused row
 
 	public CharacterCreationScreen(UIHandler ui, EquipmentCatalog catalog) {
-		super(ui, "CREATE YOUR CHARACTER");
+		super(ui);
 		gear = new StartingGearPanel(ui, catalog, () -> playerBuilder.build()); //reads the current builder each time
 	}
 

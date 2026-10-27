@@ -29,8 +29,8 @@ class EnemyAI {
 	
 	private static List<CombatEvent> performPressingAction(Battle battle, Combatant self){
 		SearchedPaths paths = battle.pathsFor(self);
-		Combatant target = battle.getParticipants().stream() //targets the closest living combatant that is not of self's side
-				.filter(p -> p.getSide() != self.getSide() && p.getCharacter().isAlive())
+		Combatant target = battle.getParticipantsAlive().stream() //targets the closest living combatant that is not of self's side
+				.filter(p -> p.getSide() != self.getSide())
 				.min(Comparator.comparingInt(p -> self.getPosition().distanceTo(p.getPosition())))
 				.orElse(null);
 

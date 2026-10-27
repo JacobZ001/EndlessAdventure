@@ -16,7 +16,7 @@ public final class CharacterScreen extends Screen {
 	private final Player player;
 
 	public CharacterScreen(UIHandler ui, Player player) {
-		super(ui, "CHARACTER");
+		super(ui);
 		this.player = player;
 	}
 

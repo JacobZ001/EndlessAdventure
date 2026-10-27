@@ -16,14 +16,14 @@ import com.endlessadventure.item.Weapon;
  *  It answers for its own side of every rule: what its attacks do, how it takes a hit, what it can afford;
  *  Battle decides whose turn it is and checks what needs the map or the other units. */
 public class Combatant{
-	private static final int MAX_AP = 3;
+	public static final int MAX_AP = 3;
 
 	//AP Cost constants
-	static final int MOVE_COST = 1;
-	static final int MAIN_ATTACK_COST = 2;
-	static final int OFF_HAND_ATTACK_COST = 1;
-	static final int DEFEND_COST = 1;
-	static final int EVACUATE_COST = 2;
+	public static final int MOVE_COST = 1;
+	public static final int MAIN_ATTACK_COST = 2;
+	public static final int OFF_HAND_ATTACK_COST = 1;
+	public static final int DEFEND_COST = 1;
+	public static final int EVACUATE_COST = 2;
 
 	public enum Side { PLAYER, ENEMY }
 
@@ -67,7 +67,7 @@ public class Combatant{
 
 	public DefenseType getDefenseType() {return defense;}
 
-	int getGuardValue() {
+	public int getGuardValue() {
 		return checkGuardValue(defense);
 	}
 

@@ -8,7 +8,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.function.Predicate;
 
-class BattleMap {
+public class BattleMap {
 	private static final char PLAYER_MARKER = 'P';
 	private static final char ENEMY_MARKER = 'E';
 	private static final int BORDER_SPAWN_BUFFER = 1; //entities should not spawn in this range from the map border
@@ -28,18 +28,18 @@ class BattleMap {
 		this.enemySpawns = List.copyOf(enemySpawns);
 	}
 	
-	static BattleMap from(String... symbolMap) {
-		if(symbolMap == null || symbolMap.length == 0 || symbolMap[0].isBlank()) {
+	static BattleMap from(String... template) {
+		if(template == null || template.length == 0 || template[0].isBlank()) {
 			throw new IllegalArgumentException("Invalid symbol map: rows cannot be null or empty.");
 		}
 		
-		Terrain[][] map = new Terrain[symbolMap.length][symbolMap[0].length()];
+		Terrain[][] map = new Terrain[template.length][template[0].length()];
 		Position player = null;
 		List<Position> enemies = new ArrayList<>();
 		
-		for(int i=0; i<symbolMap.length; i++) {
-			String row = symbolMap[i];
-			if(row.length() != symbolMap[0].length() || row.isBlank()) {
+		for(int i=0; i<template.length; i++) {
+			String row = template[i];
+			if(row.length() != template[0].length() || row.isBlank()) {
 				throw new IllegalArgumentException("Invalid symbol map: " + i + ": length must be consistent and non-empty.");
 			}
 			for(int j=0; j<row.length(); j++) {
@@ -54,7 +54,7 @@ class BattleMap {
 				}
 				if(token == PLAYER_MARKER || token == ENEMY_MARKER) {
 					map[i][j] = Terrain.FLOOR;
-					if(i < BORDER_SPAWN_BUFFER || i >= symbolMap.length - BORDER_SPAWN_BUFFER ||
+					if(i < BORDER_SPAWN_BUFFER || i >= template.length - BORDER_SPAWN_BUFFER ||
 							j < BORDER_SPAWN_BUFFER || j >= row.length() - BORDER_SPAWN_BUFFER) {
 						throw new IllegalArgumentException("Invalid symbol map: spawn points cannot be close to the border");
 					}
@@ -109,9 +109,13 @@ class BattleMap {
 		return List.copyOf(enemySpawns);
 	}
 	
-	public boolean canStep(Position from, Position to) {
+	boolean canStep(Position from, Position to) {
 		return  from.distanceTo(to) == 1 && !blocks(to) && (from.x() != to.x() && from.y() != to.y()? 
 				!blocks(new Position(to.x(), from.y())) && !blocks(new Position(from.x(), to.y())): true);
+	}
+	
+	public Terrain terrainAt(Position p) {
+		return map[p.y()][p.x()];
 	}
 	
 	/** breadth-first search from start; occupied cells cannot be entered, but only terrain blocks corners */
@@ -142,7 +146,7 @@ class BattleMap {
 		return new SearchedPaths(steps, previous);
 	}
 	
-	private enum Terrain { 
+	public enum Terrain { 
 		FLOOR(false, '.'),
 		TREE(true, 'T'),
 		WALL(true, '#'),

@@ -20,7 +20,7 @@ final class DetailView {
 				y ++;
 			}
 			y = switch (d) {
-				case Detail.Line l -> drawSpans(canvas, x, y, width, List.of(l.span()));
+				case Detail.Line l -> canvas.drawSpans(x, y, width, List.of(l.span()));
 				case Detail.Tags t -> {
 					int tx = x;
 					for (Span s : t.tags()) {
@@ -31,11 +31,11 @@ final class DetailView {
 				}
 				case Detail.Stat s -> {
 					canvas.drawText(x, y, s.label(), Palette.MUTED);
-					yield drawSpans(canvas, x + s.label().length() + 2, y, width - s.label().length() - 2, List.of(s.value()));
+					yield canvas.drawSpans(x + s.label().length() + 2, y, width - s.label().length() - 2, List.of(s.value()));
 				}
 				case Detail.Trait t -> {
 					canvas.drawText(x, y, t.name().text(), Palette.colorOf(t.name().meaning()));
-					yield drawSpans(canvas, x, y + 1, width, t.description());
+					yield canvas.drawSpans(x, y + 1, width, t.description());
 				}
 				case Detail.Description des -> { //empty row, divider, empty row, then the text
 					canvas.drawText(x, y + 1, "─".repeat(width), Palette.LINE);
@@ -51,22 +51,5 @@ final class DetailView {
 	 *  so measuring always follows the same layout rules as drawing */
 	static int height(int width, List<Detail> details) {
 		return draw(new Canvas(), 0, 0, width, details);
-	}
-
-	/** the spans as one paragraph, wrapped at spaces within width; returns the row after it */
-	static int drawSpans(Canvas canvas, int x, int y, int width, List<Span> spans) {
-		int col = 0;
-		for (Span s : spans) {
-			int color = Palette.colorOf(s.meaning());
-			for (String word : s.text().split("(?<= )")) { //split after each space, so every word keeps its space
-				if (col > 0 && col + word.stripTrailing().length() > width) {
-					y++;
-					col = 0;
-				}
-				canvas.drawText(x + col, y, word, color);
-				col += word.length();
-			}
-		}
-		return y + 1;
 	}
 }
