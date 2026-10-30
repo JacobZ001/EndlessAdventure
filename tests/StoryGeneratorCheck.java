@@ -1,6 +1,9 @@
 package com.endlessadventure.llm;
 
 import com.endlessadventure.GameState;
+import com.endlessadventure.combat.Battle;
+import com.endlessadventure.data.EnemyCatalog;
+import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.story.CurrentScene;
 import com.endlessadventure.story.SceneRecord;
 import com.endlessadventure.story.StoryGenerator;
@@ -146,7 +149,61 @@ public final class StoryGeneratorCheck {
 			check(bounded.getTurn() == 4 && bounded.getOptions().length == 3 && bounded.getDescription().length() == 500
 					&& bounded.getDescription().contains("\"" + "x".repeat(10)),
 					"Turn advances locally, punctuation is normalized, and text and choice counts are bounded");
-			System.out.println("PASS: opening/continuation, history context, escaping, local turns, parsing, bounds, and state preservation");
+			// encounters: run from the project root so the catalogs can read data/
+			StoryGenerator encounters = new StoryGenerator(new LlmClient("dummy-key", "test-model", endpoint),
+					new EnemyCatalog(new EquipmentCatalog()));
+			reply.set(VALID);
+			encounters.generateOpening(state);
+			check(!request.get().contains("ENEMIES"), "The opening must not offer enemies");
+			reply.set(VALID + "enemy=bandit\n");
+			CurrentScene ambush = encounters.generateNext(state, "Follow the Road");
+			check(request.get().contains("\nENEMIES\nid\tname\tlevel\nbandit\tBandit\t1\n")
+					&& ambush.getEnemyId().equals("bandit") && ambush.getOptions().length == 2,
+					"Continuation lists enemy templates and keeps a known enemy");
+			reply.set(VALID);
+			CurrentScene calm = encounters.generateNext(state, "Follow the Road");
+			check(calm.getEnemyId() == null, "A scene without the field has no enemy");
+
+			GameState fight = new GameState(state.getPlayer(), ambush, new ArrayList<>());
+			encounters.generateNext(fight, "Talk to the stranger");
+			check(request.get().contains("location=Old Gate\ndescription=") && request.get().contains("\nenemy=bandit\n"),
+					"The current scene's enemy is part of the context");
+			CurrentScene after = encounters.generateAfterCombat(fight, Battle.Outcome.DOWNED);
+			check(request.get().contains("\nCOMBAT\nenemy=Bandit\noutcome=DOWNED\n") && after.getEnemyId() == null
+					&& after.getTurn() == ambush.getTurn() + 1 && fight.getCurrentScene() == ambush,
+					"After combat sends the settled outcome and leaves committing to the caller");
+			check(encounters.combatSummary("bandit", Battle.Outcome.VICTORY, state.getPlayer())
+					.equals("Fought the Bandit: victory (HP 40/144)"), "Combat summary names the enemy, result and HP");
+			try {
+				encounters.generateAfterCombat(state, Battle.Outcome.VICTORY);
+				throw new AssertionError("After combat needs an enemy in the current scene");
+			} catch (IllegalArgumentException expected) {
+			}
+
+			String withEnemy = VALID + "enemy=bandit\n";
+			Object[][] rejected = {
+					{encounters, "next", VALID + "enemy=dragon\n"},
+					{encounters, "next", VALID + "enemy=\n"},
+					{encounters, "next", withEnemy + "enemy=bandit\n"},
+					{encounters, "next", withEnemy.replace("option.count=2", "option.count=3")},
+					{encounters, "opening", withEnemy},
+					{encounters, "after", withEnemy},
+					{generator, "next", withEnemy}};
+			for (Object[] c : rejected) {
+				reply.set((String) c[2]);
+				StoryGenerator g = (StoryGenerator) c[0];
+				try {
+					switch ((String) c[1]) {
+						case "opening" -> g.generateOpening(state);
+						case "after" -> g.generateAfterCombat(fight, Battle.Outcome.VICTORY);
+						default -> g.generateNext(state, "Follow the Road");
+					}
+					throw new AssertionError("Enemy field must be rejected: " + c[1] + " " + c[2]);
+				} catch (LlmRequestException e) {
+					check(e.getStage() == LlmRequestException.Stage.INVALID_RESPONSE, "Bad enemy fields report INVALID_RESPONSE");
+				}
+			}
+			System.out.println("PASS: opening/continuation, history context, escaping, local turns, parsing, bounds, state preservation, and encounters");
 		} finally {
 			server.stop(0);
 		}

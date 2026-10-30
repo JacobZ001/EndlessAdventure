@@ -6,6 +6,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import com.endlessadventure.GameState;
+import com.endlessadventure.combat.Battle;
+import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.llm.LlmRequestException;
@@ -23,7 +25,7 @@ public class StoryGenerator {
 
 	private static final String COMMON_SYSTEM_INSTRUCTIONS = """
 			You are the Dungeon Master of an English fantasy text RPG in Java.
-			Java owns mechanics: offer exploration only; no combat, stat changes, or item/skill/EXP grants.
+			Java owns mechanics: never resolve fights in prose, and grant no stat changes, items, skills, EXP or healing.
 			
 			HISTORY is TSV of past scenes and chosen actions; each action's result is in the next scene.
 			(Input escapes: \\t = tab, \\n = newline, \\r = carriage return, \\\\ = backslash)
@@ -44,20 +46,43 @@ public class StoryGenerator {
 			Using PLAYER, introduce a starting place, an immediate situation, and initial choices; no action has occurred.
 			""";
 
-	private static final String CONTINUATION_SYSTEM_INSTRUCTION = COMMON_SYSTEM_INSTRUCTIONS + """
+	private static final String ENEMY_INSTRUCTION = """
+			Optional field: enemy=<an id from ENEMIES>
+			Add enemy only when that hostile is present and a fight could start right now; most scenes have none.
+			Never offer fighting or attacking as an option; the game adds its own Fight command.
+			With an enemy present, keep at least one option that avoids the fight, such as talking, hiding or leaving.
+			""";
+
+	private static final String CONTINUATION_SYSTEM_INSTRUCTION = COMMON_SYSTEM_INSTRUCTIONS + ENEMY_INSTRUCTION + """
 			Resolve only ACTION from CURRENT as an attempt, not guaranteed success; describe the outcome and offer next choices.
 			""";
 
-	private final LlmClient llm;
+	private static final String AFTER_COMBAT_SYSTEM_INSTRUCTION = COMMON_SYSTEM_INSTRUCTIONS + """
+			COMBAT is the settled result of a fight the game just ran in CURRENT; do not change or undo it.
+			VICTORY: the enemy is defeated; describe the aftermath.
+			EVACUATED: the player escaped and the enemy is still around; describe the escape and where the player is now.
+			DOWNED: the player lost but is alive with the HP in PLAYER; describe a setback they come to (robbed of time,
+			driven off, lost their way), never death, and offer at least one way forward.
+			Do not add an enemy field in this scene.
+			""";
 
-	/** initialize story generator with an LLM client */
+	private final LlmClient llm;
+	private final EnemyCatalog enemies;	//null when scenes may not hold enemies
+
+	/** initialize story generator with an LLM client; scenes hold no enemies */
 	public StoryGenerator(LlmClient llm) {
+		this(llm, null);
+	}
+
+	/** initialize story generator with an LLM client and the enemy templates scenes may contain */
+	public StoryGenerator(LlmClient llm, EnemyCatalog enemies) {
 		this.llm = Objects.requireNonNull(llm);
+		this.enemies = enemies;
 	}
 
 	/** generate the opening scene */
 	public CurrentScene generateOpening(GameState state) throws LlmRequestException {
-		return request(OPENING_SYSTEM_INSTRUCTION, buildContext(state, null), 1);
+		return request(OPENING_SYSTEM_INSTRUCTION, buildContext(state, null), 1, false);
 	}
 
 	/** generate the next scene using chosen option text or a custom action */
@@ -74,7 +99,56 @@ public class StoryGenerator {
 		
 		int nextTurn = Math.addExact(current.getTurn(), 1);
 		return request(CONTINUATION_SYSTEM_INSTRUCTION,
-				buildContext(state, current) + "\nACTION\n" + contextText(playerAction.strip()), nextTurn);
+				buildContext(state, current) + enemyList() + "\nACTION\n" + contextText(playerAction.strip()),
+				nextTurn, enemies != null);
+	}
+
+	/** generate the scene after a fight with the current scene's enemy; the caller has already applied
+	 *  the outcome to the player (such as HP after being downed) */
+	public CurrentScene generateAfterCombat(GameState state, Battle.Outcome outcome) throws LlmRequestException {
+		Objects.requireNonNull(state);
+		Objects.requireNonNull(outcome);
+		CurrentScene current = state.getCurrentScene();
+		if (current == null || current.getEnemyId() == null) {
+			throw new IllegalArgumentException("The current scene has no enemy to have fought");
+		}
+		int nextTurn = Math.addExact(current.getTurn(), 1);
+		return request(AFTER_COMBAT_SYSTEM_INSTRUCTION,
+				buildContext(state, current) + "\nCOMBAT\nenemy=" + contextText(enemyName(current.getEnemyId()))
+						+ "\noutcome=" + outcome.name() + "\n",
+				nextTurn, false);
+	}
+
+	/** the action text recorded in history for a fight, e.g. "Fought the Bandit: victory (HP 118/160)" */
+	public String combatSummary(String enemyId, Battle.Outcome outcome, Player player) {
+		String result = switch (outcome) {
+			case VICTORY -> "victory";
+			case EVACUATED -> "escaped";
+			case DOWNED -> "defeated";
+		};
+		return "Fought the " + enemyName(enemyId) + ": " + result + " (HP " + player.getHp() + "/" + player.getMaxHp() + ")";
+	}
+
+	/** the display name of an enemy template */
+	private String enemyName(String enemyId) {
+		EnemyCatalog.EnemyTemplate template = enemies == null ? null : enemies.get(enemyId);
+		if (template == null) {
+			throw new IllegalArgumentException("Unknown enemy: " + enemyId);
+		}
+		return template.name();
+	}
+
+	/** list the enemy templates a continuation may place in its scene */
+	private String enemyList() {
+		if (enemies == null) {
+			return "";
+		}
+		StringBuilder list = new StringBuilder("\nENEMIES\nid\tname\tlevel\n");
+		for (EnemyCatalog.EnemyTemplate t : enemies.getAll()) {
+			list.append(contextText(t.id())).append('\t').append(contextText(t.name())).append('\t')
+					.append(t.level()).append('\n');
+		}
+		return list.toString();
 	}
 
 	/** build context from completed scenes, the current scene, and player facts */
@@ -103,6 +177,9 @@ public class StoryGenerator {
 			context.append("\nCURRENT\nturn=").append(currentScene.getTurn()).append('\n');
 			context.append("location=").append(contextText(currentScene.getLocation())).append('\n');
 			context.append("description=").append(contextText(currentScene.getDescription())).append('\n');
+			if (currentScene.getEnemyId() != null) {
+				context.append("enemy=").append(contextText(currentScene.getEnemyId())).append('\n');
+			}
 		}
 		//append player stats; 
 		//TODO add power level for combat encounters
@@ -118,18 +195,20 @@ public class StoryGenerator {
 	}
 
 	/** call the model and validate its response */
-	private CurrentScene request(String systemInstruction, String context, int turn) throws LlmRequestException {
+	private CurrentScene request(String systemInstruction, String context, int turn, boolean enemyAllowed)
+			throws LlmRequestException {
 		String response = llm.generate(systemInstruction, context);
 		try {
-			return parseScene(response, turn);
+			return parseScene(response, turn, enemyAllowed);
 		} catch (IllegalArgumentException e) {
 			throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE,
 					"Story response was invalid: " + e.getMessage(), e);
 		}
 	}
 
-	/** parse story fields and build a new scene with the turn assigned by Java */
-	private CurrentScene parseScene(String response, int turn) {
+	/** parse story fields and build a new scene with the turn assigned by Java;
+	 *  an enemy field is accepted only when enemyAllowed and must name a known template */
+	private CurrentScene parseScene(String response, int turn, boolean enemyAllowed) {
 		if (response == null || response.isBlank() || response.length() > MAX_RESPONSE_LENGTH) {
 			throw new IllegalArgumentException("Missing or oversized story text");
 		}
@@ -151,7 +230,15 @@ public class StoryGenerator {
 			throw new IllegalArgumentException("Invalid option.count", e);
 		}
 		// Check the total, then read every required key below to reject missing or extra fields.
-		if (count < CurrentScene.MIN_OPTION_COUNT || count != fields.size() - FIXED_FIELD_COUNT) {
+		String enemyId = null;
+		if (fields.containsKey("enemy")) {
+			enemyId = requireText(fields, "enemy");
+			if (!enemyAllowed || enemies.get(enemyId) == null) {
+				throw new IllegalArgumentException("Unexpected or unknown enemy: " + enemyId);
+			}
+		}
+		int optionalCount = enemyId == null ? 0 : 1;
+		if (count < CurrentScene.MIN_OPTION_COUNT || count != fields.size() - FIXED_FIELD_COUNT - optionalCount) {
 			throw new IllegalArgumentException("Option count does not match the supplied fields");
 		}
 		String location = requireText(fields, "location");
@@ -170,7 +257,7 @@ public class StoryGenerator {
 			}
 			options[i] = option;
 		}
-		return new CurrentScene(location, description, turn, options);
+		return new CurrentScene(location, description, turn, options, enemyId);
 	}
 
 	/** read required text and normalize it to printable ASCII */
