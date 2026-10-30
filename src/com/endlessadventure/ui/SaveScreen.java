@@ -20,15 +20,14 @@ public final class SaveScreen extends Screen {
 	//the key hints (tools/imagegen/assets.json, "save_dim"), and the cards and buttons are solid panels over it
 	private static final String BACKDROP = "save_dim";
 
-
-	public enum Mode { LOAD, SAVE }
-	public enum Action {CONFIRM, DELETE, BACK }
-	public record Choice(Action action, int slot) {}
-
 	private final Mode mode;
 	private final SlotOverview[] slots;
 	private int selected;
 	private int hovered;
+	
+	public enum Mode { LOAD, SAVE }
+	public enum Action {CONFIRM, DELETE, BACK }
+	public record Choice(Action action, int slot) {}
 	
 	public SaveScreen(UIHandler ui, Mode mode, SaveManager.SlotOverview[] slots, int selectedSlot) {
 		super(ui);

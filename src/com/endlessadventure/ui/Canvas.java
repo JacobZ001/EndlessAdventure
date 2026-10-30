@@ -20,9 +20,10 @@ public class Canvas {
 	//Canvas component ASCII	
 	private static final char[] CORNERS = {'┌','┐',
 										   '└','┘'};
-	private static final int SHADOW = 0x030403;	//ground shadows pull colors toward this
 	private static final char ROW_BORDER = '─';
 	private static final char COL_BORDER = '│';
+	private static final int SHADOW = 0x030403;	//ground shadows pull colors toward this
+
 
 	private final char[][] characters = new char[HEIGHT][WIDTH];
 	private final int[][] foreground = new int[HEIGHT][WIDTH];
@@ -67,7 +68,7 @@ public class Canvas {
 	}
 
 	/** draws a box border at x,y with width w and height h */
-	void drawBox(int x, int y, int width, int height, int fg, int bg) {
+	private void drawBox(int x, int y, int width, int height, int fg, int bg) {
 		if (x < 0 || y < 0 || width < 0 || height < 0 || x + width > WIDTH || y + height > HEIGHT) {
 			throw new IllegalArgumentException(
 					"Illegal dimensions: box out of bound at (%d,%d), W = %d H = %d)".formatted(x, y, width, height));
@@ -103,12 +104,6 @@ public class Canvas {
 	void drawTitledBox(int x, int y, int width, int height, int fg, String title) {
 		drawBox(x, y, width, height, fg);
 		drawText(x + 2, y, " " + title + " ", Palette.TEXT);
-	}
-
-
-	/** draw the border around the whole canvas */
-	void drawScreenBorder() {
-		drawBox(0, 0, WIDTH, HEIGHT, Palette.LINE);
 	}
 
 	/** draw a divider from x,y to x+w, y*/
@@ -215,6 +210,8 @@ public class Canvas {
 		drawText(x + (BUTTON_WIDTH - label.length()) / 2, y + 1, label, enabled ? highlighted? Palette.KEY : Palette.TEXT : Palette.MUTED);
 	}
 
+	
+	
 	//pixel drawing
 	/** draw the image with its top-left sample at pixel px,py (one character column per sample, two samples per row);
 	 *  transparent samples leave what is underneath, so images can be layered, e.g. a sprite over map ground */
@@ -223,6 +220,21 @@ public class Canvas {
 			for (int x = 0; x < image.getWidth(); x++) {
 				int color = image.getColor(x, y);
 				if (color >= 0) {
+					drawPixel(px + x, py + y, color);
+				}
+			}
+		}
+	}
+		
+	/** the image mixed into what is already drawn: each solid pixel tinted toward tint by tintMix, then laid over at opacity */
+	void drawImage(int px, int py, PixelImage image, int tint, double tintMix, double opacity) {
+		for (int y = 0; y < image.getHeight(); y++) {
+			for (int x = 0; x < image.getWidth(); x++) {
+				int base = image.getColor(x, y);
+				if (base >= 0) {
+					int color = Palette.mix(getPixel(px + x, py + y),
+							Palette.mix(base, tint, tintMix),
+							opacity);
 					drawPixel(px + x, py + y, color);
 				}
 			}
@@ -301,7 +313,7 @@ public class Canvas {
 	}
 
 	/** draw each '#' of the bitmap as scale x scale pixels, colored from top to bottom as a vertical gradient */
-	private void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor, int scale) {
+	void drawBitmap(String[] bitmap, int px0, int py0, int topColor, int bottomColor, int scale) {
 		for (int row = 0; row < bitmap.length; row++) {
 			for (int col = 0; col < bitmap[row].length(); col++) {
 				if (bitmap[row].charAt(col) != '#') {

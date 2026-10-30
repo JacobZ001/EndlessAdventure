@@ -16,9 +16,6 @@ public final class CharacterCreationScreen extends Screen {
 	private static final String[] STEPS = {"ATTRIBUTES", "COMBAT SKILLS", "GENERAL SKILLS", "EQUIPMENT", "REVIEW"};
 	private static final int ATTRIBUTES = 0, COMBAT = 1, GENERAL = 2, EQUIPMENT = 3, REVIEW = 4;
 
-	/** clickable actions: [-] and [+] on a row (a click elsewhere on the row only focuses it), and the two buttons */
-	private enum Action { MINUS, PLUS, BACK, NEXT }
-
 	//name input box, centered
 	private static final int NAME_BOX_W = 52;
 
@@ -52,6 +49,9 @@ public final class CharacterCreationScreen extends Screen {
 	private Player.PlayerBuilder playerBuilder;
 	private int step = ATTRIBUTES;
 	private int focus = 0; //focused row
+	
+	/** clickable actions: [-] and [+] on a row (a click elsewhere on the row only focuses it), and the two buttons */
+	private enum Action { MINUS, PLUS, BACK, NEXT }
 
 	public CharacterCreationScreen(UIHandler ui, EquipmentCatalog catalog) {
 		super(ui);

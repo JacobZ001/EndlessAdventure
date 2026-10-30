@@ -103,6 +103,11 @@ public class Battle {
 		return participants.get(currentInd);
 	}
 	
+	/** returns the combatant at position {@code p}, or null if not found */
+	public Combatant getUnitAt(Position p) {
+		return getParticipantsAlive().stream().filter(u -> u.getPosition().equals(p)).findFirst().orElse(null);
+	}
+	
 	/** helper method to check if the battle is ongoing, used in the beginning of several action methods */
 	private void requireOngoing(String action) {
 		if(outcome != null) {
@@ -115,6 +120,7 @@ public class Battle {
 		BattleMap m = rng.nextBoolean() ? BattleMapTemplates.NEAR : BattleMapTemplates.FAR;
 		return new Battle(m, player, enemies, rng);
 	}
+	
 	
 	
 	
@@ -188,8 +194,11 @@ public class Battle {
 		
 		BattleMap.SearchedPaths paths = pathsFor(actor);
 		int steps = paths.stepsTo(dest);
-		if(steps < 1 ) {
-			return MovePreview.illegal("In-place or unreachable destination");
+		if(steps == -1 ) {
+			return MovePreview.illegal("Unreachable");
+		}
+		else if(steps == 0) {
+			return MovePreview.illegal("Select a destination");
 		}
 		int cost = actor.costOfMove(steps);
 		if(cost > actor.getAp()) {
@@ -295,14 +304,14 @@ public class Battle {
 		if(actor.getSide() != Side.PLAYER) { //TODO change when enemy evacuation is implemented
 			return new EvacuatePreview(false, "Only player can evacuate");
 		}
-		if(!actor.getPosition().equals(actor.getTurnStartPosition())) {
-			return new EvacuatePreview(false, "Cannot evacuate after moving in the same turn");
-		}
 		if(!map.isEdge(actor.getPosition())) {
 			return new EvacuatePreview(false, "Must be on the edge of the map");
 		}
 		if(actor.getAp() < Combatant.EVACUATE_COST) {
 			return new EvacuatePreview(false, "Not enough AP");
+		}
+		if(!actor.getPosition().equals(actor.getTurnStartPosition())) {
+			return new EvacuatePreview(false, "Cannot evacuate after moving in the same turn");
 		}
 		return new EvacuatePreview(true, "");
 	}

@@ -4,6 +4,10 @@ import java.util.List;
 
 /** implemented by things the screens can show: a name plus structured details; the ui decides layout and colors */
 public interface Displayable {
+	/** how much a span stands out and in which direction; the ui picks the color.
+	 *  domain enums such as Attribute or Equipment.Quality can be a span's meaning too, with colors of their own */
+	public enum Tone { PLAIN, NOTE, KEYWORD, GOOD, BAD }
+
 	/** a piece of text and what it means; the ui interprets the meaning and assign a color for the text */
 	public record Span(String text, Enum<?> meaning) {
 		/** static factory for converting object values into Span */ 
@@ -57,10 +61,6 @@ public interface Displayable {
 			}
 		}
 	}
-
-	/** how much a span stands out and in which direction; the ui picks the color.
-	 *  domain enums such as Attribute or Equipment.Quality can be a span's meaning too, with colors of their own */
-	public enum Tone { PLAIN, NOTE, KEYWORD, GOOD, BAD }
 
 	String getName();
 

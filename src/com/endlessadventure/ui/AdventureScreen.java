@@ -20,9 +20,6 @@ public final class AdventureScreen extends Screen {
 							 OPT_Y = INS_Y + 2, //41, one option every 2 rows
 							 INPUT_W = CONTENT_W - ROW_TEXT_OFFSET, //inputField text lines up with the option texts
 							 INPUT_LINES = 2; //right after the last option: rows 47-48 with 3 options
-	
-	public enum Action { ACT, SAVE, INV, CHAR, FIGHT, BACK }// TODO remove FIGHT when encounters arrive (step 4)
-	public record Choice(Action action, String text) {} // text: the chosen option or the typed action, null otherwise
 
 	private final CurrentScene scene;
 	private final Player player;
@@ -30,6 +27,9 @@ public final class AdventureScreen extends Screen {
 	private final TextField inputField;
 	private int focus = 0; //0..options.length - 1: an option; options.length: the inputField row
 	private boolean waiting = false;
+	
+	public enum Action { ACT, SAVE, INV, CHAR, FIGHT, BACK }// TODO remove FIGHT when encounters arrive (step 4)
+	public record Choice(Action action, String text) {} // text: the chosen option or the typed action, null otherwise
 
 	public AdventureScreen(UIHandler ui, GameState state) {
 		super(ui);

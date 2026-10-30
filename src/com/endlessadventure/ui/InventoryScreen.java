@@ -9,9 +9,6 @@ import com.endlessadventure.item.Equipment;
 import com.endlessadventure.item.Item;
 
 public final class InventoryScreen extends Screen {
-	/** the backpack grid and the worn slots are two areas; TAB switches between them, the mouse moves to whichever it points at */
-	private enum Area { BACKPACK, WORN }
-	public enum Action { CLOSE, CHARACTER }
 
 	private static final ContainerGrid GRID = new ContainerGrid(4, 4);
 
@@ -27,6 +24,10 @@ public final class InventoryScreen extends Screen {
 	private Area area = Area.BACKPACK;
 	private int gridFocus = -1; //focused box in the backpack, -1 for none
 	private Equipment.Slot slotFocus = Equipment.Slot.MAIN_HAND;
+	
+	/** the backpack grid and the worn slots are two areas; TAB switches between them, the mouse moves to whichever it points at */
+	private enum Area { BACKPACK, WORN }
+	public enum Action { CLOSE, CHARACTER }
 
 	public InventoryScreen(UIHandler ui, Player player) {
 		super(ui);

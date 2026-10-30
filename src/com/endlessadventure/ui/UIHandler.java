@@ -21,6 +21,15 @@ public class UIHandler implements AutoCloseable {
 	private final BindingReader bindingReader;
 	private final Canvas canvas = new Canvas();
 	
+	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
+	private final List<ButtonBox> buttons = new ArrayList<>();
+	private Button lastHoveredButton;
+	private int mouseX = -1, mouseY = -1;
+
+	private String statusMsg = null;
+	private int color;
+	private Attributes savedAttributes;
+	
 	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, TAB, BACK_TAB, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
 
 	/** one key or mouse event; button is the clickable area under the mouse for CLICK and HOVER, null otherwise */
@@ -37,16 +46,6 @@ public class UIHandler implements AutoCloseable {
 			return px >= x && px < x + w && py >= y && py < y + h;
 		}
 	}
-	
-	private final KeyMap<InputKey> inputKeys = new KeyMap<>();
-	private final List<ButtonBox> buttons = new ArrayList<>();
-	private Button lastHoveredButton;
-	private int mouseX = -1, mouseY = -1;
-
-	private String statusMsg = null;
-	private int color;
-	
-	private Attributes savedAttributes;
 
 	public UIHandler() throws IOException {
 		try {

@@ -39,7 +39,7 @@ public class Combatant{
 	private int ap = MAX_AP;
 	private int stepsLeft = 0;
 	private boolean acted = false; //whether or not the combatant has started a turn in the current battle
-	private boolean mainAttacked = false; //whether or not the combatant has used it main atk this turn, used to enable off hand atk
+	private boolean mainAttacked = false; //whether or not the combatant has used its main attack this turn, used to enable off hand attack
 	private DefenseType defense = null;
 
 	Combatant(GameCharacter character, Side side, Position position) {
@@ -52,6 +52,8 @@ public class Combatant{
 	public GameCharacter getCharacter() {return character;}
 
 	public Side getSide() {return side;}
+	
+	public boolean isEnemy() {return getSide() == Side.ENEMY;}
 
 	public Position getPosition() {return position;}
 
@@ -92,6 +94,10 @@ public class Combatant{
 	int costOfMove(int steps) {
 		return steps <= stepsLeft ? 0 : Math.ceilDiv(steps - stepsLeft, character.getSpeed()) * MOVE_COST;
 	}
+	
+	public boolean canMove() {
+		return getAp() > 0 || getStepsLeft() > 0;
+	}
 
 	/** buys movement with apCost AP (speed steps each), then walks steps cells to dest */
 	void moveTo(Position dest, int steps, int apCost) {
@@ -119,14 +125,14 @@ public class Combatant{
 		Weapon weapon = weaponOfType(type);
 		if(type == AttackType.OFF_HAND) {
 			if(!mainAttacked) {
-				return AttackPreview.illegal("must perform main hand attack first");
+				return AttackPreview.illegal("Must perform main hand attack first");
 			}
 			if(weapon == null) {
-				return AttackPreview.illegal("no off hand weapon equipped");
+				return AttackPreview.illegal("No off hand weapon equipped");
 			}
 		}
 		if(ap < costOfAttack(type)) {
-			return AttackPreview.illegal("not enough AP");
+			return AttackPreview.illegal("Not enough AP");
 		}
 
 		boolean crit = target.isCritBy(weapon);
@@ -187,16 +193,16 @@ public class Combatant{
 	/** whether this unit can take this defense now; for a dodge, also how likely each opponent is to hit it */
 	DefensePreview previewDefend(DefenseType type, List<Combatant> opponents) {
 		if(defense != null) {
-			return DefensePreview.illegal(type, "already in defense");
+			return DefensePreview.illegal(type, "Already in defense");
 		}
 		if(ap < DEFEND_COST) {
-			return DefensePreview.illegal(type, "not enough AP");
+			return DefensePreview.illegal(type, "Not enough AP");
 		}
 		if(type == DefenseType.SHIELD && character.getShieldGuard() == 0) {
-			return DefensePreview.illegal(type, "shield is not equipped");
+			return DefensePreview.illegal(type, "Shield is not equipped");
 		}
 		if(type == DefenseType.DODGE && !character.canDodge()) {
-			return DefensePreview.illegal(type, "dodge is disabled");
+			return DefensePreview.illegal(type, "Dodge is disabled");
 		}
 		Map<Combatant, Integer> chances = type != DefenseType.DODGE? Map.of() : opponents.stream()
 				.collect(Collectors.toMap(Function.identity(),
