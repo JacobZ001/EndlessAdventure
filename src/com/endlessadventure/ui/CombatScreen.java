@@ -169,12 +169,36 @@ public class CombatScreen extends Screen {
 					if(focusedOption == -1) {
 						return ScreenAction.BACK;
 					}
-					focusedOption = -1;
-					mode = Mode.IDLE;
+					resetSelection();
+					cursor = null;
 				}
-				case UP, DOWN -> {
-					focusedOption = focusedOption == -1? 0 : moveFocus(in, focusedOption, options.size());
-					mode = options.get(focusedOption).needsTarget()? Mode.TARGETING : Mode.IDLE;
+				case UP, DOWN, LEFT, RIGHT -> {
+					if(mode == Mode.TARGETING) {
+						if(cursor == null) {
+							cursor = getStartCell(options.get(focusedOption));
+						}
+						else {
+							int dx = switch(in.inputKey()) {
+								case LEFT -> -1;
+								case RIGHT -> 1;
+								default -> 0;
+							};
+							int dy = switch(in.inputKey()) {
+								case UP -> -1;
+								case DOWN -> 1;
+								default -> 0;
+							};
+							cursor = new Position(Math.clamp(cursor.x() + dx, 0, map.width() -1), Math.clamp(cursor.y() + dy, 0, map.height() - 1));
+						}
+					}
+					else {
+						switch(in.inputKey()) {
+							case UP, DOWN -> {
+								hoveredOption = hoveredOption == -1? 0 : moveFocus(in, hoveredOption, options.size());
+							}
+							default -> {}
+						}
+					}
 				}
 				case HOVER -> {
 					if(in.button() instanceof Button b && b.action() == Button.Area.MAP_CELL) {
@@ -187,7 +211,10 @@ public class CombatScreen extends Screen {
 					}
 				}
 				case ENTER -> {
-					if(focusedOption != -1) {
+					if (mode == Mode.IDLE && hoveredOption != -1) {
+						selectOption(hoveredOption);
+					}
+					else if (focusedOption != -1) {
 						cAction = CombatAction.ACT;
 					}
 				}
@@ -195,6 +222,11 @@ public class CombatScreen extends Screen {
 					int digit = in.digit(options.size());
 					if(digit >= 0) {
 						selectOption(digit);
+					}
+					else {
+						switch(Character.toUpperCase(in.ch())){
+							case 'E' -> cAction = CombatAction.END;
+						}
 					}
 				}
 				case CLICK -> {
@@ -230,26 +262,53 @@ public class CombatScreen extends Screen {
 		}
 	}
 
-	/** a click or number key on row i: options without a target run on the second press, the others start or stop aiming */
+	/** process a click or number key on row i: options without a target run on the second press, the others start or stop aiming */
 	private void selectOption(int i) {
+		hoveredOption = i;
 		ActionOption ao = options.get(i);
 		if(i == focusedOption) {
 			if(!ao.needsTarget()) {
 				execute(ao);
 			}
 			else {
-				focusedOption = -1;
-				mode = Mode.IDLE;
+				resetSelection();
 			}
 		}
 		else {
 			focusedOption = i;
-			mode = ao.needsTarget()? Mode.TARGETING : Mode.IDLE;
+			if(ao.needsTarget()) {
+				mode = Mode.TARGETING;
+				if(cursor == null) {
+					cursor = getStartCell(ao);
+				}
+			}
+			else {
+				mode = Mode.IDLE;
+			}
+		}
+	}
+	
+	private void resetSelection() {
+		focusedOption = -1;
+		mode = Mode.IDLE;
+	}
+	
+	/** returns where the cursor starts when aiming o:
+	 *  the pinned unit if o can target it, else the valid target nearest the player, else the player's own cell */
+	private Position getStartCell(ActionOption o) {
+		if(focusedTarget != null && o.check().apply(focusedTarget.getPosition()).legal()) {
+			return focusedTarget.getPosition();
+		}
+		else {
+			return cells.stream()
+					.filter(c -> o.check().apply(c).legal())
+					.min(Comparator.comparingInt(p -> p.distanceTo(self.getPosition())))
+					.orElse(self.getPosition());
 		}
 	}
 
 	/** the option checked against the cursor: the one answer the rows, Confirm, the preview box and execute all read */
-	private Check checkNow(ActionOption o) {
+	private Check checkCursor(ActionOption o) {
 		return o.check().apply(cursor);
 	}
 
@@ -261,15 +320,14 @@ public class CombatScreen extends Screen {
 	/** runs o on the cursor if its check passes, then returns to IDLE; otherwise shows why (with the error sound).
 	 *  every way of running an option (ENTER, Confirm, a map click, a second press on its row) ends here */
 	private void execute(ActionOption o) {
-		Check c = checkNow(o);
+		Check c = checkCursor(o);
 		if(c.legal()) {
 			List<CombatEvent> news = o.action().apply(cursor);
 			if (!playEventSounds(news)) {
 				Sound.playEffect(Sound.UI_CONFIRM);
 			}
 			events.addAll(news);
-			mode = Mode.IDLE;
-			focusedOption = -1;
+			resetSelection();
 		}
 		else {
 			ui.showWarning(c.reason());
@@ -287,8 +345,7 @@ public class CombatScreen extends Screen {
 				List<CombatEvent> news = battle.endPlayerTurn();
 				playEventSounds(news);
 				events.addAll(news);
-				mode = Mode.IDLE;
-				focusedOption = -1;
+				resetSelection();
 			}
 		}
 	}
@@ -337,10 +394,10 @@ public class CombatScreen extends Screen {
 		}, battle::move));
 
 		//attacks
-		list.add(new ActionOption("Attack", true, p -> attackCheck(p, AttackType.MAIN),
+		list.add(new ActionOption("Attack", true, p -> buildAttackCheck(p, AttackType.MAIN),
 				p -> battle.attack(battle.getUnitAt(p), AttackType.MAIN)));
 		if(playerChar.getOffHandAttackPower() != 0) {
-			list.add(new ActionOption("Off Hand Attack", true, p -> attackCheck(p, AttackType.OFF_HAND),
+			list.add(new ActionOption("Off Hand Attack", true, p -> buildAttackCheck(p, AttackType.OFF_HAND),
 					p -> battle.attack(battle.getUnitAt(p), AttackType.OFF_HAND)));
 		}
 
@@ -390,7 +447,7 @@ public class CombatScreen extends Screen {
 	}
 
 	/** a main or off-hand attack on whatever stands at p; without an enemy there the row shows the weapon's attack power */
-	private Check attackCheck(Position p, AttackType type) {
+	private Check buildAttackCheck(Position p, AttackType type) {
 		Player playerChar = (Player) self.getCharacter();
 		boolean main = type == AttackType.MAIN;
 		int cost = main? Combatant.MAIN_ATTACK_COST : Combatant.OFF_HAND_ATTACK_COST;
@@ -476,7 +533,7 @@ public class CombatScreen extends Screen {
 				//a gold frame: what would happen, not what happened
 				canvas.drawBox(RIGHT_X, y, SIDE_W, RIGHT_BOT_H, Palette.KEY);
 				canvas.drawText(x, y + 1, "PREVIEW", Palette.KEY);
-				DetailView.draw(canvas, x, y + 3, SIDE_W - 2 * PAD, checkNow(options.get(focusedOption)).preview());
+				DetailView.draw(canvas, x, y + 3, SIDE_W - 2 * PAD, checkCursor(options.get(focusedOption)).preview());
 				canvas.drawText(x, y + RIGHT_BOT_H - 2, "Enter confirm   Esc cancel", Palette.FAINT);
 			}
 			else {
@@ -553,7 +610,7 @@ public class CombatScreen extends Screen {
 		int labelX = x + 4;
 		for(int i=0; i < options.size(); i++) {
 			ActionOption o = options.get(i);
-			Check c = checkNow(o);
+			Check c = checkCursor(o);
 			boolean ready = isReady(o);
 
 			int labelColor = Palette.MUTED;
@@ -584,10 +641,10 @@ public class CombatScreen extends Screen {
 			y += 4;
 		}
 		int buttonY = SIDE_Y + LEFT_TOP_H + LEFT_BOT_H + LEFT_PANEL_MARGIN - Canvas.BUTTON_HEIGHT;
-		ui.drawButton(LEFT_X + 1, buttonY, "END TURN", true, new Button(CombatAction.END));
+		ui.drawButton(LEFT_X + 1, buttonY, "End Turn", true, new Button(CombatAction.END));
 		//a dim Confirm still takes the click, so performCombatAction can say why it cannot run
 		ui.drawButton(LEFT_X + SIDE_W - Canvas.BUTTON_WIDTH - 1, buttonY, "Confirm",
-				focusedOption != -1 && checkNow(options.get(focusedOption)).legal(), new Button(CombatAction.ACT));
+				focusedOption != -1 && checkCursor(options.get(focusedOption)).legal(), new Button(CombatAction.ACT));
 	}
 
 	/** draws a unit's name, level, HP, AP (only on its own turn), armor, speed and steps left, with its large figure at iconX, iconY */
@@ -673,17 +730,21 @@ public class CombatScreen extends Screen {
 					new Button(i, Button.Area.MAP_CELL));
 		}
 
-		//while aiming: valid targets tinted (move: deeper where an attack is still affordable after it), the rest dimmed
+		//tint valid targets in targeting mode (move: deeper where an attack is still affordable after it), the rest dimmed
 		if(mode == Mode.TARGETING) {
 			ActionOption aimed = options.get(focusedOption);
 			for(Position p : cells) {
 				Check c = aimed.check().apply(p);
 				if(!c.legal()) {
-					drawCellMovePreview(p.x(), p.y(), 0, Palette.BG, 0.25);
+					drawCellMovePreview(p.x(), p.y(), 1, Palette.BG, 0.2);
 				}
 				else if(focusedOption == MOVE_OPTION) {
-					drawCellMovePreview(p.x(), p.y(), 1, Palette.TAG,
-							self.getAp() - c.cost() >= Combatant.MAIN_ATTACK_COST? 0.24 : 0.12);
+					if(self.getAp() - c.cost() >= Combatant.MAIN_ATTACK_COST) {
+						drawCellMovePreview(p.x(), p.y(), 1, Palette.SUCCESS, 0.15);
+					}
+					else {
+						drawCellMovePreview(p.x(), p.y(), 1, Palette.DANGER,0.15);
+					}
 				}
 				else {
 					drawCellMovePreview(p.x(), p.y(), 1, Palette.DANGER, 0.4);
@@ -695,22 +756,24 @@ public class CombatScreen extends Screen {
 		for(int y = 0; y < map.height() * CELL; y++) {
 			for(int x = 0; x < map.width() * CELL; x++) {
 				if(x % CELL == 0 || y % CELL == 0) {
-					canvas.shadePixel(MAP_X + x, MAP_Y + y, 0.08);
+					canvas.shadePixel(MAP_X + x, MAP_Y + y, mode == Mode.TARGETING? 0.35 : 0.08);
 				}
 			}
 		}
 
-		//aiming Move at an empty cell: the path and its end ring, and a ghost there (red when out of reach)
-		MovePreview aimedMove = canTargetMove()? battle.previewMove(cursor) : null;
-		if(aimedMove != null) {
+		//draw path indication at cursor in targeting mode
+		MovePreview aimedMove = null;
+		if(mode == Mode.TARGETING &&  focusedOption == MOVE_OPTION && cursor != null) {
+			aimedMove = battle.previewMove(cursor);
+			
 			if(aimedMove.legal()) {
 				List<Position> paths = new ArrayList<>(aimedMove.path());
 				paths.add(0, self.getPosition());
 				for(int c = 1; c < paths.size(); c++) {
 					int x0 = MAP_X + paths.get(c-1).x() * CELL + 6;
 					int x1 = MAP_X + paths.get(c).x() * CELL + 6;
-					int y0 = footY(paths.get(c-1).y());
-					int y1 = footY(paths.get(c).y());
+					int y0 = calcFootY(paths.get(c-1).y());
+					int y1 = calcFootY(paths.get(c).y());
 					for(int i=0; i<CELL + 1; i++) {
 						int px = x0 + Integer.signum(x1 - x0) * i;
 						int py = y0 + Integer.signum(y1 - y0) * i;
@@ -734,14 +797,14 @@ public class CombatScreen extends Screen {
 		//draw shadows
 		for(SceneObject o : objects) {
 			Position cell = o.cell();
-			canvas.drawContactShadow(imgX(cell.x(), o.image()), footY(cell.y()), o.image(), o.isUnit()? 0.2 : 0.15);
+			canvas.drawContactShadow(calcImgX(cell.x(), o.image()), calcFootY(cell.y()), o.image(), o.isUnit()? 0.2 : 0.15);
 		}
 
 		//draw objects; the one right below a pointed-at unit fades so it does not hide it
 		for(SceneObject o : objects) {
 			Position cell = o.cell();
-			int px = imgX(cell.x(), o.image());
-			int py = footY(cell.y()) - o.image().getHeight() + 1;
+			int px = calcImgX(cell.x(), o.image());
+			int py = calcFootY(cell.y()) - o.image().getHeight() + 1;
 			if(cursor != null && cell.x() == cursor.x() && cell.y() - cursor.y() == 1 && battle.getUnitAt(cursor) != null) {
 				canvas.drawImage(px, py, o.image(), Palette.TEXT, 0.1, 0.25);
 			}
@@ -763,7 +826,7 @@ public class CombatScreen extends Screen {
 				int fill = (int) Math.round((double) ch.getHp() * HP_BAR_X_SPAN / ch.getMaxHp());
 				int left = MAP_X + o.cell().x() * CELL;
 				for(int i=0; i < HP_BAR_X_SPAN; i++) {
-					canvas.drawPixel(left + HP_BAR_X_OFFSET + i, footY(o.cell().y()) + HP_BAR_Y_OFFSET,
+					canvas.drawPixel(left + HP_BAR_X_OFFSET + i, calcFootY(o.cell().y()) + HP_BAR_Y_OFFSET,
 							i < fill? sideColor(o.unit()) : Palette.LINE);
 				}
 			}
@@ -804,24 +867,19 @@ public class CombatScreen extends Screen {
 						((x < len || x > CELL - len) && (y < len || y > CELL - len))) {
 					int px = MAP_X + cell.x() * CELL + x;
 					int py = MAP_Y + cell.y() * CELL + y;
-					canvas.drawPixel(px, py, Palette.mix(canvas.getPixel(px, py), color, 0.65));
+					canvas.drawPixel(px, py, Palette.mix(canvas.getPixel(px, py), color, 0.67));
 				}
 			}
 		}
 	}
 
 	/** returns the pixel-x position of the left origin of the object */
-	private int imgX(int cellX, PixelImage img) {
+	private int calcImgX(int cellX, PixelImage img) {
 		return MAP_X + cellX * CELL + (CELL - img.getWidth()) / 2;
 	}
 
 	/** returns the pixel-y position of the foot of a object/unit */
-	private int footY(int cellY) {
+	private int calcFootY(int cellY) {
 		return MAP_Y + cellY * CELL + CELL + FOOT_Y_OFFSET;
-	}
-
-	/** whether the map shows a move preview (path, ghost) at the cursor: aiming Move at a cell nobody stands on */
-	private boolean canTargetMove() {
-		return cursor != null && mode == Mode.TARGETING && focusedOption == MOVE_OPTION && battle.getUnitAt(cursor) == null;
 	}
 }
