@@ -10,6 +10,7 @@ import com.endlessadventure.Displayable.Detail;
 import com.endlessadventure.Displayable.Detail.Line;
 import com.endlessadventure.Displayable.Detail.Stat;
 import com.endlessadventure.Displayable.Tone;
+import com.endlessadventure.audio.Sound;
 import com.endlessadventure.combat.Battle;
 import com.endlessadventure.combat.Battle.CombatEvent;
 import com.endlessadventure.combat.Battle.MovePreview;
@@ -79,7 +80,7 @@ public class CombatScreen extends Screen {
 	private final List<Position> cells = new ArrayList<>(); //every cell of the map, row by row
 	private final List<ActionOption> options; //built once: which rows exist depends only on equipment
 
-	private List<CombatEvent> events = new ArrayList<>(); //TODO implement connection with start() and endPlayerTurn()
+	private List<CombatEvent> events = new ArrayList<>();
 	private int focusedOption = -1;
 	private int hoveredOption = -1;
 
@@ -89,7 +90,6 @@ public class CombatScreen extends Screen {
 
 	public enum ScreenAction { BACK, INVENTORY, CHARACTER }
 	public enum CombatAction { ACT, END }
-	private enum MapArea { CELL }
 	private enum Mode { IDLE, TARGETING }
 	private enum ObjectKind { PROP, UNIT, GHOST, BLOCKED_GHOST }
 
@@ -157,7 +157,9 @@ public class CombatScreen extends Screen {
 	}
 
 	public ScreenAction run() {
-		battle.start();
+		List<CombatEvent> startEvents = battle.start();
+		playEventSounds(startEvents);
+		events.addAll(startEvents);
 		while(true) {
 			drawFrame();
 			UIHandler.Input in = ui.readInput();
@@ -175,7 +177,7 @@ public class CombatScreen extends Screen {
 					mode = options.get(focusedOption).needsTarget()? Mode.TARGETING : Mode.IDLE;
 				}
 				case HOVER -> {
-					if(in.button() instanceof Button b && b.action() == MapArea.CELL) {
+					if(in.button() instanceof Button b && b.action() == Button.Area.MAP_CELL) {
 						cursor = cells.get(b.index());
 						hoveredOption = -1;
 					}
@@ -199,10 +201,15 @@ public class CombatScreen extends Screen {
 					if (in.button() instanceof Button b) {
 						if(b.action() instanceof ScreenAction a) {return a;}
 						if(b.action() instanceof CombatAction a) {cAction = a;}
-						else if(b.action() == MapArea.CELL) {
+						else if(b.action() == Button.Area.MAP_CELL) {
 							cursor = cells.get(b.index());
 							switch(mode) {
-								case IDLE -> focusedTarget = battle.getUnitAt(cursor);
+								case IDLE -> {
+									focusedTarget = battle.getUnitAt(cursor);
+									if(focusedTarget != null) {
+										Sound.playEffect(Sound.UI_CONFIRM);
+									}
+								}
 								case TARGETING -> execute(options.get(focusedOption));
 							}
 						}
@@ -251,12 +258,21 @@ public class CombatScreen extends Screen {
 		return o.needsTarget()? cells.stream().anyMatch(p -> o.check().apply(p).legal()) : o.check().apply(null).legal();
 	}
 
-	/** runs o on the cursor if its check passes, then returns to IDLE; does nothing otherwise */
+	/** runs o on the cursor if its check passes, then returns to IDLE; otherwise shows why (with the error sound).
+	 *  every way of running an option (ENTER, Confirm, a map click, a second press on its row) ends here */
 	private void execute(ActionOption o) {
-		if(checkNow(o).legal()) {
-			events.addAll(o.action().apply(cursor));
+		Check c = checkNow(o);
+		if(c.legal()) {
+			List<CombatEvent> news = o.action().apply(cursor);
+			if (!playEventSounds(news)) {
+				Sound.playEffect(Sound.UI_CONFIRM);
+			}
+			events.addAll(news);
 			mode = Mode.IDLE;
 			focusedOption = -1;
+		}
+		else {
+			ui.showWarning(c.reason());
 		}
 	}
 
@@ -264,22 +280,35 @@ public class CombatScreen extends Screen {
 		switch(action) {
 			case ACT -> {
 				if(focusedOption > -1) {
-					ActionOption ao = options.get(focusedOption);
-					Check c = checkNow(ao);
-					if(c.legal()) {
-						execute(ao);
-					}
-					else {
-						ui.showWarning(c.reason());
-					}
+					execute(options.get(focusedOption));
 				}
 			}
 			case END -> {
-				battle.endPlayerTurn();
+				List<CombatEvent> news = battle.endPlayerTurn();
+				playEventSounds(news);
+				events.addAll(news);
 				mode = Mode.IDLE;
 				focusedOption = -1;
 			}
 		}
+	}
+	
+	/** plays the sound of the first event that has one; true if one played */
+	private boolean playEventSounds(List<CombatEvent> news) {
+		for (CombatEvent e : news) {
+			String id = switch (e) {
+				case CombatEvent.Attacked a when !a.hit() -> Sound.MISS;
+				case CombatEvent.Attacked a when a.damage() == 0 -> Sound.BLOCK;
+				case CombatEvent.Attacked a -> Sound.HIT;
+				case CombatEvent.Defended d -> Sound.BLOCK;
+				default -> null;
+			};
+			if (id != null) {
+				Sound.playEffect(id);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** the rows of the action panel, in the order of their number keys; Move stays first (MOVE_OPTION) */
@@ -398,6 +427,7 @@ public class CombatScreen extends Screen {
 				Stat.of("Your AP", self.getAp() + " → " + (self.getAp() - cost))));
 	}
 
+	
 
 	private void drawFrame() {
 		beginFrame();
@@ -639,7 +669,8 @@ public class CombatScreen extends Screen {
 		//register clickable cells; the button index is the cell's index in cells
 		for(int i = 0; i < cells.size(); i++) {
 			Position p = cells.get(i);
-			ui.addButtonBox(MAP_X + p.x() * CELL, MAP_Y / 2 + p.y() * CELL / 2, CELL, CELL / 2, new Button(i, MapArea.CELL));
+			ui.addButtonBox(MAP_X + p.x() * CELL, MAP_Y / 2 + p.y() * CELL / 2, CELL, CELL / 2,
+					new Button(i, Button.Area.MAP_CELL));
 		}
 
 		//while aiming: valid targets tinted (move: deeper where an attack is still affordable after it), the rest dimmed

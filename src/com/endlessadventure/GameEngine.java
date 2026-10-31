@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.random.RandomGenerator;
 
+import com.endlessadventure.audio.Sound;
 import com.endlessadventure.combat.Battle;
 import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
@@ -51,6 +52,14 @@ public class GameEngine {
 	/** main game loop */
 	public void run() throws NoSuchElementException{
 		while (running) {
+			//route music
+			switch(currentScreen) {
+				case MAIN_MENU, CHARACTER_CREATION, LOAD_SAVE -> Sound.playMusic(Sound.MENU);
+				case ADVENTURE -> Sound.playMusic(Sound.ADVENTURE);
+				case COMBAT -> Sound.playMusic(Sound.COMBAT);
+				case INVENTORY, CHARACTER, WRITE_SAVE -> {}
+			}
+			//route screen transition states
 			currentScreen = switch (currentScreen) {
 				case MAIN_MENU -> handleMainMenu();
 				case CHARACTER_CREATION -> handleCharacterCreation();

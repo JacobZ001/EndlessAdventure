@@ -15,6 +15,8 @@ import org.jline.terminal.MouseEvent;
 import org.jline.terminal.impl.MouseSupport;
 import org.jline.utils.InfoCmp.Capability;
 
+import com.endlessadventure.audio.Sound;
+
 public class UIHandler implements AutoCloseable {
 	private final Terminal terminal;
 	private final PrintWriter writer;
@@ -111,10 +113,12 @@ public class UIHandler implements AutoCloseable {
 	//show messages on next screen render
 	public void showWarning(String msg) {
 		setStatusMsg(msg,Palette.WARNING);
+		Sound.playEffect(Sound.UI_ERROR);
 	}
 	
 	public void showError(String msg) {
 		setStatusMsg(msg,Palette.DANGER);
+		Sound.playEffect(Sound.UI_ERROR);
 	}
 
 	public void showSuccess(String msg) {
@@ -151,10 +155,25 @@ public class UIHandler implements AutoCloseable {
 	    writer.flush();
 	}
 	
+	
+	
+	public Input readInput() {
+		Input in = readInputRaw();
+		switch(in.inputKey()) {
+			case UP, DOWN, LEFT, RIGHT, TAB, BACK_TAB -> Sound.playEffect(Sound.UI_MOVE);
+			//pointing areas (Button.Area) only aim; their screen plays the sound once it knows the result
+			case HOVER -> { if (in.button() != null && !(in.button().action() instanceof Button.Area)) Sound.playEffect(Sound.UI_MOVE); }
+			case CLICK -> { if (in.button() != null && !(in.button().action() instanceof Button.Area)) Sound.playEffect(Sound.UI_CONFIRM); }
+			case ENTER -> Sound.playEffect(Sound.UI_CONFIRM);
+			case ESC -> Sound.playEffect(Sound.UI_BACK);
+			default -> {}
+		}
+		return in;
+	}
 
 	
 	/** reads raw user inputKey and return the input  */
-	public Input readInput() {
+	private Input readInputRaw() {
         while (true) {
             InputKey key = bindingReader.readBinding(inputKeys);
             if (key == null || key == InputKey.INTERRUPT) {

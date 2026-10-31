@@ -1,0 +1,13 @@
+[
+  {"id": "ui_move",    "kind": "sfx",   "use": "focus moves to another entry (arrow keys, hover)"},
+  {"id": "ui_confirm", "kind": "sfx",   "use": "an entry or button is chosen (ENTER, click)"},
+  {"id": "ui_back",    "kind": "sfx",   "use": "leaving a screen or mode (ESC, BACK)"},
+  {"id": "ui_error",   "kind": "sfx",   "use": "the action is not allowed (NEXT disabled, empty slot)"},
+  {"id": "hit",        "kind": "sfx",   "use": "an attack deals damage"},
+  {"id": "block",      "kind": "sfx",   "use": "an attack deals no damage, or a unit takes a defense action"},
+  {"id": "miss",       "kind": "sfx",   "use": "an attack misses or is dodged"},
+
+  {"id": "menu",       "kind": "music", "use": "main menu, character creation, save screens"},
+  {"id": "adventure",  "kind": "music", "use": "adventure screen and inventory"},
+  {"id": "combat",     "kind": "music", "use": "combat screen"}
+]

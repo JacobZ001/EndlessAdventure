@@ -3,6 +3,7 @@ package com.endlessadventure;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
+import com.endlessadventure.audio.Sound;
 import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.llm.LlmClient;
@@ -33,6 +34,7 @@ public class Driver {
 		} catch (NoSuchElementException e) {
 			System.out.println(e.getMessage());
 		} finally {
+			Sound.close();
 			System.out.println("Game exited.");
 		}
     }

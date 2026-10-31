@@ -7,8 +7,8 @@ import java.util.Map;
 import com.endlessadventure.Displayable.Span;
 
 public class Canvas {
-	public static final int HEIGHT = 51;
-	public static final int WIDTH = 209;
+	public static final int HEIGHT = 51; //default: 51
+	public static final int WIDTH = 209; //default: 209
 	public static final int BUTTON_HEIGHT = 3;
 	public static final int BUTTON_WIDTH = 18;
 
