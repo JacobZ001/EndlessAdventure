@@ -9,6 +9,7 @@ import java.util.function.Function;
 import com.endlessadventure.Displayable.Detail;
 import com.endlessadventure.Displayable.Detail.Line;
 import com.endlessadventure.Displayable.Detail.Stat;
+import com.endlessadventure.Displayable.Span;
 import com.endlessadventure.Displayable.Tone;
 import com.endlessadventure.audio.Sound;
 import com.endlessadventure.combat.Battle;
@@ -20,7 +21,6 @@ import com.endlessadventure.combat.Combatant;
 import com.endlessadventure.combat.Combatant.AttackType;
 import com.endlessadventure.combat.Combatant.DefenseType;
 import com.endlessadventure.combat.Position;
-import com.endlessadventure.entity.Attribute;
 import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.GameCharacter;
 import com.endlessadventure.entity.Player;
@@ -32,10 +32,6 @@ public class CombatScreen extends Screen {
 	private static final String TILE_IMG = "forest_floor",
 								TREE_IMG = "forest_tree",
 								PLAYER_IMG = "player";
-
-	//colors
-	private static final int PLAYER_COLOR = Palette.colorOf(Attribute.DEX),
-							 ENEMY_COLOR = Palette.DANGER;
 
 	//map and middle section positioning
 	private static final int TITLE_Y = 2;
@@ -530,14 +526,34 @@ public class CombatScreen extends Screen {
 			canvas.fill(RIGHT_X, y, SIDE_W, RIGHT_BOT_H, Palette.PANEL);
 
 			if(focusedOption != -1) {
-				//a gold frame: what would happen, not what happened
+				//draw preview frame, shows what would happen for selected option and target if any
 				canvas.drawBox(RIGHT_X, y, SIDE_W, RIGHT_BOT_H, Palette.KEY);
 				canvas.drawText(x, y + 1, "PREVIEW", Palette.KEY);
 				DetailView.draw(canvas, x, y + 3, SIDE_W - 2 * PAD, checkCursor(options.get(focusedOption)).preview());
 				canvas.drawText(x, y + RIGHT_BOT_H - 2, "Enter confirm   Esc cancel", Palette.FAINT);
 			}
 			else {
+				//draw combat event log, newest at the bottom and keeps the last N when fit; heights measured on a scratch canvas
 				canvas.drawText(x, y + 1, "LOG", Palette.FAINT);
+				int width = SIDE_W - 2 * PAD;
+				int height = RIGHT_BOT_H - 4; //from y + 3 to the row above the panel's bottom
+
+				Canvas scratch = new Canvas();
+				int start = events.size(), used = 0;
+				while(start > 0) {
+					int h = gapAbove(start - 1) + scratch.drawSpans(0, 0, width, describeEvent(events.get(start - 1)));				    if(used + h > height) {
+						break;
+					}
+					used += h;
+					start--;
+				}
+				int ly = y + 3;
+				for(int i = start; i < events.size(); i++) {
+					if(i > start) {
+						ly += gapAbove(i);
+					}
+					ly = canvas.drawSpans(x, ly, width, describeEvent(events.get(i)));
+				}
 			}
 		}
 
@@ -686,7 +702,7 @@ public class CombatScreen extends Screen {
 
 	/** the color of the unit's side, for its name and HP bars */
 	private static int sideColor(Combatant c) {
-		return c.isEnemy()? ENEMY_COLOR : PLAYER_COLOR;
+		return Palette.colorOf(c.getSide());
 	}
 
 	private static String hpText(GameCharacter ch) {
@@ -712,7 +728,52 @@ public class CombatScreen extends Screen {
 			canvas.drawText(endX - 2 * total + 1 + 2 * i , y, i < have? "●" : "○", i < have? color : Palette.FAINT);
 		}
 	}
+	
+	/** returns rows above log entry i: two blank rows before each turn's start, except at the very top of the log */
+	private int gapAbove(int i) {
+	    return i > 0 && events.get(i) instanceof CombatEvent.TurnStarted? 2 : 0;
+	}
+	
+	private static Span nameSpan(Combatant c) { return Span.of(c.getCharacter().getName(), c.getSide()); } 
 
+	/** return the log line of an event in colored pieces;
+	 *  names by side, damage red, other numbers bright, states sky, the rest dim */
+	private List<Span> describeEvent(CombatEvent e){
+		return switch(e) {
+			case CombatEvent.TurnStarted t -> List.of(
+					Span.of("Round " + t.round() + " · ", Tone.HIGHLIGHT), nameSpan(t.unit()), Span.note("'s turn"));
+			case CombatEvent.Moved m -> List.of(
+					nameSpan(m.unit()),	Span.note(" moves "), Span.plain(m.path().size()), Span.note(" steps"));
+			case CombatEvent.Attacked a when !a.hit() -> List.of(
+					nameSpan(a.attacker()),	Span.note(" attacks "),	nameSpan(a.target()), Span.note(" and "), Span.keyword("misses")); 
+			case CombatEvent.Attacked a when a.damage() == 0 -> List.of(
+					nameSpan(a.attacker()),	Span.note(" attacks "),	nameSpan(a.target()), Span.note(" and could not break their armor"));
+			case CombatEvent.Attacked a -> {
+				List<Span> s = new ArrayList<>();
+				if(a.crit()) {
+					s.add(Span.of("Critical! ", Tone.HIGHLIGHT));
+				}
+				s.addAll(List.of(
+						nameSpan(a.attacker()),	Span.note(" attacks "),	nameSpan(a.target()), Span.note(" for "),
+						Span.of(a.damage(), Tone.BAD), Span.note(" damage (HP "), Span.plain(a.hpAfter()), Span.note(")")));
+				yield s;
+			}
+			case CombatEvent.Defended d when d.type() == DefenseType.DODGE -> List.of(
+					nameSpan(d.unit()), Span.note(" gets ready to "), Span.keyword("dodge"));
+			case CombatEvent.Defended d -> List.of(
+					nameSpan(d.unit()), Span.keyword(" guards "), Span.plain("+" + d.guard()), Span.note(" armor"));
+			case CombatEvent.Defeated d -> List.of(
+					nameSpan(d.unit()), Span.note(" is "), Span.keyword("defeated"));
+			case CombatEvent.Evacuated v -> List.of(
+					nameSpan(v.unit()), Span.keyword(" escapes "), Span.note("the battle"));
+			case CombatEvent.BattleEnded b -> switch(b.outcome()) {
+					case VICTORY -> List.of(Span.of("Victory", Tone.HIGHLIGHT));
+					case DOWNED -> List.of(Span.of("Defeated", Tone.BAD));
+					case EVACUATED -> List.of(Span.of("Escaped", Tone.HIGHLIGHT));
+			};
+		};
+	}
+	
 
 
 	//map drawing
@@ -743,7 +804,7 @@ public class CombatScreen extends Screen {
 						drawCellMovePreview(p.x(), p.y(), 1, Palette.SUCCESS, 0.15);
 					}
 					else {
-						drawCellMovePreview(p.x(), p.y(), 1, Palette.DANGER,0.15);
+						drawCellMovePreview(p.x(), p.y(), 1, Palette.WARNING,0.15);
 					}
 				}
 				else {

@@ -6,7 +6,7 @@ import java.util.List;
 public interface Displayable {
 	/** how much a span stands out and in which direction; the ui picks the color.
 	 *  domain enums such as Attribute or Equipment.Quality can be a span's meaning too, with colors of their own */
-	public enum Tone { PLAIN, NOTE, KEYWORD, GOOD, BAD }
+	public enum Tone { PLAIN, NOTE, KEYWORD, HIGHLIGHT, GOOD, BAD }
 
 	/** a piece of text and what it means; the ui interprets the meaning and assign a color for the text */
 	public record Span(String text, Enum<?> meaning) {
@@ -17,6 +17,14 @@ public interface Displayable {
 		/** helper method for default meaning(plain text) */
 		public static Span plain(Object value) {
 			return of(value, Tone.PLAIN);
+		}
+		
+		public static Span note(Object value) {
+			return of(value, Tone.NOTE);
+		}
+		
+		public static Span keyword(Object value) {
+			return of(value, Tone.KEYWORD);
 		}
 	}
 

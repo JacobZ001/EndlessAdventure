@@ -1,6 +1,7 @@
 package com.endlessadventure.ui;
 
-import com.endlessadventure.Displayable.Tone;
+import com.endlessadventure.Displayable;
+import com.endlessadventure.combat.Combatant;
 import com.endlessadventure.entity.Attribute;
 import com.endlessadventure.item.Equipment;
 
@@ -78,18 +79,20 @@ public final class Palette {
 	/** static method to get the corresponding color of an enum for display */
 	static int colorOf(Enum<?> meaning) {
 		return switch(meaning) {
-			case Tone t -> getToneColor(t);
+			case Displayable.Tone t -> getToneColor(t);
 			case Attribute a -> getAttributeColor(a);
 			case Equipment.Quality q -> getQualityColor(q);
+			case Combatant.Side s -> s == Combatant.Side.PLAYER? DEX : DANGER;
 			default -> TEXT;
 		};
 	}
 
-	private static int getToneColor(Tone t) {
+	private static int getToneColor(Displayable.Tone t) {
 		return switch(t) {
 			case PLAIN -> TEXT;
 			case NOTE -> MUTED;
 			case KEYWORD -> TAG;
+			case HIGHLIGHT -> KEY;
 			case GOOD -> SUCCESS;
 			case BAD -> DANGER;
 		};
