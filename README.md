@@ -122,15 +122,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 
 ## Course requirement mapping
 
-Status as of November 3, 2026. File and line references will be added for the final submission. Requirements that are not met yet will be covered by a feature that needs them, not added for their own sake.
+Status as of November 3, 2026. File and line references will be added for the final submission. Only code written by the author is cited as evidence; code implemented by the GenAI agent (listed under Development assistance: the LLM module, story generation, and the first versions of `Canvas` and `Palette`) does not count toward a requirement. Requirements that are not met yet will be covered by a feature that needs them, not added for their own sake.
 
 | Requirement | Status | Where |
 |---|---|---|
-| At least 8 classes | Met | About 60 source files across `entity`, `item`, `data`, `combat`, `story`, `save`, `llm`, `audio`, `ui` |
+| At least 8 classes | Met | More than 50 author-written classes across `entity`, `item`, `data`, `combat`, `save`, `audio`, `ui` |
 | Fields private or protected; invalid values rejected | Met | Setters and constructors validate, e.g. `Entity.setHp`, `Player.setExp`, `Player.PlayerBuilder`, item, equipment and enemy constructors |
-| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button`, `CurrentScene`, `StoryGenerator`, `LlmClient` |
-| Meaningful static members | Met | `StatRules` (growth and combat rules), `SaveManager.SLOT_COUNT`, `Canvas.wrapText` |
-| `toString()` overridden in at least 3 classes | Partly met | `Canvas` (ANSI frame), `Item` (its name, for log lines); a third is still needed |
+| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button` |
+| Meaningful static members | Met | `StatRules` (growth and combat rules), `SaveManager.SLOT_COUNT` |
+| `toString()` overridden in at least 3 classes | Partly met | `Item` (its name, for log lines); two more are needed |
 | `equals()` and `hashCode()` overridden together | Met | `Item`, equal by catalog definition ID |
 | Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` / `Enemy`; `Item` → `Equipment` → `Weapon` |
 | Abstract class with at least 2 abstract methods | Met | `Item` (`getCategoryLabel`, `getDetails`); `Equipment` (`fits`, `addStats`) |
@@ -141,8 +141,8 @@ Status as of November 3, 2026. File and line references will be added for the fi
 | An interface with a default method | Met | `Displayable.getNameMeaning()` |
 | Behavior passed as a parameter and invoked later | Met | `Catalog.load` takes a `Function` that builds each entry from a file row; `BattleMap.searchPaths` takes a `Predicate` for occupied cells; battle actions in `CombatScreen` hold their check and execution as functions |
 | A class implementing `Comparable`, and a `Comparator` in use | Partly met | `Comparator`: initiative order in `Battle`, target choice in `EnemyAI`, drawing order in `CombatScreen`. `Comparable` is still needed |
-| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` and `LlmRequestException` (checked), `MissingFieldException` (unchecked) |
-| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`); failure stage (`LlmRequestException`) |
+| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `MissingFieldException` (unchecked) |
+| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`) |
 | At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` in `SaveManager` |
 | No empty catch blocks | Met | — |
 | `List` and `Map` used where appropriate | Met | Story history and battle participants (`List`); attributes, skills and equipment slots (`EnumMap`); catalog index by ID (`LinkedHashMap` in `Catalog`) |
