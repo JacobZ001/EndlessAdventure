@@ -4,17 +4,22 @@ A console-based Java RPG course project for CMP 358L at the American University 
 
 ## Current status
 
-As of October 17, 2026, the narrative adventure loop and all menus run on a full-screen terminal interface.
+As of November 3, 2026, the game has character creation with starting equipment, an inventory and character screen, the narrative adventure loop, and a playable grid battle against one enemy. Battles are not yet started by the story (see Known gaps).
 
-- **Interface:** every screen (main menu, character creation, save/load, adventure, confirmation dialogs) is drawn as one 209×51 frame and can be used with the keyboard or the mouse (click and hover). The game needs Windows Terminal, maximized.
-- **Character creation:** name, then step-by-step allocation of seven attributes, combat skills and general skills within the starting budgets, then a review step.
-- **Narrative gameplay:** LLM-generated opening and continuation scenes with 1–3 suggested choices or a typed custom action (up to two lines). Successful continuation replaces the current scene and records the previous scene with the player's action. Java assigns turn numbers; the model receives the current scene, player facts and the full history.
+- **Interface:** every screen (main menu, character creation, save/load, adventure, inventory, character, battle, confirmation dialogs) is drawn as one 209×51 frame and can be used with the keyboard or the mouse (click and hover). The game needs Windows Terminal, maximized.
+- **Character creation:** name, step-by-step allocation of seven attributes, combat skills and general skills within the starting budgets, a starting-equipment step (main-hand weapon and armor required, off hand optional: shield or a light weapon), then a review step.
+- **Equipment and inventory:** main hand, armor and off-hand slots with equip rules (two-handed weapons occupy the off hand, light weapons can be dual-wielded). Equipment determines attack power, off-hand attack power, armor, shield value, speed and whether the character can dodge. The inventory screen equips and unequips items and compares them with what is worn; the character screen shows the full character.
+- **Combat:** a 10×7 grid battle on one of two preset maps, with initiative order, 3 action points per turn, split movement with path preview, normal and off-hand attacks, three defenses (simple, shield, dodge), evacuation from the map edge, and the weapon properties versatile, pierce, break guard, lethal and assassinate. The enemy (a bandit) is played by a rule-table AI. Each action shows a preview (expected damage, hit chance against a dodging target) before it is confirmed, and a battle log lists what happened.
+- **Narrative gameplay:** LLM-generated opening and continuation scenes with 1–3 suggested choices or a typed custom action (up to two lines). Successful continuation replaces the current scene and records the previous scene with the player's action. Java assigns turn numbers; the model receives the current scene, player facts and the full history. The story protocol can also name an enemy in a scene and narrate the result of a fight (see Story generation).
 - **Saves:** three JSON slots with overwrite and delete confirmation, storing the player (attributes, skills, equipment and items), the current scene and choices, and the story history.
-- **Not implemented:** combat, inventory sorting, categories and paging, usable skills, mechanical rewards and leveling. Story generation is narrative-only; mentioning an item or enemy does not create a gameplay object.
+- **Images and sound:** equipment icons, scene pictures, battle figures and portraits are drawn in the terminal from PNG files in `assets/`; background music changes by screen, and the interface and battles play sound effects. The images and placeholder sounds are produced offline by the tools in `tools/imagegen` and `tools/audiogen` (not part of the game).
+- **Data files:** the equipment catalog (`data/weapons.json`, `armor.json`, `shields.json`) and enemy templates (`data/enemies.json`) are read at startup; a missing or invalid entry stops the game with the file name and entry number.
 
 ### Known gaps
 
-History is sent in full with each continuation; there is no summary or context-size limit yet. If the opening scene cannot be generated, the game returns to the main menu with an error; a failed continuation keeps the current scene. There is no automatic retry or offline story fallback.
+- Battles are entered from a temporary Fight button on the adventure screen. Scenes that name an enemy, the result of a fight returning to the story, resting, and saving the scene's enemy are not connected yet.
+- Not implemented: experience and leveling, loot, usable skills and checks, potions and special actions, locations, inventory categories and paging.
+- History is sent in full with each continuation; there is no summary or context-size limit yet. If the opening scene cannot be generated, the game returns to the main menu with an error; a failed continuation keeps the current scene. There is no automatic retry or offline story fallback.
 
 ## Requirements
 
@@ -26,7 +31,7 @@ Third-party libraries are included as jars in `lib/` and registered in the Eclip
 | Library | Version | License | Use |
 |---|---|---|---|
 | JLine (terminal, reader, terminal-jni, native) | 4.4.6 | BSD-3-Clause | Terminal access, key and mouse input |
-| Gson | 2.13.2 | Apache-2.0 | Gemini request/response JSON in `LlmClient`; equipment catalog in `data/`; save files |
+| Gson | 2.13.2 | Apache-2.0 | Gemini request/response JSON in `LlmClient`; equipment and enemy catalogs in `data/`; save files |
 
 The game must be launched with `lib` on the module path. Narrative generation requires network access and a Gemini API key; opening the menus does not require a key.
 
@@ -40,7 +45,7 @@ The game must be launched with `lib` on the module path. Narrative generation re
 
 The final course submission will include updated run instructions and any known limitations; the requirement mapping is below.
 
-`references/` holds static design reference images (AI-generated prototype renders, not game assets).
+`references/` holds static design reference images (AI-generated prototype renders, not game assets). Game images and sounds are in `assets/`; the game reads `assets/` and `data/` relative to the project root, so launch it from there.
 
 ## Local LLM configuration
 
@@ -92,7 +97,10 @@ try {
 
 Core gameplay is checked manually in Windows Terminal; automated core checks can be added when the relevant features and interfaces stabilize. The LLM configuration and story-generation checks below remain.
 
-On October 17, 2026, the full source compiled with JDK 21 using `lib` as the module path. The two offline checks last passed on October 14, 2026 and were not rerun after the interface changes; real-model gameplay was not rechecked.
+- The full source compiles with JDK 21 using `lib` as the module path (checked October 30, 2026).
+- The offline story-generation check, including the new enemy field and after-combat narration, passed on October 30, 2026. The offline configuration check last passed on October 14, 2026.
+- The battle screen, inventory, character creation with starting equipment, audio, and save/load were tested by the author in Windows Terminal between October 22 and October 31, 2026.
+- Real-model gameplay has not been rechecked since October 14, 2026.
 
 ## Story generation
 
@@ -114,35 +122,35 @@ if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 
 ## Course requirement mapping
 
-Status as of October 17, 2026. "Planned" items are designed into the equipment and combat systems that are being built; file and line references will be added for the final submission.
+Status as of November 3, 2026. File and line references will be added for the final submission. Requirements that are not met yet will be covered by a feature that needs them, not added for their own sake.
 
 | Requirement | Status | Where |
 |---|---|---|
-| At least 8 classes | Met | 30+ classes across `entity`, `story`, `save`, `llm`, `ui` |
-| Fields private or protected; invalid values rejected | Met | Setters and constructors validate, e.g. `Entity.setHp`, `Player.setExp`, `Player.PlayerBuilder`, item and equipment constructors |
-| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button` |
-| Meaningful static members | Met | `StatRules` (growth rules), `SaveManager.SLOT_COUNT`, `Canvas.wrapText` |
-| `toString()` overridden in at least 3 classes | Partly met | `Canvas` (ANSI frame), `Item` (its name, for log lines). Planned: `Entity`, combat events (log text) |
+| At least 8 classes | Met | About 60 source files across `entity`, `item`, `data`, `combat`, `story`, `save`, `llm`, `audio`, `ui` |
+| Fields private or protected; invalid values rejected | Met | Setters and constructors validate, e.g. `Entity.setHp`, `Player.setExp`, `Player.PlayerBuilder`, item, equipment and enemy constructors |
+| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button`, `CurrentScene`, `StoryGenerator`, `LlmClient` |
+| Meaningful static members | Met | `StatRules` (growth and combat rules), `SaveManager.SLOT_COUNT`, `Canvas.wrapText` |
+| `toString()` overridden in at least 3 classes | Partly met | `Canvas` (ANSI frame), `Item` (its name, for log lines); a third is still needed |
 | `equals()` and `hashCode()` overridden together | Met | `Item`, equal by catalog definition ID |
-| Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` |
+| Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` / `Enemy`; `Item` → `Equipment` → `Weapon` |
 | Abstract class with at least 2 abstract methods | Met | `Item` (`getCategoryLabel`, `getDetails`); `Equipment` (`fits`, `addStats`) |
 | At least 3 concrete subclasses of that abstract class | Met | `Weapon`, `Armor`, `Shield` (via `Equipment`) |
 | `@Override` on every override | Met | All current overrides |
-| Loop over a supertype collection with type-dependent behavior | Planned | `Player` applies each equipped `Equipment` to its combat stats; the combat action bar loops over `CombatAction` |
-| At least 2 interfaces, one implemented by unrelated classes | Partly met | `Displayable` (implemented by `Item` and `Entity`, which share no parent); planned `CombatAction` |
-| An interface with a default method | Met | `Displayable.getNameMeaning()`; planned `CombatAction.needsTarget()` |
-| Behavior passed as a parameter and invoked later | Met | `EquipmentCatalog.load` takes a `Function` that builds each piece from a file row; planned enemy-turn `Consumer` callback |
-| A class implementing `Comparable`, and a `Comparator` in use | Planned | Initiative order (`Comparable`); equipment lists sorted with a `Comparator` |
-| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `MissingFieldException` (unchecked) |
-| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`) |
+| Loop over a supertype collection with type-dependent behavior | Met | `GameCharacter` sums armor, shield value and speed penalty, and checks dodging, over its equipped `Equipment`, each subclass answering differently |
+| At least 2 interfaces, one implemented by unrelated classes | Met | `Displayable` (implemented by `Item` and `Entity`, which share no parent); `Battle.CombatEvent` and `Displayable.Detail` (sealed interfaces implemented by records) |
+| An interface with a default method | Met | `Displayable.getNameMeaning()` |
+| Behavior passed as a parameter and invoked later | Met | `Catalog.load` takes a `Function` that builds each entry from a file row; `BattleMap.searchPaths` takes a `Predicate` for occupied cells; battle actions in `CombatScreen` hold their check and execution as functions |
+| A class implementing `Comparable`, and a `Comparator` in use | Partly met | `Comparator`: initiative order in `Battle`, target choice in `EnemyAI`, drawing order in `CombatScreen`. `Comparable` is still needed |
+| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` and `LlmRequestException` (checked), `MissingFieldException` (unchecked) |
+| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`); failure stage (`LlmRequestException`) |
 | At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` in `SaveManager` |
 | No empty catch blocks | Met | — |
-| `List` and `Map` used where appropriate | Met | Story history (`List`); attributes and skills (`EnumMap`); planned catalog index by ID (`Map`) |
-| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); `EquipmentCatalog` (missing or malformed data stops startup with the file name) |
+| `List` and `Map` used where appropriate | Met | Story history and battle participants (`List`); attributes, skills and equipment slots (`EnumMap`); catalog index by ID (`LinkedHashMap` in `Catalog`) |
+| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); `Catalog` (missing or malformed data stops startup with the file name and entry) |
 | Writing a file | Met | `SaveManager.writeSave` (temporary file, then atomic replace) |
 | A design pattern from Lab 9, used deliberately | Pending | To be chosen once Lab 9 is covered; `Player.PlayerBuilder` already follows the Builder pattern; `Equipment.getDetails` is a template method |
-| Composition chosen over inheritance at least once | Partly met | `GameCharacter` holds its items; planned equipment slots instead of subclasses per loadout |
-| A class depending only on abstractions | Planned | The combat engine depends only on `CombatAction` and unit abstractions; concrete units and actions are created by `GameEngine` |
+| Composition chosen over inheritance at least once | Met | `GameCharacter` holds its equipment in slots instead of subclasses per loadout; `Combatant` wraps a `GameCharacter` with battle-only state |
+| A class depending only on abstractions | Pending | Not yet identified |
 
 ## Development assistance
 
@@ -152,7 +160,8 @@ The LLM module was implemented by a GenAI coding agent:
 
 - `com.endlessadventure.llm.LlmClient.java`
 - `com.endlessadventure.llm.LlmRequestException.java`
-- `com.endlessadventure.story.StoryGenerator.java` (model requests, prompts, response parsing and validation)
+- `com.endlessadventure.story.StoryGenerator.java` (model requests, prompts, response parsing and validation, including the enemy field and after-combat narration)
+- the optional enemy ID in `com.endlessadventure.story.CurrentScene.java`
 - `tests/LlmConfigCheck.java` (LLM configuration verification only)
 - `tests/StoryGeneratorCheck.java` (offline story-generation verification)
 
@@ -169,5 +178,7 @@ For the following parts, the agent proposed screen designs and interaction rules
 - terminal key and mouse input in `UIHandler.java` (key bindings, click areas, hover)
 - the main menu, character creation, save/load and adventure screens, and the confirmation dialog
 - the shared screen structure: the `Screen` base class, list focus handling, `TextField` and `Button`
+- the equipment, inventory and character systems, the shared `Catalog` base class and enemy templates
+- the combat logic (`combat` package: turn flow, movement and pathfinding, damage and defenses, the rule-table enemy AI) and the battle screen
 
 The core game code is written by the author.
