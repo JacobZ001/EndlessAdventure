@@ -181,4 +181,4 @@ For the following parts, the agent proposed screen designs and interaction rules
 - the equipment, inventory and character systems, the shared `Catalog` base class and enemy templates
 - the combat logic (`combat` package: turn flow, movement and pathfinding, damage and defenses, the rule-table enemy AI) and the battle screen
 
-The core game code is written by the author.
+The core game code is written by the author. Some of the author's commits carry a `Co-Authored-By` trailer because a local agent session made the commit; the code in them was written by the author.
