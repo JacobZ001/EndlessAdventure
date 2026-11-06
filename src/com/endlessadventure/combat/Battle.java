@@ -12,9 +12,7 @@ import com.endlessadventure.combat.Combatant.Side;
 import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.Player;
 
-public class Battle {
-	public static final int DOWNED_HP_PERCENT = 25; //DESIGN §2.2: a downed player comes to at a quarter of max HP
-	
+public class Battle {	
 	public enum Outcome { VICTORY, DEFEATED, ESCAPED }
 	
 	public sealed interface CombatEvent {
@@ -262,9 +260,8 @@ public class Battle {
 		if(target.getCharacter().isAlive()) {return;}
 		
 		events.add(new Defeated(target));
-		if(target.getCharacter() instanceof Player p) {
+		if(target.getCharacter() instanceof Player) {
 			outcome = Outcome.DEFEATED;
-			p.setHp(Math.max(1, p.getMaxHp() * DOWNED_HP_PERCENT / 100));
 		}
 		else{
 			boolean victory = true;

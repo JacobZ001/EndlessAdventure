@@ -503,9 +503,7 @@ public class CombatScreen extends Screen {
 			case DEFEATED -> List.of(nameSpan(self), Span.note(" is down · round "), Span.plain(battle.getRound()));
 			case ESCAPED -> List.of(nameSpan(self), Span.note(" slips away · round "), Span.plain(battle.getRound()));
 		};
-		List<Span> hp = outcome == Outcome.DEFEATED
-				? List.of(Span.note("You come to with  "), Span.plain("HP " + hpText(player)))
-				: List.of(Span.note("HP  "), Span.plain(hpText(player)));
+		List<Span> hp = List.of(Span.note("HP  "), Span.plain(hpText(player)));
 
 		canvas.dim(); //once: dimming again each round would darken the frame further
 		while(true) {

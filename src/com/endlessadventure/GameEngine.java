@@ -199,7 +199,11 @@ public class GameEngine {
 		Battle battle = Battle.onRandomMap(gameState.getPlayer(),
 		        List.of(enemyCatalog.createFromId("bandit")), RandomGenerator.getDefault());
 		
-		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run(); //TODO connect to story at step 4
-		return GameScreen.ADVENTURE;
+		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run(); 
+		if(outcome == Battle.Outcome.DEFEATED) {
+			//a downed player comes to with 1 HP for story progression purpose, the story then tells where they wake
+			gameState.getPlayer().setHp(1);
+		}
+		return GameScreen.ADVENTURE;//TODO connect to story at step 4
 	}
 }
