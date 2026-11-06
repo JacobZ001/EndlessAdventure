@@ -15,6 +15,7 @@ import com.endlessadventure.audio.Sound;
 import com.endlessadventure.combat.Battle;
 import com.endlessadventure.combat.Battle.CombatEvent;
 import com.endlessadventure.combat.Battle.MovePreview;
+import com.endlessadventure.combat.Battle.Outcome;
 import com.endlessadventure.combat.BattleMap;
 import com.endlessadventure.combat.BattleMap.Terrain;
 import com.endlessadventure.combat.Combatant;
@@ -57,6 +58,10 @@ public class CombatScreen extends Screen {
 	private static final int CARD_Y = 48,
 							 CARD_W_BUFFER = 8,
 							 CARD_MARGIN = 3;
+	
+	//outcome card
+	private static final int OUTCOME_W = 44,
+							 OUTCOME_H = 16;
 
 	//combat option constants
 	private static final int MOVE_OPTION = 0;
@@ -84,7 +89,7 @@ public class CombatScreen extends Screen {
 	private Combatant focusedTarget = null; //the unit pinned to the details panel
 	private Mode mode = Mode.IDLE;
 
-	public enum ScreenAction { BACK, INVENTORY, CHARACTER }
+	public enum ScreenAction { INVENTORY, CHARACTER }
 	public enum CombatAction { ACT, END }
 	private enum Mode { IDLE, TARGETING }
 	private enum ObjectKind { PROP, UNIT, GHOST, BLOCKED_GHOST }
@@ -151,219 +156,7 @@ public class CombatScreen extends Screen {
 		}
 		options = buildOptions();
 	}
-
-	public ScreenAction run() {
-		List<CombatEvent> startEvents = battle.start();
-		playEventSounds(startEvents);
-		events.addAll(startEvents);
-		while(true) {
-			drawFrame();
-			UIHandler.Input in = ui.readInput();
-			CombatAction cAction = null;
-			switch (in.inputKey()) {
-				case ESC -> {
-					if(focusedOption == -1) {
-						return ScreenAction.BACK;
-					}
-					resetSelection();
-					cursor = null;
-				}
-				case UP, DOWN, LEFT, RIGHT -> {
-					if(mode == Mode.TARGETING) {
-						if(cursor == null) {
-							cursor = getStartCell(options.get(focusedOption));
-						}
-						else {
-							int dx = switch(in.inputKey()) {
-								case LEFT -> -1;
-								case RIGHT -> 1;
-								default -> 0;
-							};
-							int dy = switch(in.inputKey()) {
-								case UP -> -1;
-								case DOWN -> 1;
-								default -> 0;
-							};
-							cursor = new Position(Math.clamp(cursor.x() + dx, 0, map.width() -1), Math.clamp(cursor.y() + dy, 0, map.height() - 1));
-						}
-					}
-					else {
-						switch(in.inputKey()) {
-							case UP, DOWN -> {
-								hoveredOption = hoveredOption == -1? 0 : moveFocus(in, hoveredOption, options.size());
-							}
-							default -> {}
-						}
-					}
-				}
-				case HOVER -> {
-					if(in.button() instanceof Button b && b.action() == Button.Area.MAP_CELL) {
-						cursor = cells.get(b.index());
-						hoveredOption = -1;
-					}
-					else{
-						cursor = null;
-						hoveredOption = moveFocus(in, hoveredOption, options.size(),false);
-					}
-				}
-				case ENTER -> {
-					if (mode == Mode.IDLE && hoveredOption != -1) {
-						selectOption(hoveredOption);
-					}
-					else if (focusedOption != -1) {
-						cAction = CombatAction.ACT;
-					}
-				}
-				case CHAR -> {
-					int digit = in.digit(options.size());
-					if(digit >= 0) {
-						selectOption(digit);
-					}
-					else {
-						switch(Character.toUpperCase(in.ch())){
-							case 'E' -> cAction = CombatAction.END;
-						}
-					}
-				}
-				case CLICK -> {
-					if (in.button() instanceof Button b) {
-						if(b.action() instanceof ScreenAction a) {return a;}
-						if(b.action() instanceof CombatAction a) {cAction = a;}
-						else if(b.action() == Button.Area.MAP_CELL) {
-							cursor = cells.get(b.index());
-							switch(mode) {
-								case IDLE -> {
-									focusedTarget = battle.getUnitAt(cursor);
-									if(focusedTarget != null) {
-										Sound.playEffect(Sound.UI_CONFIRM);
-									}
-								}
-								case TARGETING -> execute(options.get(focusedOption));
-							}
-						}
-						else if(b.index() >= 0) {
-							selectOption(b.index());
-						}
-					}
-				}
-				default -> {} //TODO expand input handling
-
-			}
-			if(cAction != null) {
-				performCombatAction(cAction);
-			}
-			if(battle.getOutcome() != null) { //TODO temporary stub exit
-				return ScreenAction.BACK;
-			}
-		}
-	}
-
-	/** process a click or number key on row i: options without a target run on the second press, the others start or stop aiming */
-	private void selectOption(int i) {
-		hoveredOption = i;
-		ActionOption ao = options.get(i);
-		if(i == focusedOption) {
-			if(!ao.needsTarget()) {
-				execute(ao);
-			}
-			else {
-				resetSelection();
-			}
-		}
-		else {
-			focusedOption = i;
-			if(ao.needsTarget()) {
-				mode = Mode.TARGETING;
-				if(cursor == null) {
-					cursor = getStartCell(ao);
-				}
-			}
-			else {
-				mode = Mode.IDLE;
-			}
-		}
-	}
 	
-	private void resetSelection() {
-		focusedOption = -1;
-		mode = Mode.IDLE;
-	}
-	
-	/** returns where the cursor starts when aiming o:
-	 *  the pinned unit if o can target it, else the valid target nearest the player, else the player's own cell */
-	private Position getStartCell(ActionOption o) {
-		if(focusedTarget != null && o.check().apply(focusedTarget.getPosition()).legal()) {
-			return focusedTarget.getPosition();
-		}
-		else {
-			return cells.stream()
-					.filter(c -> o.check().apply(c).legal())
-					.min(Comparator.comparingInt(p -> p.distanceTo(self.getPosition())))
-					.orElse(self.getPosition());
-		}
-	}
-
-	/** the option checked against the cursor: the one answer the rows, Confirm, the preview box and execute all read */
-	private Check checkCursor(ActionOption o) {
-		return o.check().apply(cursor);
-	}
-
-	/** whether the row is lit: an option with a target is ready when any cell is a valid target */
-	private boolean isReady(ActionOption o) {
-		return o.needsTarget()? cells.stream().anyMatch(p -> o.check().apply(p).legal()) : o.check().apply(null).legal();
-	}
-
-	/** runs o on the cursor if its check passes, then returns to IDLE; otherwise shows why (with the error sound).
-	 *  every way of running an option (ENTER, Confirm, a map click, a second press on its row) ends here */
-	private void execute(ActionOption o) {
-		Check c = checkCursor(o);
-		if(c.legal()) {
-			List<CombatEvent> news = o.action().apply(cursor);
-			if (!playEventSounds(news)) {
-				Sound.playEffect(Sound.UI_CONFIRM);
-			}
-			events.addAll(news);
-			resetSelection();
-		}
-		else {
-			ui.showWarning(c.reason());
-		}
-	}
-
-	private void performCombatAction(CombatAction action) {
-		switch(action) {
-			case ACT -> {
-				if(focusedOption > -1) {
-					execute(options.get(focusedOption));
-				}
-			}
-			case END -> {
-				List<CombatEvent> news = battle.endPlayerTurn();
-				playEventSounds(news);
-				events.addAll(news);
-				resetSelection();
-			}
-		}
-	}
-	
-	/** plays the sound of the first event that has one; true if one played */
-	private boolean playEventSounds(List<CombatEvent> news) {
-		for (CombatEvent e : news) {
-			String id = switch (e) {
-				case CombatEvent.Attacked a when !a.hit() -> Sound.MISS;
-				case CombatEvent.Attacked a when a.damage() == 0 -> Sound.BLOCK;
-				case CombatEvent.Attacked a -> Sound.HIT;
-				case CombatEvent.Defended d -> Sound.BLOCK;
-				default -> null;
-			};
-			if (id != null) {
-				Sound.playEffect(id);
-				return true;
-			}
-		}
-		return false;
-	}
-
 	/** the rows of the action panel, in the order of their number keys; Move stays first (MOVE_OPTION) */
 	private List<ActionOption> buildOptions() {
 		Player playerChar = (Player) self.getCharacter();
@@ -481,7 +274,275 @@ public class CombatScreen extends Screen {
 	}
 
 	
+	
+	//main logic handling loop
+	public Battle.Outcome run() {
+		List<CombatEvent> startEvents = battle.start();
+		playEventSounds(startEvents);
+		events.addAll(startEvents);
+		while(true) {
+			drawFrame();
+			UIHandler.Input in = ui.readInput();
+			CombatAction cAction = null;
+			switch (in.inputKey()) {
+				case ESC -> {
+					if(focusedOption != -1) {
+						resetSelection();
+						cursor = null;
+					}
+				}
+				case UP, DOWN, LEFT, RIGHT -> {
+					if(mode == Mode.TARGETING) {
+						if(cursor == null) {
+							cursor = getStartCell(options.get(focusedOption));
+						}
+						else {
+							int dx = switch(in.inputKey()) {
+								case LEFT -> -1;
+								case RIGHT -> 1;
+								default -> 0;
+							};
+							int dy = switch(in.inputKey()) {
+								case UP -> -1;
+								case DOWN -> 1;
+								default -> 0;
+							};
+							cursor = new Position(Math.clamp(cursor.x() + dx, 0, map.width() -1), Math.clamp(cursor.y() + dy, 0, map.height() - 1));
+						}
+					}
+					else {
+						switch(in.inputKey()) {
+							case UP, DOWN -> {
+								hoveredOption = hoveredOption == -1? 0 : moveFocus(in, hoveredOption, options.size());
+							}
+							default -> {}
+						}
+					}
+				}
+				case HOVER -> {
+					if(in.button() instanceof Button b && b.action() == Button.Area.MAP_CELL) {
+						cursor = cells.get(b.index());
+						hoveredOption = -1;
+					}
+					else{
+						cursor = null;
+						hoveredOption = moveFocus(in, hoveredOption, options.size(),false);
+					}
+				}
+				case ENTER -> {
+					if (mode == Mode.IDLE && hoveredOption != -1) {
+						selectOption(hoveredOption);
+					}
+					else if (focusedOption != -1) {
+						cAction = CombatAction.ACT;
+					}
+				}
+				case CHAR -> {
+					int digit = in.digit(options.size());
+					if(digit >= 0) {
+						selectOption(digit);
+					}
+					else {
+						switch(Character.toUpperCase(in.ch())){
+							case 'E' -> cAction = CombatAction.END;
+						}
+					}
+				}
+				case CLICK -> {
+					if (in.button() instanceof Button b) {
+						//if(b.action() instanceof ScreenAction a) {return a;} //TODO implement inventory and character screen read
+						if(b.action() instanceof CombatAction a) {cAction = a;}
+						else if(b.action() == Button.Area.MAP_CELL) {
+							cursor = cells.get(b.index());
+							switch(mode) {
+								case IDLE -> {
+									focusedTarget = battle.getUnitAt(cursor);
+									if(focusedTarget != null) {
+										Sound.playEffect(Sound.UI_CONFIRM);
+									}
+								}
+								case TARGETING -> execute(options.get(focusedOption));
+							}
+						}
+						else if(b.index() >= 0) {
+							selectOption(b.index());
+						}
+					}
+				}
+				default -> {} //TODO expand input handling
 
+			}
+			if(cAction != null) {
+				performCombatAction(cAction);
+			}
+			if(battle.getOutcome() != null) {
+				drawFrame();
+				return showOutcome();
+			}
+		}
+	}
+
+	/** process a click or number key on row i: options without a target run on the second press, the others start or stop aiming */
+	private void selectOption(int i) {
+		hoveredOption = i;
+		ActionOption ao = options.get(i);
+		if(i == focusedOption) {
+			if(!ao.needsTarget()) {
+				execute(ao);
+			}
+			else {
+				resetSelection();
+			}
+		}
+		else {
+			focusedOption = i;
+			if(ao.needsTarget()) {
+				mode = Mode.TARGETING;
+				if(cursor == null) {
+					cursor = getStartCell(ao);
+				}
+			}
+			else {
+				mode = Mode.IDLE;
+			}
+		}
+	}
+	
+	private void resetSelection() {
+		focusedOption = -1;
+		mode = Mode.IDLE;
+	}
+	
+	/** returns where the cursor starts when aiming o:
+	 *  the pinned unit if o can target it, else the valid target nearest the player, else the player's own cell */
+	private Position getStartCell(ActionOption o) {
+		if(focusedTarget != null && o.check().apply(focusedTarget.getPosition()).legal()) {
+			return focusedTarget.getPosition();
+		}
+		else {
+			return cells.stream()
+					.filter(c -> o.check().apply(c).legal())
+					.min(Comparator.comparingInt(p -> p.distanceTo(self.getPosition())))
+					.orElse(self.getPosition());
+		}
+	}
+
+	/** the option checked against the cursor: the one answer the rows, Confirm, the preview box and execute all read */
+	private Check checkCursor(ActionOption o) {
+		return o.check().apply(cursor);
+	}
+
+	/** whether the row is lit: an option with a target is ready when any cell is a valid target */
+	private boolean isReady(ActionOption o) {
+		return o.needsTarget()? cells.stream().anyMatch(p -> o.check().apply(p).legal()) : o.check().apply(null).legal();
+	}
+
+	/** runs o on the cursor if its check passes, then returns to IDLE; otherwise shows why (with the error sound).
+	 *  every way of running an option (ENTER, Confirm, a map click, a second press on its row) ends here */
+	private void execute(ActionOption o) {
+		Check c = checkCursor(o);
+		if(c.legal()) {
+			List<CombatEvent> news = o.action().apply(cursor);
+			if (!playEventSounds(news)) {
+				Sound.playEffect(Sound.UI_CONFIRM);
+			}
+			events.addAll(news);
+			resetSelection();
+		}
+		else {
+			ui.showWarning(c.reason());
+		}
+	}
+
+	private void performCombatAction(CombatAction action) {
+		switch(action) {
+			case ACT -> {
+				if(focusedOption > -1) {
+					execute(options.get(focusedOption));
+				}
+			}
+			case END -> {
+				List<CombatEvent> news = battle.endPlayerTurn();
+				playEventSounds(news);
+				events.addAll(news);
+				resetSelection();
+			}
+		}
+	}
+	
+	/** plays the sound of the first event that has one; true if one played */
+	private boolean playEventSounds(List<CombatEvent> news) {
+		for (CombatEvent e : news) {
+			String id = switch (e) {
+				case CombatEvent.Attacked a when !a.hit() -> Sound.MISS;
+				case CombatEvent.Attacked a when a.damage() == 0 -> Sound.BLOCK;
+				case CombatEvent.Attacked a -> Sound.HIT;
+				case CombatEvent.Defended d -> Sound.BLOCK;
+				default -> null;
+			};
+			if (id != null) {
+				Sound.playEffect(id);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/** shows the result card over the dimmed last frame, drawn and read in its own loop;
+	 *  only Continue (Enter or a click) leaves it, returning the outcome */
+	private Battle.Outcome showOutcome() {
+		Battle.Outcome outcome = battle.getOutcome();
+		GameCharacter player = self.getCharacter();
+		int mapH = map.height() * CELL / 2;
+		int cx = MAP_X + (MAP_W - OUTCOME_W) / 2, cy = MAP_Y / 2 + (mapH - OUTCOME_H) / 2;
+		int color = Palette.colorOf(outcomeTone(outcome));
+
+		//what happened and when, then the player's HP (after a defeat: what they come to with)
+		List<Span> what = switch(outcome) {
+			case VICTORY -> List.of(Span.note("All enemies defeated · round "), Span.plain(battle.getRound()));
+			case DEFEATED -> List.of(nameSpan(self), Span.note(" is down · round "), Span.plain(battle.getRound()));
+			case ESCAPED -> List.of(nameSpan(self), Span.note(" slips away · round "), Span.plain(battle.getRound()));
+		};
+		List<Span> hp = outcome == Outcome.DEFEATED
+				? List.of(Span.note("You come to with  "), Span.plain("HP " + hpText(player)))
+				: List.of(Span.note("HP  "), Span.plain(hpText(player)));
+
+		canvas.dim(); //once: dimming again each round would darken the frame further
+		while(true) {
+			ui.clearButtons(); //the battle's own buttons stay dead under the card
+			canvas.fill(cx, cy, OUTCOME_W, OUTCOME_H, Palette.PANEL);
+			canvas.drawBox(cx, cy, OUTCOME_W, OUTCOME_H, color);
+			drawCenteredOnMap(cy + 2, List.of(Span.of(String.join(" ", outcome.name().split("")), outcomeTone(outcome))));
+			drawCenteredOnMap(cy + 5, what);
+			drawCenteredOnMap(cy + 7, hp);
+			//redrawn every round so it lights up under the mouse; its action is the outcome run() returns
+			ui.drawButton(MAP_X + (MAP_W - Canvas.BUTTON_WIDTH) / 2, cy + OUTCOME_H - Canvas.BUTTON_HEIGHT - 1,
+					"Continue", true, new Button(outcome));
+			ui.present();
+			UIHandler.Input in = ui.readInput();
+			if(in.inputKey() == UIHandler.InputKey.ENTER
+					|| in.inputKey() == UIHandler.InputKey.CLICK && in.button() instanceof Button b && b.action() == outcome) {
+				return outcome;
+			}
+		}
+	}
+
+	/** the color of an outcome, shared by the result card and the log's last line so the two always match */
+	private static Tone outcomeTone(Outcome o) {
+		return switch(o) {
+			case VICTORY -> Tone.HIGHLIGHT;
+			case DEFEATED -> Tone.BAD;
+			case ESCAPED -> Tone.KEYWORD;
+		};
+	}
+
+	/** spans on row y, centered over the map (Canvas.drawTextCentered centers on the whole canvas, one column off) */
+	private void drawCenteredOnMap(int y, List<Span> spans) {
+		int len = spans.stream().mapToInt(s -> s.text().length()).sum();
+		canvas.drawSpans(MAP_X + (MAP_W - len) / 2, y, len, spans);
+	}
+
+	//rendering
 	private void drawFrame() {
 		beginFrame();
 
@@ -541,7 +602,8 @@ public class CombatScreen extends Screen {
 				Canvas scratch = new Canvas();
 				int start = events.size(), used = 0;
 				while(start > 0) {
-					int h = gapAbove(start - 1) + scratch.drawSpans(0, 0, width, describeEvent(events.get(start - 1)));				    if(used + h > height) {
+					int h = gapAbove(start - 1) + scratch.drawSpans(0, 0, width, describeEvent(events.get(start - 1)));
+					if(used + h > height) {
 						break;
 					}
 					used += h;
@@ -612,7 +674,7 @@ public class CombatScreen extends Screen {
 				x += w + CARD_MARGIN;
 			}
 		}
-
+		
 		endFrame(List.of());
 	}
 
@@ -767,9 +829,9 @@ public class CombatScreen extends Screen {
 			case CombatEvent.Evacuated v -> List.of(
 					nameSpan(v.unit()), Span.keyword(" escapes "), Span.note("the battle"));
 			case CombatEvent.BattleEnded b -> switch(b.outcome()) {
-					case VICTORY -> List.of(Span.of("Victory", Tone.HIGHLIGHT));
-					case DOWNED -> List.of(Span.of("Defeated", Tone.BAD));
-					case EVACUATED -> List.of(Span.of("Escaped", Tone.HIGHLIGHT));
+					case VICTORY -> List.of(Span.of("Victory", outcomeTone(b.outcome())));
+					case DEFEATED -> List.of(Span.of("Defeated", outcomeTone(b.outcome())));
+					case ESCAPED -> List.of(Span.of("Escaped", outcomeTone(b.outcome())));
 			};
 		};
 	}

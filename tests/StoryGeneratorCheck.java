@@ -168,8 +168,8 @@ public final class StoryGeneratorCheck {
 			encounters.generateNext(fight, "Talk to the stranger");
 			check(request.get().contains("location=Old Gate\ndescription=") && request.get().contains("\nenemy=bandit\n"),
 					"The current scene's enemy is part of the context");
-			CurrentScene after = encounters.generateAfterCombat(fight, Battle.Outcome.DOWNED);
-			check(request.get().contains("\nCOMBAT\nenemy=Bandit\noutcome=DOWNED\n") && after.getEnemyId() == null
+			CurrentScene after = encounters.generateAfterCombat(fight, Battle.Outcome.DEFEATED);
+			check(request.get().contains("\nCOMBAT\nenemy=Bandit\noutcome=DEFEATED\n") && after.getEnemyId() == null
 					&& after.getTurn() == ambush.getTurn() + 1 && fight.getCurrentScene() == ambush,
 					"After combat sends the settled outcome and leaves committing to the caller");
 			check(encounters.combatSummary("bandit", Battle.Outcome.VICTORY, state.getPlayer())

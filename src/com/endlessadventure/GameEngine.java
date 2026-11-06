@@ -2,7 +2,6 @@ package com.endlessadventure;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.random.RandomGenerator;
 
 import com.endlessadventure.audio.Sound;
@@ -50,7 +49,7 @@ public class GameEngine {
 	}
 
 	/** main game loop */
-	public void run() throws NoSuchElementException{
+	public void run() {
 		while (running) {
 			//route music
 			switch(currentScreen) {
@@ -200,10 +199,7 @@ public class GameEngine {
 		Battle battle = Battle.onRandomMap(gameState.getPlayer(),
 		        List.of(enemyCatalog.createFromId("bandit")), RandomGenerator.getDefault());
 		
-		return switch(new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run()) {
-			case BACK -> GameScreen.ADVENTURE;
-			case INVENTORY -> GameScreen.INVENTORY;
-			case CHARACTER -> GameScreen.CHARACTER;
-		};
+		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run(); //TODO connect to story at step 4
+		return GameScreen.ADVENTURE;
 	}
 }

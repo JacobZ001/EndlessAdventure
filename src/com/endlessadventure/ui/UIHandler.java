@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
@@ -177,7 +176,7 @@ public class UIHandler implements AutoCloseable {
         while (true) {
             InputKey key = bindingReader.readBinding(inputKeys);
             if (key == null || key == InputKey.INTERRUPT) {
-            	throw new NoSuchElementException("Input closed: Key: " + key.toString());
+            	throw new InputClosedException(key.toString());
             }
             if (key == InputKey.MOUSE) {
                 MouseEvent e = terminal.readMouseEvent(bindingReader::readCharacter, bindingReader.getLastBinding());

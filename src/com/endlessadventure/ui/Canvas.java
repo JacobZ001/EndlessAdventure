@@ -140,7 +140,7 @@ public class Canvas {
 		return y;
 	}
 	
-	/** the spans as one paragraph, wrapped at spaces within width; returns the row after it */
+	/** draws the spans as one paragraph, wrapped at spaces within width; returns the row after it */
 	int drawSpans(int x, int y, int width, List<Span> spans) {
 		int col = 0;
 		for (Span s : spans) {

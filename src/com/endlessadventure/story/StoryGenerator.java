@@ -60,8 +60,8 @@ public class StoryGenerator {
 	private static final String AFTER_COMBAT_SYSTEM_INSTRUCTION = COMMON_SYSTEM_INSTRUCTIONS + """
 			COMBAT is the settled result of a fight the game just ran in CURRENT; do not change or undo it.
 			VICTORY: the enemy is defeated; describe the aftermath.
-			EVACUATED: the player escaped and the enemy is still around; describe the escape and where the player is now.
-			DOWNED: the player lost but is alive with the HP in PLAYER; describe a setback they come to (robbed of time,
+			ESCAPED: the player escaped and the enemy is still around; describe the escape and where the player is now.
+			DEFEATED: the player lost but is alive with the HP in PLAYER; describe a setback they come to (robbed of time,
 			driven off, lost their way), never death, and offer at least one way forward.
 			Do not add an enemy field in this scene.
 			""";
@@ -123,8 +123,8 @@ public class StoryGenerator {
 	public String combatSummary(String enemyId, Battle.Outcome outcome, Player player) {
 		String result = switch (outcome) {
 			case VICTORY -> "victory";
-			case EVACUATED -> "escaped";
-			case DOWNED -> "defeated";
+			case ESCAPED -> "escaped";
+			case DEFEATED -> "defeated";
 		};
 		return "Fought the " + enemyName(enemyId) + ": " + result + " (HP " + player.getHp() + "/" + player.getMaxHp() + ")";
 	}

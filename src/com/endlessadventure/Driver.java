@@ -1,7 +1,6 @@
 package com.endlessadventure;
 
 import java.io.IOException;
-import java.util.NoSuchElementException;
 
 import com.endlessadventure.audio.Sound;
 import com.endlessadventure.data.EnemyCatalog;
@@ -9,6 +8,7 @@ import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.llm.LlmClient;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.story.StoryGenerator;
+import com.endlessadventure.ui.InputClosedException;
 import com.endlessadventure.ui.UIHandler;
 
 public class Driver {	
@@ -31,7 +31,7 @@ public class Driver {
 			new GameEngine(ui, saveManager, storyGenerator, equipCat, enemyCat).run();
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());
-		} catch (NoSuchElementException e) {
+		} catch (InputClosedException e) {
 			System.out.println(e.getMessage());
 		} finally {
 			Sound.close();

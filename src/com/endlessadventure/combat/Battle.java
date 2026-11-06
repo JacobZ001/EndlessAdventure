@@ -13,7 +13,9 @@ import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.Player;
 
 public class Battle {
-	public enum Outcome { VICTORY, DOWNED, EVACUATED }
+	public static final int DOWNED_HP_PERCENT = 25; //DESIGN §2.2: a downed player comes to at a quarter of max HP
+	
+	public enum Outcome { VICTORY, DEFEATED, ESCAPED }
 	
 	public sealed interface CombatEvent {
 	    record TurnStarted(Combatant unit, int round) implements CombatEvent {}
@@ -187,6 +189,9 @@ public class Battle {
 	
 	//actions
 	public MovePreview previewMove(Position dest) {
+		if(outcome != null) {
+			return MovePreview.illegal("The battle is over");
+		}
 		Combatant actor = getCurrentActor();
 		if(!map.inBounds(dest)) {
 			return MovePreview.illegal("Destination out of bound.");
@@ -219,6 +224,9 @@ public class Battle {
 	}
 	
 	public AttackPreview previewAttack(Combatant target, AttackType type) {
+		if(outcome != null) {
+			return AttackPreview.illegal("The battle is over");
+		}
 		if(target == null) {
 			throw new IllegalArgumentException("Invalid attack preview: target cannot be null.");
 		}
@@ -254,8 +262,9 @@ public class Battle {
 		if(target.getCharacter().isAlive()) {return;}
 		
 		events.add(new Defeated(target));
-		if(target.getCharacter() instanceof Player) {
-			outcome = Outcome.DOWNED;
+		if(target.getCharacter() instanceof Player p) {
+			outcome = Outcome.DEFEATED;
+			p.setHp(Math.max(1, p.getMaxHp() * DOWNED_HP_PERCENT / 100));
 		}
 		else{
 			boolean victory = true;
@@ -275,6 +284,9 @@ public class Battle {
 	}
 	
 	public DefensePreview previewDefend(Combatant.DefenseType type) {
+		if(outcome != null) {
+			return DefensePreview.illegal(type, "The battle is over");
+		}
 		Combatant actor = getCurrentActor();
 		if(type == null) {
 			throw new IllegalArgumentException("Invalid defend action: type cannot be null");
@@ -300,6 +312,9 @@ public class Battle {
 	}
 	
 	public EvacuatePreview previewEvacuate() {
+		if(outcome != null) {
+			return new EvacuatePreview(false, "The battle is over");
+		}
 		Combatant actor = getCurrentActor();
 		if(actor.getSide() != Side.PLAYER) { //TODO change when enemy evacuation is implemented
 			return new EvacuatePreview(false, "Only player can evacuate");
@@ -325,7 +340,7 @@ public class Battle {
 		
 		Combatant actor = getCurrentActor();
 		actor.spendAp(Combatant.EVACUATE_COST);
-		outcome = Outcome.EVACUATED;
+		outcome = Outcome.ESCAPED;
 		return List.of(new CombatEvent.Evacuated(actor), new CombatEvent.BattleEnded(outcome));
 	}
 }
