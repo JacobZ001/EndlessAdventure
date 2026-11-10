@@ -1,5 +1,6 @@
 package com.endlessadventure.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -20,7 +21,9 @@ public final class InventoryScreen extends Screen {
 							 DETAIL_X = GEAR_X + GEAR_W + SPACING,
 						 	 DETAIL_W = Canvas.WIDTH - 3 - DETAIL_X; //54
 
+	private final boolean locked; //opened in battle: look, but no equipping 
 	private final Player player;
+	
 	private Area area = Area.BACKPACK;
 	private int gridFocus = -1; //focused box in the backpack, -1 for none
 	private Equipment.Slot slotFocus = Equipment.Slot.MAIN_HAND;
@@ -29,9 +32,10 @@ public final class InventoryScreen extends Screen {
 	private enum Area { BACKPACK, WORN }
 	public enum Action { CLOSE, CHARACTER }
 
-	public InventoryScreen(UIHandler ui, Player player) {
+	public InventoryScreen(UIHandler ui, Player player, boolean locked) {
 		super(ui);
 		this.player = player;
+		this.locked = locked;
 	}
 	
 	/** shows the inventory until the player closes it; equipping and unequipping change the player at once */
@@ -91,6 +95,10 @@ public final class InventoryScreen extends Screen {
 	
 	/** equips the focused backpack item, or puts the focused worn piece back in the backpack */
 	private void performItemOperation(List<Item> items) {
+		if(locked) {
+			ui.showWarning("Equipment cannot be changed during combat.");
+			return;
+		}
 		if (area == Area.WORN) {
 			if (!player.unequipToInventory(slotFocus)) {
 				ui.showWarning("Nothing worn there.");
@@ -131,7 +139,7 @@ public final class InventoryScreen extends Screen {
 		GRID.draw(canvas, ui, GEAR_X + (GEAR_W - GRID.width()) / 2, Y + 4, items,
 				area == Area.BACKPACK ? gridFocus : -1, i -> false);
 		canvas.drawText(GEAR_X + 3, Y + H - 2, items.isEmpty() ? "Your backpack is empty."
-				: "Click to equip; click a worn piece to unequip.", Palette.MUTED);
+				: locked? "Equipment cannot be changed during combat." : "Click to equip; click a worn piece to unequip.", Palette.MUTED);
 
 		//draw details of the focused item; a backpack piece also shows what equipping it would change
 		Item shown = area == Area.WORN ? player.getEquipped(slotFocus)
@@ -144,11 +152,12 @@ public final class InventoryScreen extends Screen {
 		ItemDetails.draw(canvas, DETAIL_X, Y, DETAIL_W, DETAIL_H, shown, comparison);
 		ui.drawButton(DETAIL_X + DETAIL_W - Canvas.BUTTON_WIDTH, Y + DETAIL_H + 1, "CLOSE", true, new Button(Action.CLOSE));
 
-		endFrame(List.of(
-				Map.entry("↑↓←→", "Move"),
-				Map.entry("TAB / SHIFT TAB", "Backpack / Worn"),
-				Map.entry("E", "Equip / Unequip"),
-				Map.entry("C", "Character Details"),
-				Map.entry("ESC", "Close")));
+		List<Map.Entry<String, String>> hints = new ArrayList<>();
+		hints.add(Map.entry("↑↓←→", "Move"));
+		hints.add(Map.entry("TAB / SHIFT TAB", "Backpack / Worn"));
+		if(!locked) {hints.add(Map.entry("E", "Equip / Unequip"));}
+		hints.add(Map.entry("C", "Character Details"));
+		hints.add(Map.entry("ESC", "Close"));
+		endFrame(hints);
 	}
 }

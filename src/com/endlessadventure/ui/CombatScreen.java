@@ -345,12 +345,14 @@ public class CombatScreen extends Screen {
 					else {
 						switch(Character.toUpperCase(in.ch())){
 							case 'E' -> cAction = CombatAction.END;
+							case 'C' -> openScreen(ScreenAction.CHARACTER);
+							case 'I' -> openScreen(ScreenAction.INVENTORY);
 						}
 					}
 				}
 				case CLICK -> {
 					if (in.button() instanceof Button b) {
-						//if(b.action() instanceof ScreenAction a) {return a;} //TODO implement inventory and character screen read
+						if(b.action() instanceof ScreenAction a) {openScreen(a);}
 						if(b.action() instanceof CombatAction a) {cAction = a;}
 						else if(b.action() == Button.Area.MAP_CELL) {
 							cursor = cells.get(b.index());
@@ -525,7 +527,7 @@ public class CombatScreen extends Screen {
 		}
 	}
 
-	/** the color of an outcome, shared by the result card and the log's last line so the two always match */
+	/** returns the color of an outcome, shared by the result card and the log's last line so the two always match */
 	private static Tone outcomeTone(Outcome o) {
 		return switch(o) {
 			case VICTORY -> Tone.HIGHLIGHT;
@@ -534,12 +536,23 @@ public class CombatScreen extends Screen {
 		};
 	}
 
-	/** spans on row y, centered over the map (Canvas.drawTextCentered centers on the whole canvas, one column off) */
-	private void drawCenteredOnMap(int y, List<Span> spans) {
-		int len = spans.stream().mapToInt(s -> s.text().length()).sum();
-		canvas.drawSpans(MAP_X + (MAP_W - len) / 2, y, len, spans);
+	/** opens the inventory or character screen over the battle, switching by their tabs until closed;
+	 *  the battle waits in this screen's loop, and the inventory is read-only */
+	private void openScreen(ScreenAction action) {
+		Player player = (Player) self.getCharacter();
+		ScreenAction open = action;
+		while(open != null) {
+			open = switch(open) {
+				case INVENTORY -> new InventoryScreen(ui, player, true).run() == InventoryScreen.Action.CHARACTER
+						? ScreenAction.CHARACTER : null;
+				case CHARACTER -> new CharacterScreen(ui, player).run() == CharacterScreen.Action.INVENTORY
+						? ScreenAction.INVENTORY : null;
+			};
+		}
 	}
-
+	
+	
+	
 	//rendering
 	private void drawFrame() {
 		beginFrame();
@@ -627,18 +640,16 @@ public class CombatScreen extends Screen {
 		canvas.drawText(MAP_X, TITLE_Y, location, Palette.TAG);
 		canvas.drawText(MAP_X + location.length() + 2, TITLE_Y, roundLabel, Palette.MUTED);
 
-//		//draw tool bar
-		//TODO implement correct tool bar logic
-//		{
-//
-//			String[] labels = {"Main Menu", "Inventory", "Character"};
-//			ScreenAction[] actions = {ScreenAction.BACK, ScreenAction.INVENTORY, ScreenAction.CHARACTER};
-//			String divider = "  |  ";
-//			int totalW = Arrays.stream(labels).mapToInt(String::length).sum() + divider.length() * (labels.length - 1);
-//			canvas.dim(MAP_X + MAP_W - totalW, TITLE_Y -1 , Arrays.stream(labels).mapToInt(String::length).sum(), 3);
-//			drawToolBar(MAP_X + MAP_W, TITLE_Y, labels, actions, divider);
-//		}
-
+		//draw tool bar
+		{
+			String[] labels = {"Inventory", "Character"};
+			ScreenAction[] actions = {ScreenAction.INVENTORY, ScreenAction.CHARACTER};
+			String divider = "  |  ";
+			int totalW = Arrays.stream(labels).mapToInt(String::length).sum() + divider.length() * (labels.length - 1);
+			canvas.dim(MAP_X + MAP_W - totalW, TITLE_Y -1 , totalW, 3);
+			drawToolBar(MAP_X + MAP_W, TITLE_Y, labels, actions, divider);
+		}
+		
 		//draw initiative bar
 		{
 			//one card per living unit
@@ -1002,5 +1013,11 @@ public class CombatScreen extends Screen {
 	/** returns the pixel-y position of the foot of a object/unit */
 	private int calcFootY(int cellY) {
 		return MAP_Y + cellY * CELL + CELL + FOOT_Y_OFFSET;
+	}
+	
+	/** spans on row y, centered over the map (Canvas.drawTextCentered centers on the whole canvas, one column off) */
+	private void drawCenteredOnMap(int y, List<Span> spans) {
+		int len = spans.stream().mapToInt(s -> s.text().length()).sum();
+		canvas.drawSpans(MAP_X + (MAP_W - len) / 2, y, len, spans);
 	}
 }

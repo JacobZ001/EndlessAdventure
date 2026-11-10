@@ -180,7 +180,7 @@ public class GameEngine {
 
 	/** handle inventory screen */
 	private GameScreen handleInventory() {
-		return switch(new InventoryScreen(ui, gameState.getPlayer()).run()) {
+		return switch(new InventoryScreen(ui, gameState.getPlayer(), false).run()) {
 			case CLOSE -> GameScreen.ADVENTURE;
 			case CHARACTER -> GameScreen.CHARACTER;
 		};
