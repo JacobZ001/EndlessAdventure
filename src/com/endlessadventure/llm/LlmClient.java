@@ -42,6 +42,7 @@ public final class LlmClient {
 	private final String model;
 	private final String endpointOverride;
 	private final Path debugLog;	//every request, reply and error in full, appended; null when off
+	private boolean logFailed;		//set once the log cannot be written; later notes are skipped
 
 	public LlmClient() {
 		this(readLocalConfig());
@@ -71,7 +72,7 @@ public final class LlmClient {
 	/** append a titled section to the debug log, if there is one; the API key never reaches the file,
 	 *  and a log that cannot be written is skipped so it never stops the game */
 	public void note(String title, String text) {
-		if (debugLog == null) {
+		if (debugLog == null || logFailed) {
 			return;
 		}
 		String entry = "----- " + LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS) + "  " + title + " -----\n"
@@ -85,7 +86,7 @@ public final class LlmClient {
 			}
 			Files.writeString(debugLog, entry, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 		} catch (IOException e) {
-			//debugging aid only
+			logFailed = true; //the log is a debugging aid only: stop trying and let the game go on
 		}
 	}
 
@@ -253,6 +254,7 @@ public final class LlmClient {
 		try { //Gemini errors are {"error": {"message": ...}}; the message alone fits a status line
 			cleaned = JsonParser.parseString(body).getAsJsonObject().getAsJsonObject("error").get("message").getAsString();
 		} catch (RuntimeException notTheUsualShape) {
+			cleaned = body; //not Gemini's error shape: summarize the raw body instead
 		}
 		cleaned = cleaned.replace(apiKey, "[redacted]").replace('\n', ' ').replace('\r', ' ').trim();
 		return cleaned.length() <= BRIEF_LENGTH ? cleaned : cleaned.substring(0, BRIEF_LENGTH - 3) + "...";

@@ -202,11 +202,7 @@ public final class StoryGeneratorCheck {
 					.equals("Fought Bandit: victory (HP 40/144)")
 					&& encounters.combatSummary(ambush.getEnemyIds(), Battle.Outcome.ESCAPED, state.getPlayer())
 					.equals("Fought Bandit x2: escaped (HP 40/144)"), "Combat summary names the enemies, result and HP");
-			try {
-				encounters.generateAfterCombat(state, Battle.Outcome.VICTORY);
-				throw new AssertionError("After combat needs an enemy in the current scene");
-			} catch (IllegalArgumentException expected) {
-			}
+			expectFailure(IllegalArgumentException.class, () -> encounters.generateAfterCombat(state, Battle.Outcome.VICTORY), "After combat needs an enemy in the current scene");
 
 			CurrentScene rested = encounters.generateAfterRest(state, 12);
 			check(request.get().contains("\nREST\nhp_before=12\n") && rested.getEnemyIds().isEmpty()
@@ -214,11 +210,7 @@ public final class StoryGeneratorCheck {
 					"After rest sends the HP before resting and leaves committing to the caller");
 			check(encounters.restSummary(12, state.getPlayer()).equals("Rested: HP 12 -> 40/144"),
 					"Rest summary shows the HP before and after");
-			try {
-				encounters.generateAfterRest(fight, 12);
-				throw new AssertionError("Resting needs a scene without enemies");
-			} catch (IllegalArgumentException expected) {
-			}
+			expectFailure(IllegalArgumentException.class, () -> encounters.generateAfterRest(fight, 12), "Resting needs a scene without enemies");
 
 			String withEnemy = VALID + "enemies=bandit\n";
 			Object[][] rejected = {
@@ -266,17 +258,8 @@ public final class StoryGeneratorCheck {
 			reply.set(VALID + "enemies=bandit\n");
 			logged.generateNext(state, "Follow the Road");
 			reply.set("nonsense");
-			try {
-				logged.generateNext(state, "Follow the Road");
-				throw new AssertionError("A malformed reply must be rejected");
-			} catch (LlmRequestException expected) {
-			}
-			try {
-				new StoryGenerator(new LlmClient("dummy-key", "test-model", endpoint + "overloaded", log.toString()))
-						.generateOpening(state);
-				throw new AssertionError("An HTTP error must fail the request");
-			} catch (LlmRequestException expected) {
-			}
+			expectFailure(LlmRequestException.class, () -> logged.generateNext(state, "Follow the Road"), "A malformed reply must be rejected");
+			expectFailure(LlmRequestException.class, () -> new StoryGenerator(new LlmClient("dummy-key", "test-model", endpoint + "overloaded", log.toString())).generateOpening(state), "An HTTP error must fail the request");
 			String text = Files.readString(log);
 			check(text.contains("SYSTEM -----\nYou are the Dungeon Master") && text.contains("ACTION\nFollow the Road")
 					&& text.contains("REPLY after") && text.contains("enemies=bandit")
@@ -295,6 +278,21 @@ public final class StoryGeneratorCheck {
 	private static String userText(String body) {
 		return JsonParser.parseString(body).getAsJsonObject().getAsJsonArray("contents").get(0).getAsJsonObject()
 				.getAsJsonArray("parts").get(0).getAsJsonObject().get("text").getAsString();
+	}
+
+	private interface Attempt {
+		void run() throws Exception;
+	}
+
+	/** the attempt must throw an exception of type; message names what it checks */
+	private static void expectFailure(Class<? extends Exception> type, Attempt attempt, String message) {
+		try {
+			attempt.run();
+		} catch (Exception e) {
+			check(type.isInstance(e), message + " (threw " + e.getClass().getSimpleName() + ")");
+			return;
+		}
+		throw new AssertionError(message);
 	}
 
 	private static void check(boolean condition, String message) {
