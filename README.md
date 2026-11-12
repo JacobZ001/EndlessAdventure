@@ -56,7 +56,11 @@ ENDLESS_ADVENTURE_API_KEY=your_gemini_api_key
 # Optional overrides; omit these lines to use the client's defaults.
 # ENDLESS_ADVENTURE_MODEL=your_model_id
 # ENDLESS_ADVENTURE_API_URL=your_generate_content_url
+# Optional debug log; omit to log nothing.
+# ENDLESS_ADVENTURE_LLM_LOG=logs/llm.log
 ```
+
+With `ENDLESS_ADVENTURE_LLM_LOG` set, every story request is appended to that file in full: the system instructions, the context sent as the user message, the model's reply, how the game parsed it (the scene's enemies and whether they changed), and complete error bodies that the game's status line shortens. The API key is never written, and `logs/` is ignored by Git.
 
 `LlmClient` reads this file when it is constructed. `.env` values take precedence over process environment variables; settings absent from the file use process environment variables, followed by the client's existing defaults. An explicitly empty local API key disables LLM requests even if Eclipse supplies a key. Restart the game after editing the file.
 
@@ -98,15 +102,15 @@ try {
 Core gameplay is checked manually in Windows Terminal; automated core checks can be added when the relevant features and interfaces stabilize. The LLM configuration and story-generation checks below remain.
 
 - The full source compiles with JDK 21 using `lib` as the module path (checked October 30, 2026).
-- The offline story-generation check, including the new enemy field and after-combat narration, passed on October 30, 2026. The offline configuration check last passed on October 14, 2026.
+- The offline story-generation check, including the enemy list, after-combat narration and resting, passed on November 12, 2026. The offline configuration check passed on November 12, 2026.
 - The battle screen, inventory, character creation with starting equipment, audio, and save/load were tested by the author in Windows Terminal between October 22 and October 31, 2026.
-- Real-model gameplay has not been rechecked since October 14, 2026.
+- The v0 path (encounters with one and two bandits, battle, after-combat story, resting, saving and loading a scene with enemies) was played with the real model by the author in Windows Terminal on November 12, 2026.
 
 ## Story generation
 
-`com.endlessadventure.story` contains the abstract `Scene`, `CurrentScene` with choices, `SceneRecord` with a completed action, and `StoryGenerator`. The generator is connected to `GameEngine`. `generateOpening(gameState)` returns turn 1; `generateNext(gameState, playerAction)` returns the next turn using the selected option's text or a custom action. Each method makes one request and returns a validated `CurrentScene` without mutating the supplied state. The engine commits the scene and appends the completed scene/action to history only after successful generation. Generation does not alter player stats or write saves.
+`com.endlessadventure.story` contains the abstract `Scene`, `CurrentScene` with choices and present enemies, `PastScene` with a completed action, and `StoryGenerator`. The generator is connected to `GameEngine`. `generateOpening(gameState)` returns turn 1; `generateNext(gameState, playerAction)` returns the next turn using the selected option's text or a custom action. Each method makes one request and returns a validated `CurrentScene` without mutating the supplied state. The engine commits the scene and appends the completed scene/action to history only after successful generation. Generation does not alter player stats or write saves.
 
-The body protocol uses `location`, `description`, `option.count`, and consecutive zero-based `option.N.text` fields. The game retains 1–3 choices; extra supplied choices are validated before being discarded. Location length is capped at 30 characters; descriptions and choices are truncated to 500 and 120 characters respectively. Text values are single-line printable ASCII after cleanup and preserve literal equals signs and backslashes. Invalid required fields report `LlmRequestException.Stage.INVALID_RESPONSE` without retries or offline story generation. Turn numbers are assigned locally, not supplied by the model. Continuations may add an optional `enemy` field naming an enemy template; the generator lists the templates from `EnemyCatalog` in the request and rejects unknown IDs, duplicates, or an enemy in an opening or after-combat scene. `CurrentScene.getEnemyId()` returns it (null when absent). `generateAfterCombat(gameState, outcome)` narrates the settled result of a fight with the current scene's enemy, and `combatSummary(...)` gives the action text to record in history.
+The body protocol uses `location`, `description`, `option.count`, and consecutive zero-based `option.N.text` fields. The game retains 1–3 choices; extra supplied choices are validated before being discarded. Location length is capped at 30 characters; descriptions and choices are truncated to 500 and 120 characters respectively. Text values are single-line printable ASCII after cleanup and preserve literal equals signs and backslashes. Invalid required fields report `LlmRequestException.Stage.INVALID_RESPONSE` without retries or offline story generation. Turn numbers are assigned locally, not supplied by the model. Continuations may add an optional `enemies` field: 1 to `Battle.MAX_ENEMY_COUNT` comma-separated enemy template IDs (repeat an ID for several of one kind), or `none` to clear them. The generator lists the templates from `EnemyCatalog` in the request and rejects unknown IDs, empty entries, too many enemies, a repeated field, or enemies in an opening, after-combat or after-rest scene. When the current scene has enemies and the reply leaves the field out, they stay. `CurrentScene.getEnemyIds()` returns them (empty when none). `generateAfterCombat(gameState, outcome)` narrates the settled result of a fight with the current scene's enemies and `combatSummary(...)` gives the action text to record in history; `generateAfterRest(gameState, hpBefore)` and `restSummary(...)` do the same for an undisturbed rest.
 
 The offline story check uses dummy credentials and a local HTTP server, without reading `.env` or using personal saves. The command below compiles all source files, so the jars in `lib` must be on its classpath. Run it from the project root in PowerShell:
 
