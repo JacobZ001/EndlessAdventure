@@ -11,7 +11,10 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,11 +35,13 @@ public final class LlmClient {
 	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 	private static final Gson GSON = new Gson();
+	private static final int BRIEF_LENGTH = 80; //error details shown to the player end up on one status line
 
 	private final HttpClient http;
 	private final String apiKey;
 	private final String model;
 	private final String endpointOverride;
+	private final Path debugLog;	//every request, reply and error in full, appended; null when off
 
 	public LlmClient() {
 		this(readLocalConfig());
@@ -45,14 +50,43 @@ public final class LlmClient {
 	private LlmClient(Properties config) {
 		this(config.getProperty("ENDLESS_ADVENTURE_API_KEY", System.getenv("ENDLESS_ADVENTURE_API_KEY")),
 				config.getProperty("ENDLESS_ADVENTURE_MODEL", System.getenv("ENDLESS_ADVENTURE_MODEL")),
-				config.getProperty("ENDLESS_ADVENTURE_API_URL", System.getenv("ENDLESS_ADVENTURE_API_URL")));
+				config.getProperty("ENDLESS_ADVENTURE_API_URL", System.getenv("ENDLESS_ADVENTURE_API_URL")),
+				config.getProperty("ENDLESS_ADVENTURE_LLM_LOG", System.getenv("ENDLESS_ADVENTURE_LLM_LOG")));
 	}
 
 	LlmClient(String apiKey, String model, String endpointOverride) {
+		this(apiKey, model, endpointOverride, null);
+	}
+
+	/** debugLog is a file path for the debug log, or null or blank for none */
+	LlmClient(String apiKey, String model, String endpointOverride, String debugLog) {
 		this.http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
 		this.apiKey = apiKey == null ? "" : apiKey.trim();
 		this.model = model == null || model.isBlank() ? DEFAULT_MODEL : model.trim();
 		this.endpointOverride = endpointOverride == null ? "" : endpointOverride.trim();
+		this.debugLog = debugLog == null || debugLog.isBlank() ? null : Path.of(debugLog.trim());
+		note("CLIENT STARTED", "model " + this.model);
+	}
+
+	/** append a titled section to the debug log, if there is one; the API key never reaches the file,
+	 *  and a log that cannot be written is skipped so it never stops the game */
+	public void note(String title, String text) {
+		if (debugLog == null) {
+			return;
+		}
+		String entry = "----- " + LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS) + "  " + title + " -----\n"
+				+ (text == null ? "" : text.strip()) + "\n\n";
+		if (!apiKey.isEmpty()) {
+			entry = entry.replace(apiKey, "[redacted]");
+		}
+		try {
+			if (debugLog.getParent() != null) {
+				Files.createDirectories(debugLog.getParent());
+			}
+			Files.writeString(debugLog, entry, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+		} catch (IOException e) {
+			//debugging aid only
+		}
 	}
 
 	/** Read project-local settings without changing the operating system environment. */
@@ -113,6 +147,8 @@ public final class LlmClient {
 			throw new LlmRequestException(LlmRequestException.Stage.INVALID_RESPONSE, "User content is empty");
 		}
 
+		note("SYSTEM", systemInstruction);
+		note("USER", userContent);
 		String body = requestBody(systemInstruction, userContent);
 		HttpRequest request = HttpRequest.newBuilder(endpoint())
 				.timeout(REQUEST_TIMEOUT)
@@ -121,21 +157,33 @@ public final class LlmClient {
 				.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
 				.build();
 		HttpResponse<String> response;
+		long start = System.nanoTime();
 		try {
 			response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 		} catch (HttpTimeoutException e) {
+			note("FAILED", "timed out: " + e);
 			throw new LlmRequestException(LlmRequestException.Stage.TIMEOUT, "Gemini request timed out", e);
 		} catch (IOException e) {
+			note("FAILED", e.toString());
 			throw new LlmRequestException(LlmRequestException.Stage.HTTP_ERROR, "Gemini request failed", e);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new LlmRequestException(LlmRequestException.Stage.HTTP_ERROR, "Gemini request was interrupted", e);
 		}
+		long millis = (System.nanoTime() - start) / 1_000_000;
 		if (response.statusCode() / 100 != 2) {
+			note("HTTP " + response.statusCode() + " after " + millis + " ms (full body)", response.body());
 			throw new LlmRequestException(LlmRequestException.Stage.HTTP_ERROR,
 					"Gemini returned HTTP " + response.statusCode() + ": " + brief(response.body()));
 		}
-		return extractReply(response.body());
+		try {
+			String reply = extractReply(response.body());
+			note("REPLY after " + millis + " ms", reply);
+			return reply;
+		} catch (LlmRequestException e) {
+			note("UNREADABLE REPLY (full body)", response.body());
+			throw e;
+		}
 	}
 
 	/** Get the endpoint for the LLM
@@ -201,7 +249,12 @@ public final class LlmClient {
 		if (body == null || body.isBlank()) {
 			return "(empty body)";
 		}
-		String cleaned = body.replace(apiKey, "[redacted]").replace('\n', ' ').replace('\r', ' ').trim();
-		return cleaned.length() <= 180 ? cleaned : cleaned.substring(0, 180);
+		String cleaned = body;
+		try { //Gemini errors are {"error": {"message": ...}}; the message alone fits a status line
+			cleaned = JsonParser.parseString(body).getAsJsonObject().getAsJsonObject("error").get("message").getAsString();
+		} catch (RuntimeException notTheUsualShape) {
+		}
+		cleaned = cleaned.replace(apiKey, "[redacted]").replace('\n', ' ').replace('\r', ' ').trim();
+		return cleaned.length() <= BRIEF_LENGTH ? cleaned : cleaned.substring(0, BRIEF_LENGTH - 3) + "...";
 	}
 }
