@@ -33,7 +33,7 @@ SPECS = HERE / "assets.json"
 MODEL = "@cf/black-forest-labs/flux-1-schnell"
 
 ICON_SIZES = (12, 24)          # grid box (12 x 6 characters) and details panel (24 x 12 characters)
-SCENE_SIZE = (150, 56)         # adventure scene area: 150 x 28 characters
+SCENE_SIZE = (209, 102)        # adventure screen, the whole canvas: 209 x 51 characters; the game darkens it at run time
 BACKDROP_SIZE = (207, 98)      # a whole screen inside its frame: 207 x 49 characters
 PORTRAIT_SIZE = (32, 62)       # the paper doll between the equipment slots: at most 32 x 31 characters
 BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a backdrop's sky and the ground under text become it
@@ -46,7 +46,7 @@ HOLE_MIN = 0.001               # an enclosed background-colored area this share 
 # the black outline also walls the object off from the white background, so the matte cannot eat into it
 ICON_STYLE = ("16x16 pixel art RPG item icon, chunky bold shapes, thick black outline, 4 flat colors, "
               "centered on plain white background: ")
-# the scene area is 150:56 (about 8:3); a picture with other proportions loses its sides or its top and bottom
+# the scene area is 209:102 (about 2:1); an 8:3 picture loses an eighth on each side, other proportions lose more
 SCENE_STYLE = ("8:3 ultra-wide panorama, medium resolution pixel art RPG background, large simple shapes, "
                "limited muted palette, no people: ")
 # a backdrop's subject also says where it stays empty, because menus are drawn over it
@@ -304,7 +304,7 @@ def convert(ids):
             elif spec["kind"] == "ground":
                 to_ground(source).save(ASSETS / "grounds" / f"{spec['id']}.png")
             elif spec["kind"] == "backdrop":
-                to_backdrop(source, spec["text"], spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
+                to_backdrop(source, spec.get("text", []), spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
             else:
                 picture = unletterbox(source)
                 to_scene(picture).save(ASSETS / "scenes" / f"{spec['id']}.png")

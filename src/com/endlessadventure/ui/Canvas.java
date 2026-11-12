@@ -39,6 +39,12 @@ public class Canvas {
 		background[y][x] = bg;
 	}
 
+	/** the background a character drawn at x,y should keep: for a picture cell the blend of its two pixels, so a cell
+	 *  inside a vertical gradient (a feathered shade) matches its neighbors instead of taking only its lighter lower half */
+	private int underneath(int x, int y) {
+		return characters[y][x] == '▀' ? Palette.mix(foreground[y][x], background[y][x], 0.5) : background[y][x];
+	}
+
 	/** clear the whole canvas with whitespace with bg as foreground and background */
 	void clear(int bg) {
 		fill(0, 0, WIDTH, HEIGHT, bg);
@@ -108,8 +114,13 @@ public class Canvas {
 
 	/** draw a divider from x,y to x+w, y*/
 	void drawDivider(int x, int y, int width) {
-		for(int i = 0; i < width; i++) {
-			set(x + i, y, ROW_BORDER, Palette.LINE, background[y][x]);
+		drawDivider(x, y, width, Palette.LINE);
+	}
+
+	/** draw a divider in color, e.g. a lighter one over a picture, where Palette.LINE disappears */
+	void drawDivider(int x, int y, int width, int color) {
+		for(int i = 0; i < width && x + i < WIDTH; i++) {
+			set(x + i, y, ROW_BORDER, color, underneath(x + i, y)); //each cell keeps its own background, e.g. over a picture
 		}
 	}
 
@@ -122,8 +133,9 @@ public class Canvas {
 
 	/** overload of drawText without altering the bg*/
 	void drawText(int x, int y, String text, int fg) {
-		for (int i = 0; i < text.length() && x + i < WIDTH; i++) {
-			set(x + i, y, text.charAt(i), fg, background[y][x + i]);
+		if(y < 0 || y >= HEIGHT) {return;}
+		for (int i = Math.max(0 , -x); i < text.length() && x + i < WIDTH; i++) { //omits the part left of the canvas
+			set(x + i, y, text.charAt(i), fg, underneath(x + i, y));
 		}
 	}
 
@@ -255,6 +267,52 @@ public class Canvas {
 		int color = getPixel(px, py);
 		if (color >= 0) {
 			drawPixel(px, py, Palette.mix(color, SHADOW, amount));
+		}
+	}
+
+	/** darken a full-screen picture toward Palette.BG so text on its left reads: columns left of fromX by amount,
+	 *  easing off to nothing at toX; columns from toX on keep their colors.
+	 *  text already drawn keeps its color and only its background darkens, so it is safe after text as well as before */
+	void fadeLeft(int fromX, int toX, double amount) {
+		for (int x = 0; x < Math.min(toX, WIDTH); x++) {
+			//smoothstep: the darkness starts and stops changing gently; a curve that starts steeply leaves a kink
+			//at fromX that the eye sees as a dark vertical line (a Mach band)
+			double t = x < fromX ? 0 : (double) (x - fromX) / (toX - fromX);
+			double share = 1 - t * t * (3 - 2 * t);
+			for (int py = 0; py < HEIGHT * 2; py++) {
+				darkenPixel(x, py, amount * share);
+			}
+		}
+	}
+
+	/** darken a soft patch of the picture toward Palette.BG behind text drawn over it (key hints, a speaker's words):
+	 *  the cells x,y,width,height by amount, fading out over feather pixels around them.
+	 *  text keeps its color, so it is safe over a finished screen (the status card) */
+	void shadeAround(int x, int y, int width, int height, double amount, int feather) {
+		int top = y * 2, bottom = (y + height) * 2 - 1; //pixel rows
+		for (int px = x - feather; px < x + width + feather; px++) {
+			for (int py = top - feather; py <= bottom + feather; py++) {
+				int dx = Math.max(0, Math.max(x - px, px - (x + width - 1)));
+				int dy = Math.max(0, Math.max(top - py, py - bottom));
+				double share = 1 - Math.min(1, Math.hypot(dx, dy) / (feather + 1));
+				if (share > 0) {
+					darkenPixel(px, py, amount * share);
+				}
+			}
+		}
+	}
+
+	/** pull the pixel at px,py toward Palette.BG by amount (0 to 1). a picture cell darkens that half; any other cell
+	 *  (text, a rule, a panel) keeps its character and text color and darkens only its background, once per cell */
+	private void darkenPixel(int px, int py, double amount) {
+		int y = py / 2;
+		if (px < 0 || px >= WIDTH || py < 0 || y >= HEIGHT || amount <= 0) {
+			return;
+		}
+		if (characters[y][px] == '▀') {
+			drawPixel(px, py, Palette.mix(getPixel(px, py), Palette.BG, amount));
+		} else if (py % 2 == 1) { //the lower half stands for the whole cell
+			background[y][px] = Palette.mix(background[y][px], Palette.BG, amount);
 		}
 	}
 

@@ -9,6 +9,7 @@ import com.endlessadventure.item.Equipment;
 public final class Palette {
 	static final int BG = 0x0C1017;
 	static final int MUTED = 0x5A6274;	//hints and disabled options
+	static final int SUBTLE = mix(MUTED, 0xD8DEE9, 0.4); //MUTED's role over a picture, where MUTED sinks into the art (TEXT's value: TEXT is declared below)
 	static final int PANEL = mix(BG, 0xFFFFFF, 0.035);	//panels: a shade lighter than the background
 	static final int PANEL_LIGHT = mix(BG, 0xFFFFFF, 0.075); //highlight on panels
 	static final int FAINT = mix(MUTED, BG, 0.3); //panel titles

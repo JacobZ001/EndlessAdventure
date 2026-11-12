@@ -8,7 +8,7 @@ The game draws an image 1:1, two pixels per character cell (the top and bottom h
 |---|---|---|---|
 | Icon, inventory grid box | `assets/icons/<id>-12.png` | 12 × 12 | 12 × 6 characters |
 | Icon, item details | `assets/icons/<id>-24.png` | 24 × 24 | 24 × 12 characters |
-| Scene, adventure screen | `assets/scenes/<id>.png` | 150 × 56 | 150 × 28 characters |
+| Scene, adventure screen | `assets/scenes/<id>.png` | 209 × 102 | the whole screen, 209 × 51 characters |
 | Portrait, paper doll (character column) | `assets/portraits/<id>.png` | at most 32 × 62, standing on the bottom edge | up to 32 × 31 characters |
 | Backdrop, behind a whole menu | `assets/backdrops/<id>.png` | 207 wide, up to 98 high | inside the screen frame, resting on its bottom |
 
@@ -61,8 +61,8 @@ The shared style text (`ICON_STYLE`, `SCENE_STYLE` in `imagegen.py`) comes first
 - Describe only what survives at 24 pixels: the shape, the main colors, one or two features. Take them from the item's `description` in `data/` (a buckler "like a dented iron pot lid", a mace head "bolted onto a wooden axle shaft"), and leave out what cannot be seen at that size (a name scratched on the hilt).
 - Give proportions by comparison. Every icon is scaled to fill its box, so a dagger comes out as large as a greatsword and only its shape tells them apart: "blade as long as its handle", "very long blade".
 - Weapons point to the top right (the models do not always obey; make a new source when one points elsewhere); armor and shields face the front. The Recruit's set uses bright steel, brass and red grips; the Drifter's set uses worn grey metal and brown leather.
-- A backdrop is shrunk to the screen's width and kept from the bottom up. Every row is shifted so that its sky becomes `Palette.BG`, which keeps the land's contrast against the sky. Text cells always carry `Palette.BG`, so a backdrop entry also lists its text areas, `"text": [[x, row, width, rows], ...]` in screen characters, and the picture fades to `Palette.BG` around them. Its subject keeps the middle of the picture empty sky and the land low, where the menu goes.
-- Scenes are cropped to the scene area's 150:56 (about 8:3) proportions, keeping the middle; a square picture keeps only the middle 37% of its height. The scene prompt asks for 8:3, which ChatGPT makes as 2048 x 768. Do not ask for black bars: the picture inside them comes out even wider and loses its sides.
+- A backdrop is shrunk to the screen's width and kept from the bottom up. Every row is shifted so that its sky becomes `Palette.BG`, which keeps the land's contrast against the sky. Text over the picture needs a dark area. Either the screen darkens it at run time with `Canvas.shadeAround` (the main menu, so moving its rows needs no new conversion), or the entry lists its text areas, `"text": [[x, row, width, rows], ...]` in screen characters, and the picture fades to `Palette.BG` around them (the save screen's `save_dim`). Its subject keeps the middle of the picture empty sky and the land low, where the menu goes.
+- Scenes fill the whole adventure screen and are cropped to its 209:102 (about 2:1) proportions, keeping the middle; an 8:3 source loses about an eighth on each side, and a square picture keeps only the middle half of its height. The scene prompt asks for 8:3, which ChatGPT makes as 2048 x 768. Do not ask for black bars: the picture inside them comes out even wider and loses its sides. The image is stored at full brightness; the adventure screen darkens the parts under its text at run time (`Canvas.fadeLeft`, `Canvas.shadeAround`), so those settings live in the game code.
 
 ## Warnings and errors
 
