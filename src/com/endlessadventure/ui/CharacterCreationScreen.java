@@ -374,10 +374,11 @@ public final class CharacterCreationScreen extends Screen {
 	private void drawRow(int index, int x, int y, int w, String label, Attribute attribute, boolean showTag, int value, int cap, int left) {
 		boolean focused = index == focus;
 		int attributeColor = Palette.colorOf(attribute);
+		int elementColor = focused ? Palette.KEY : value > 0? Palette.TAG : Palette.TEXT;
 		if (focused) {
 			canvas.drawText(x, y, FOCUS_INDICATOR, Palette.KEY);
 		}
-		canvas.drawText(x + 2, y, label, focused ? Palette.KEY : Palette.TEXT);
+		canvas.drawText(x + 2, y, label, elementColor);
 		if (showTag) {
 			canvas.drawText(x + 22, y, attribute.name(), attributeColor);
 		}
@@ -387,13 +388,13 @@ public final class CharacterCreationScreen extends Screen {
 		int plusX = valueX - 5;
 		int pipsX = plusX - 2 - (cap * 2 - 1);
 		int minusX = pipsX - 5;
-		canvas.drawText(minusX, y, "[-]", value > 0 ? Palette.KEY : Palette.MUTED);
+		canvas.drawText(minusX, y, "[-]", value > 0 ? elementColor : Palette.MUTED);
 		for (int i = 0; i < cap; i++) {
 			//a lower half block is a square half a row tall, so stacked rows stay visibly apart
-			canvas.drawText(pipsX + i * 2, y, "\u2584", i < value ? Palette.KEY : PIP_EMPTY);
+			canvas.drawText(pipsX + i * 2, y, "\u2584", i < value ? elementColor : PIP_EMPTY);
 		}
-		canvas.drawText(plusX, y, "[+]", left > 0 && value < cap ? Palette.KEY : Palette.MUTED);
-		canvas.drawText(valueX, y, "%2d".formatted(value), Palette.TEXT);
+		canvas.drawText(plusX, y, "[+]", left > 0 && value < cap ? elementColor : Palette.MUTED);
+		canvas.drawText(valueX, y, "%2d".formatted(value), elementColor);
 
 		//specific areas first: the first matching area wins
 		ui.addButtonBox(minusX, y, 3, 1, new Button(index, Action.MINUS));

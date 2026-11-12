@@ -31,7 +31,7 @@ abstract class Screen {
 		ui.present();
 	}
 
-	/** tabs at the top left where character creation has its step bar, for screens that act as tabs of one window
+	/** draw tabs at the top, for screens that act as tabs of one window
 	 *  (inventory and character): the current one gold and underlined, the others text buttons carrying their action */
 	protected void drawTabs(String[] labels, Enum<?>[] actions, int current) {
 		int tlength = Arrays.stream(labels).mapToInt(String::length).sum();
@@ -48,7 +48,7 @@ abstract class Screen {
 		}
 	}
 	
-	/** focus in a vertical list of count rows: UP and DOWN wrap around, HOVER over one of the rows moves the focus there;
+	/** moves the focus in a vertical list of count rows: UP and DOWN wrap around, HOVER over one of the rows moves the focus there;
 	 *  any other input keeps it. for lists of object rows (save cards) pass only UP and DOWN, so hovering does not change the selection.
 	 *  one-dimensional lists only; a grid needs its own version */
 	protected static int moveFocus(UIHandler.Input in, int current, int bound, boolean persist) {
@@ -63,18 +63,19 @@ abstract class Screen {
 		};
 	}
 	
+	/** overload of moveFocus() with default persist = true */
 	protected static int moveFocus(UIHandler.Input in, int current, int bound) {
 		return moveFocus(in, current, bound, true);
 	}
 
-	/** a one-row list entry in the shared focus style, clickable as index: marker (e.g. its number) and text;
-	 *  gold bar and gold text when focused, muted when disabled. callers may draw extra text on the row afterwards */
+	/** draws a one-row list entry in the shared focus style, clickable as index: marker (e.g. its number) and text;
+	 *  gold bar and gold text when focused, subtle when disabled. callers may draw extra text on the row afterwards */
 	protected void drawListRow(int index, int x, int y, int w, String marker, String text, boolean focused, boolean enabled) {
 		if (focused) {
-			canvas.drawText(x, y, FOCUS_INDICATOR, enabled ? Palette.KEY : Palette.MUTED);
+			canvas.drawText(x, y, FOCUS_INDICATOR, enabled ? Palette.KEY : Palette.SUBTLE);
 		}
-		canvas.drawText(x + ROW_MARKER_OFFSET, y, marker, focused && enabled ? Palette.KEY : Palette.MUTED);
-		canvas.drawText(x + ROW_TEXT_OFFSET, y, text, !enabled ? Palette.MUTED : focused ? Palette.KEY : Palette.TEXT);
+		canvas.drawText(x + ROW_MARKER_OFFSET, y, marker, focused && enabled ? Palette.KEY : Palette.SUBTLE);
+		canvas.drawText(x + ROW_TEXT_OFFSET, y, text, !enabled ? Palette.SUBTLE : focused ? Palette.KEY : Palette.TEXT);
 		ui.addButtonBox(x, y, w, 1, new Button(index));
 	}
 
@@ -86,6 +87,19 @@ abstract class Screen {
 				rightX -= divider.length();
 				canvas.drawText(rightX, y, divider, Palette.MUTED);
 			}
+		}
+	}
+
+	/** draws text that ends at column endX (exclusive), for numbers lined up on the right */
+	protected void drawRight(int endX, int y, String text, int color) {
+		canvas.drawText(endX - text.length(), y, text, color);
+	}
+
+	/** draws a bar of w cells: the filled part in color, the rest in Palette.LINE */
+	protected void drawBar(int x, int y, int w, int value, int max, int color) {
+		int fill = (int) Math.round((double) value * w / max);
+		for(int i=0; i<w; i++) {
+			canvas.drawText(x + i, y, "━", i < fill? color : Palette.LINE);
 		}
 	}
 }

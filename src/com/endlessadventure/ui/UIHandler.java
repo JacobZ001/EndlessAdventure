@@ -28,7 +28,9 @@ public class UIHandler implements AutoCloseable {
 	private int mouseX = -1, mouseY = -1;
 
 	private String statusMsg = null;
+	private String statusLabel; //OK, WARNING or ERROR, in the status color on the card
 	private int color;
+	private static final int STATUS_Y = 3, STATUS_MAX_W = Canvas.WIDTH - 40; //the status card: top centre, three rows
 	private Attributes savedAttributes;
 	
 	enum InputKey { UP, DOWN, LEFT, RIGHT, ENTER, ESC, BACKSPACE, DEL, TAB, BACK_TAB, CHAR, CLICK, HOVER, MOUSE, INTERRUPT };
@@ -111,33 +113,35 @@ public class UIHandler implements AutoCloseable {
 	
 	//show messages on next screen render
 	public void showWarning(String msg) {
-		setStatusMsg(msg,Palette.WARNING);
+		setStatusMsg(msg, "WARNING", Palette.WARNING);
 		Sound.playEffect(Sound.UI_ERROR);
 	}
-	
+
 	public void showError(String msg) {
-		setStatusMsg(msg,Palette.DANGER);
+		setStatusMsg(msg, "ERROR", Palette.DANGER);
 		Sound.playEffect(Sound.UI_ERROR);
 	}
 
 	public void showSuccess(String msg) {
-		setStatusMsg(msg,Palette.SUCCESS);
+		setStatusMsg(msg, "OK", Palette.SUCCESS);
 	}
-	
+
 	public void clearStatusMsg() {
 		statusMsg = null;
 		color = Palette.BG;
 	}
 
-	/** set status message and color to be shown, throws InvalidColorException if the color is invalid */
-	private void setStatusMsg(String msg, int color){
+	/** set the status message, its card label and color to be shown */
+	private void setStatusMsg(String msg, String label, int color){
 		statusMsg = msg;
+		statusLabel = label;
 		this.color = color;
 	}
 	
 	
 	
-	/** print the canvas; a status message is drawn on the bottom border, right-aligned, until the next key or click */
+	/** print the canvas; a status message is a card at the top centre, over whatever the screen drew,
+	 *  until the next key or click */
 	void present() {
 	    int columns = terminal.getColumns(), rows = terminal.getRows();
 	    if (columns < Canvas.WIDTH || rows < Canvas.HEIGHT) {
@@ -147,8 +151,19 @@ public class UIHandler implements AutoCloseable {
 	        return;
 	    }
 	    if (statusMsg != null) {
-	    	String text = " " + statusMsg + " ";
-	    	canvas.drawText(Canvas.WIDTH - 3 - text.length(), Canvas.HEIGHT - 1, text, color);
+	    	//card: a color bar on the left, the label in the status color, the message; a long message is cut
+	    	//(LLM errors are kept in full in the LLM debug log)
+	    	int padding = 3 + statusLabel.length() + 3 + 3;
+	    	String text = statusMsg.length() + padding <= STATUS_MAX_W ? statusMsg
+	    			: statusMsg.substring(0, STATUS_MAX_W - padding - 3) + "...";
+	    	int w = padding + text.length(), x = (Canvas.WIDTH - w) / 2;
+	    	canvas.shadeAround(x, STATUS_Y, w, 3, 0.55, 4); //softens a busy picture around the card
+	    	canvas.fill(x, STATUS_Y, w, 3, Palette.PANEL);
+	    	for (int i = 0; i < 3; i++) {
+	    		canvas.drawText(x, STATUS_Y + i, Screen.FOCUS_INDICATOR, color);
+	    	}
+	    	canvas.drawText(x + 3, STATUS_Y + 1, statusLabel, color);
+	    	canvas.drawText(x + 3 + statusLabel.length() + 3, STATUS_Y + 1, text, Palette.TEXT);
 	    }
 	    writer.print(canvas);
 	    writer.flush();
