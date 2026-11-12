@@ -2,6 +2,8 @@ package com.endlessadventure.item;
 
 import java.util.List;
 
+import com.endlessadventure.Displayable;
+
 public final class Armor extends Equipment {
 	public static final int HEAVY_ARMOR_SPEED_PENALTY = 1;
 	
@@ -27,7 +29,7 @@ public final class Armor extends Equipment {
 
 	@Override
 	public String getCategoryLabel() {
-		return type.label + " Armor";
+		return type + " Armor";
 	}
 
 	@Override
@@ -50,16 +52,20 @@ public final class Armor extends Equipment {
 	}
 	
 	public enum Type {
-		LIGHT(2, "Light"),
-		MEDIUM(4, "Medium"),
-		HEAVY(6, "Heavy");
-		
+		LIGHT(2),
+		MEDIUM(4),
+		HEAVY(6);
+
 		public final int base;
-		public final String label;
-		
-		Type(int base, String label) {
+
+		Type(int base) {
 			this.base = base;
-			this.label = label;
 		}
+
+		@Override
+		public String toString() {
+			return Displayable.titleCase(name());
+		}
+		
 	}
 }

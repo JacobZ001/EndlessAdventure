@@ -3,6 +3,8 @@ package com.endlessadventure.item;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.endlessadventure.Displayable;
+
 public abstract class Equipment extends Item {
 	private final Quality quality;
 	
@@ -45,7 +47,7 @@ public abstract class Equipment extends Item {
     /** quality and kind, e.g. "Rare Longsword"; returns a new list that subclasses may add to */
     protected List<Span> tags() {
     	List<Span> tags = new ArrayList<>();
-    	tags.add(Span.of(quality.label + " " + getCategoryLabel(), Tone.NOTE));
+    	tags.add(Span.of(quality + " " + getCategoryLabel(), Tone.NOTE));
     	return tags;
     }
 
@@ -67,18 +69,21 @@ public abstract class Equipment extends Item {
 	}
 	
 	public enum Quality {
-		COMMON(1, "Common"),
-		FINE(2, "Fine"),
-		RARE(3, "Rare"),
-		MASTER(4, "Master"),
-		EPIC(5, "Epic");
+		COMMON(1),
+		FINE(2),
+		RARE(3),
+		MASTER(4),
+		EPIC(5);
 
 		public final int tier;
-		public final String label;
 
-		Quality(int tier, String label){
+		Quality(int tier){
 			this.tier = tier;
-			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return Displayable.titleCase(name());
 		}
 	}
 

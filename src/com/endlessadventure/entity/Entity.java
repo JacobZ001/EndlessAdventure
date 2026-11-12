@@ -98,4 +98,9 @@ public abstract class Entity implements Displayable {
 	public boolean isAlive() {
 		return hp > 0;
 	}
+
+	@Override
+	public String toString() {
+		return getName();
+	}
 }

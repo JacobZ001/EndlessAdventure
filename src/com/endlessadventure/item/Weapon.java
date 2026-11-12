@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import com.endlessadventure.Displayable;
 import com.endlessadventure.entity.Attribute;
 
 public final class Weapon extends Equipment {
@@ -36,7 +37,7 @@ public final class Weapon extends Equipment {
 
 	@Override
 	public String getCategoryLabel() {
-		return type.label;
+		return type.toString();
 	}
 
 	@Override
@@ -51,7 +52,7 @@ public final class Weapon extends Equipment {
 	@Override
 	protected List<Span> tags() {
 		List<Span> tags = super.tags();
-		tags.add(Span.of(type.grip.label, Tone.KEYWORD));
+		tags.add(Span.of(type.grip, Tone.KEYWORD));
 		return tags;
 	}
 
@@ -65,65 +66,70 @@ public final class Weapon extends Equipment {
 	@Override
 	protected void addProperties(List<Detail> details) {
 		for (Property p : type.properties) {
-			details.add(new Detail.Trait(Span.of(p.label, Tone.KEYWORD), p.describe(getQuality().tier)));
+			details.add(new Detail.Trait(Span.of(p, Tone.KEYWORD), p.describe(getQuality().tier)));
 		}
 	}
 	
 	public enum Grip { 
-		ONE_HANDED("One Handed"), 
-		LIGHT("Light"), 
-		TWO_HANDED("Two Handed"), 
-		VERSATILE("Versatile");
-		
-		public final String label;
-		
-		Grip(String label){
-			this.label = label;
+		ONE_HANDED,
+		LIGHT,
+		TWO_HANDED,
+		VERSATILE;
+
+		@Override
+		public String toString() {
+			return Displayable.titleCase(name());
 		}
 	}
 	
     public enum Type {
-        LONGSWORD("Longsword", 6, Attribute.STR, Grip.VERSATILE),
-        MACE("Mace", 6, Attribute.STR, Grip.ONE_HANDED,
+        LONGSWORD(6, Attribute.STR, Grip.VERSATILE),
+        MACE(6, Attribute.STR, Grip.ONE_HANDED,
         		Property.PIERCE),
-        SCIMITAR("Scimitar", 6, Attribute.DEX, Grip.ONE_HANDED),
-        GREATSWORD("Greatsword", 9, Attribute.STR, Grip.TWO_HANDED,
+        SCIMITAR(6, Attribute.DEX, Grip.ONE_HANDED),
+        GREATSWORD(9, Attribute.STR, Grip.TWO_HANDED,
         		Property.BREAK_GUARD),
-        SHORTSWORD("Shortsword", 3, Attribute.DEX, Grip.LIGHT,
+        SHORTSWORD(3, Attribute.DEX, Grip.LIGHT,
         		Property.LETHAL),
-        DAGGER("Dagger", 3, Attribute.DEX, Grip.LIGHT,
+        DAGGER(3, Attribute.DEX, Grip.LIGHT,
         		Property.ASSASSINATE);
-    	
-        public final String label;
+
         public final int base;
         public final Attribute attribute;
         public final Grip grip;
         public final Set<Property> properties;
 
-        Type(String label, int base, Attribute attribute, Grip grip, Property... properties) {
-        	this.label = label;
+        Type(int base, Attribute attribute, Grip grip, Property... properties) {
         	this.base = base;
         	this.attribute = attribute;
         	this.grip = grip;
             this.properties = Set.of(properties);
         }
+
+        @Override
+        public String toString() {
+        	return Displayable.titleCase(name());
+        }
     }
 	
     public enum Property {
-        PIERCE("Pierce", 2 ,"Reduces target armor by %d"),
-        BREAK_GUARD("Break Guard",0, "Ignores the target's guard"),
-        LETHAL("Lethal",0, "Critical hit on targets at half HP or less"),
-        ASSASSINATE("Assassinate",0, "Critical hit on targets that have not acted yet");
-        
-    	public final String label;
+        PIERCE(2, "Reduces target armor by %d"),
+        BREAK_GUARD(0, "Ignores the target's guard"),
+        LETHAL(0, "Critical hit on targets at half HP or less"),
+        ASSASSINATE(0, "Critical hit on targets that have not acted yet");
+
     	public final int potencyPerTier;
     	public final String description;
-    	
-    	Property(String label, int perTier, String description){
-    		this.label = label;
+
+    	Property(int perTier, String description){
     		this.potencyPerTier = perTier;
     		this.description = description;
     	}
+
+		@Override
+		public String toString() {
+			return Displayable.titleCase(name());
+		}
 
 		/** the description for a weapon of this tier, with its number as a separate span so the ui can color it */
 		public List<Span> describe(int tier) {

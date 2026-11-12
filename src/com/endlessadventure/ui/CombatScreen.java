@@ -503,7 +503,7 @@ public class CombatScreen extends Screen {
 		List<Span> what = switch(outcome) {
 			case VICTORY -> List.of(Span.note("All enemies defeated · round "), Span.plain(battle.getRound()));
 			case DEFEATED -> List.of(nameSpan(self), Span.note(" is down · round "), Span.plain(battle.getRound()));
-			case ESCAPED -> List.of(nameSpan(self), Span.note(" slips away · round "), Span.plain(battle.getRound()));
+			case ESCAPED -> List.of(nameSpan(self), Span.note(" escaped · round "), Span.plain(battle.getRound()));
 		};
 		List<Span> hp = List.of(Span.note("HP  "), Span.plain(hpText(player)));
 
@@ -780,19 +780,6 @@ public class CombatScreen extends Screen {
 		return "%d / %d".formatted(ch.getHp(), ch.getMaxHp());
 	}
 
-	/** text that ends at column endX (exclusive), for numbers lined up on the right */
-	private void drawRight(int endX, int y, String text, int color) {
-		canvas.drawText(endX - text.length(), y, text, color);
-	}
-
-	/** a bar of w cells: the filled part in color, the rest in Palette.LINE */
-	private void drawBar(int x, int y, int w, int value, int max, int color) {
-		int fill = (int) Math.round((double) value * w / max);
-		for(int i=0; i<w; i++) {
-			canvas.drawText(x + i, y, "━", i < fill? color : Palette.LINE);
-		}
-	}
-
 	/** AP as dots: have filled in Palette.KEY, the rest hollow in Palette.MUTED, two columns apart */
 	private void drawPips(int endX, int y, int have, int total, int color) {
 		for(int i=0; i<total; i++) {
@@ -923,8 +910,8 @@ public class CombatScreen extends Screen {
 		}
 
 		//reorder objects for rendering sequence using y then x cords, the lower the later for z-layering
-		objects.sort(Comparator.comparingInt((SceneObject o) -> o.cell().y())
-				.thenComparing(o -> o.cell().x()));
+		//uses natural ordering defined by Position.compareTo
+		objects.sort(Comparator.comparing(SceneObject::cell));
 
 		//draw shadows
 		for(SceneObject o : objects) {

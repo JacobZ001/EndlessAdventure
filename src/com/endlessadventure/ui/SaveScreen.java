@@ -3,6 +3,7 @@ package com.endlessadventure.ui;
 import java.util.List;
 import java.util.Map;
 
+import com.endlessadventure.Displayable;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.save.SaveManager.SlotOverview;
 import com.endlessadventure.save.SaveManager.SlotStatus;
@@ -163,7 +164,7 @@ public final class SaveScreen extends Screen {
 			canvas.fill(x, BUTTON_Y, Canvas.BUTTON_WIDTH, Canvas.BUTTON_HEIGHT, Palette.BG);
 			ui.drawButton(x, BUTTON_Y, labels[i], enabled[i], new Button(Action.values()[i])); //labels follow Action order
 		}
-		String modeHint = Character.toUpperCase(mode.toString().charAt(0)) + mode.toString().substring(1);
+		String modeHint = Displayable.titleCase(mode.toString());
 		endFrame(List.of(
 				Map.entry("1-" + slots.length, "Select"),
 				Map.entry("↑/↓", "Move"),

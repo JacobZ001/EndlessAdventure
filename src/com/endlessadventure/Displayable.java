@@ -70,6 +70,17 @@ public interface Displayable {
 		}
 	}
 
+	/** display text from an enum name or a label: "BREAK_GUARD" or "delete" -> "Break Guard", "Delete" */
+	static String titleCase(String text) {
+		StringBuilder sb = new StringBuilder();
+		for (String word : text.toLowerCase().split("[_ ]+")) {
+			if (word.isEmpty()) continue;
+			if (!sb.isEmpty()) sb.append(' ');
+			sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+		}
+		return sb.toString();
+	}
+
 	String getName();
 
 	String getDescription();

@@ -2,6 +2,8 @@ package com.endlessadventure.ui;
 
 import java.util.List;
 
+import com.endlessadventure.Displayable;
+
 
 /** a modal yes/no box drawn over the current frame; returns true if the player confirms */
 final class ConfirmDialog {
@@ -33,7 +35,7 @@ final class ConfirmDialog {
 
 			y += 2;
 			ui.drawButton(BUTTON_X, y, confirmLabel, true, new Button(0));
-			String confirmHint = Character.toUpperCase(confirmLabel.charAt(0)) + confirmLabel.toLowerCase().substring(1);
+			String confirmHint = Displayable.titleCase(confirmLabel);
 			ui.drawButton(BUTTON_X + Canvas.BUTTON_WIDTH + 2, y, "CANCEL", true, new Button(1));
 			canvas.drawTextCentered(top + height - 2, " [Y] %s   [N] Cancel ".formatted(confirmHint), Palette.MUTED);
 			ui.present();
