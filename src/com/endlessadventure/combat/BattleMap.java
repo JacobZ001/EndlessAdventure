@@ -34,8 +34,8 @@ public class BattleMap {
 		}
 		
 		Terrain[][] map = new Terrain[template.length][template[0].length()];
-		Position player = null;
-		List<Position> enemies = new ArrayList<>();
+		Position playerSpawn = null;
+		List<Position> enemySpawns = new ArrayList<>();
 		
 		for(int i=0; i<template.length; i++) {
 			String row = template[i];
@@ -44,6 +44,7 @@ public class BattleMap {
 			}
 			for(int j=0; j<row.length(); j++) {
 				char token = row.charAt(j);
+				Position pos = new Position(j , i);
 				boolean matched = false;
 				
 				for(Terrain t : Terrain.values()) {
@@ -56,29 +57,34 @@ public class BattleMap {
 					map[i][j] = Terrain.FLOOR;
 					if(i < BORDER_SPAWN_BUFFER || i >= template.length - BORDER_SPAWN_BUFFER ||
 							j < BORDER_SPAWN_BUFFER || j >= row.length() - BORDER_SPAWN_BUFFER) {
-						throw new IllegalArgumentException("Invalid symbol map: spawn points cannot be close to the border");
+						throw new IllegalArgumentException("Invalid symbol map: spawn points cannot be close to the border at " + pos);
 					}
 					if(token == PLAYER_MARKER) {
-						if(player != null) { //TODO remove de-dup checks when player party is implemented
+						if(playerSpawn != null) { //TODO remove de-dup checks when player party is implemented
 							throw new IllegalArgumentException("Invalid symbol map: duplicate player spawns.");
 						}
-						player = new Position(j, i);
+						playerSpawn = pos;
 						matched = true;
 					}
 					else{
-						enemies.add(new Position(j, i));
+						enemySpawns.add(pos);
 						matched = true;
 					}
 				}
 				else if(!matched) {
-					throw new IllegalArgumentException("Invalid symbol map: unknown token: " + token);
+					throw new IllegalArgumentException("Invalid symbol map: unknown token: [" + token + "] at " + pos);
 				}
 			}
 		}
-		if(player == null || enemies.isEmpty()) {
+		if(playerSpawn == null || enemySpawns.isEmpty()) {
 			throw new IllegalArgumentException("Invalid symbol map: there must be at least one player and one enemy spawn.");
 		}
-		return new BattleMap(map, player, enemies);
+		int ecount = enemySpawns.size();
+		if(ecount > Battle.MAX_ENEMY_COUNT) {
+			throw new IllegalArgumentException("Invalid symbol map: enemy spawn count (%d) exceeds maximum enemy count (%d)."
+					.formatted(ecount, Battle.MAX_ENEMY_COUNT));
+		}
+		return new BattleMap(map, playerSpawn, enemySpawns);
 	}
 	
 	public int width() {

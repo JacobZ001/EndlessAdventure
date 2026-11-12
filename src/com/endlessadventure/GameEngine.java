@@ -1,6 +1,7 @@
 package com.endlessadventure;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.random.RandomGenerator;
 
@@ -8,6 +9,7 @@ import com.endlessadventure.audio.Sound;
 import com.endlessadventure.combat.Battle;
 import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
+import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.llm.LlmRequestException;
 import com.endlessadventure.save.BadSaveException;
@@ -157,24 +159,41 @@ public class GameEngine {
 			}
 		}
 		
-		AdventureScreen.Choice choice = new AdventureScreen(ui, gameState).run();
+		List<String> enemyIds = gameState.getCurrentScene().getEnemyIds();
+		String enemyText = enemyIds.isEmpty()? null : storyGenerator.describeEnemies(enemyIds);
+		AdventureScreen.Choice choice = new AdventureScreen(ui, gameState, enemyText).run();
 		return switch(choice.action()) {
 			case ACT -> {
 				try {
 					CurrentScene previous = gameState.getCurrentScene();
 					gameState.setCurrentScene(storyGenerator.generateNext(gameState, choice.text()));
-					gameState.addRecord(previous.toRecord(choice.text()));
+					gameState.addToHistory(previous.toPastScene(choice.text()));
 					ui.clearStatusMsg();
 				} catch (LlmRequestException e) {
 					ui.showError("Cannot process LLM request: " + e.getMessage());
 				}
 				yield GameScreen.ADVENTURE;
 			}
-			case BACK -> GameScreen.MAIN_MENU;
 			case SAVE -> GameScreen.WRITE_SAVE;
 			case INV -> GameScreen.INVENTORY;
 			case CHAR -> GameScreen.CHARACTER;
-			case FIGHT -> GameScreen.COMBAT;// TODO remove when encounters arrive (step 4)
+			case FIGHT -> GameScreen.COMBAT;
+			case REST -> {
+				Player p = gameState.getPlayer();
+				CurrentScene previous = gameState.getCurrentScene();
+				int before = p.getHp();
+				p.restoreHP( (int) Math.round(p.getMaxHp() * StatRules.REST_RECOVERY));
+				try {
+					gameState.setCurrentScene(storyGenerator.generateAfterRest(gameState, before));
+					gameState.addToHistory(previous.toPastScene(storyGenerator.restSummary(before, p)));
+					ui.clearStatusMsg();
+				} catch (LlmRequestException e) {
+					p.setHp(before); //the rest did not happen: a failed request must not heal for free
+					ui.showError("Cannot process LLM request: " + e.getMessage());
+				}
+				yield GameScreen.ADVENTURE;
+			}
+			case BACK -> GameScreen.MAIN_MENU;
 		};
 	}
 
@@ -196,14 +215,36 @@ public class GameEngine {
 
 	/** handle combat screen */
 	private GameScreen handleCombat() {
-		Battle battle = Battle.onRandomMap(gameState.getPlayer(),
-		        List.of(enemyCatalog.createFromId("bandit")), RandomGenerator.getDefault());
+		List<String> eids = gameState.getCurrentScene().getEnemyIds();
+		List<Enemy> enemies = eids.stream().map(enemyCatalog::createFromId).toList();
+		
+		//number enemies that share a template, e.g. Bandit 1, Bandit 2
+		for(int i = 0; i < enemies.size(); i++) {
+			String id = eids.get(i);
+			if(Collections.frequency(eids, id) > 1) {
+				Enemy e = enemies.get(i);
+				e.setName(e.getName() + " " + Collections.frequency(eids.subList(0, i + 1), id));
+			}
+		}
+		Battle battle = Battle.onRandomMap(gameState.getPlayer(), enemies, RandomGenerator.getDefault());
 		
 		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run(); 
 		if(outcome == Battle.Outcome.DEFEATED) {
 			//a downed player comes to with 1 HP for story progression purpose, the story then tells where they wake
 			gameState.getPlayer().setHp(1);
 		}
-		return GameScreen.ADVENTURE;//TODO connect to story at step 4
+		
+		
+		CurrentScene previous = gameState.getCurrentScene();
+		//shows the previous scene under the waiting card while the model writes the aftermath
+		new AdventureScreen(ui, gameState, null).showWaiting(); 
+		try {
+			gameState.setCurrentScene(storyGenerator.generateAfterCombat(gameState, outcome));
+			gameState.addToHistory(previous.toPastScene(storyGenerator.combatSummary(previous.getEnemyIds(), outcome, gameState.getPlayer())));
+			ui.clearStatusMsg();
+		} catch (LlmRequestException e) {
+			ui.showError("Cannot process LLM request: " + e.getMessage());
+		}
+		return GameScreen.ADVENTURE;
 	}
 }

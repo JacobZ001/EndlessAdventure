@@ -35,7 +35,7 @@ class EnemyAI {
 				.orElse(null);
 
 		if(target == null) {
-			throw new IllegalStateException("Invalid battle: enemy " + self.getCharacter().toString() + "cannot find a valid target");
+			throw new IllegalStateException("Invalid battle: enemy " + self.getCharacter() + " cannot find a valid target");
 		}
 		Position tpos = target.getPosition();
 		BattleMap map = battle.getMap();

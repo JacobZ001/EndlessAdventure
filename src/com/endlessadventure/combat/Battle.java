@@ -12,7 +12,9 @@ import com.endlessadventure.combat.Combatant.Side;
 import com.endlessadventure.entity.Enemy;
 import com.endlessadventure.entity.Player;
 
-public class Battle {	
+public class Battle {
+	public static final int MAX_ENEMY_COUNT = 2;
+	
 	public enum Outcome { VICTORY, DEFEATED, ESCAPED }
 	
 	public sealed interface CombatEvent {
@@ -61,10 +63,16 @@ public class Battle {
 	private int currentInd = 0; //index of the current actor
 	
 	public Battle(BattleMap map, Player player, List<Enemy> enemies, RandomGenerator rng) {
-		this.map = map;
-		this.rng = rng;
-		if(enemies.size() > map.getEnemySpawns().size()) {
-			throw new IllegalArgumentException("Invalid battle: enemy count exceeds spawn positions.");
+		if(enemies.isEmpty()) {
+			throw new IllegalArgumentException("Invalid battle: a battle needs at least one enemy.");
+		}
+		int ecount = enemies.size();
+		int spawnCount = map.getEnemySpawns().size();
+		if(ecount > spawnCount) {
+			throw new IllegalArgumentException("Invalid battle: enemy count (%d) exceeds maximum spawn positions (%d).".formatted(ecount, spawnCount));
+		}
+		if(ecount > MAX_ENEMY_COUNT) {
+			throw new IllegalArgumentException("Invalid battle: enemy count (%d) exceeds maximum allowed count (%d).".formatted(ecount, MAX_ENEMY_COUNT));
 		}
 		
 		participants.add(new Combatant(player, Side.PLAYER, map.getPlayerSpawn()));
@@ -75,6 +83,9 @@ public class Battle {
 		participants.sort(Comparator.comparingInt((Combatant c ) -> c.getCharacter().getInitiative())
 				.reversed()
 				.thenComparing(Combatant::getSide));
+		
+		this.map = map;
+		this.rng = rng;
 	}
 	
 	public BattleMap getMap() {return map;}
@@ -215,7 +226,7 @@ public class Battle {
 		Combatant actor = getCurrentActor();
 		MovePreview preview = previewMove(dest);
 		if(!preview.legal()) {
-			throw new IllegalArgumentException("Illegal move action: " + preview.reason());
+			throw new IllegalArgumentException("Illegal move action: " + preview.reason() + " at " + dest);
 		}
 		actor.moveTo(dest, preview.path().size(), preview.apCost());
 		return List.of(new CombatEvent.Moved(actor, preview.path(), preview.apCost()));

@@ -26,8 +26,8 @@ public class Driver {
     	
     	//load game save, LLM client, and start game
 		try(UIHandler ui = new UIHandler()) {
-			SaveManager saveManager = new SaveManager(equipCat);
-			StoryGenerator storyGenerator = new StoryGenerator(new LlmClient());
+			SaveManager saveManager = new SaveManager(equipCat, enemyCat);
+			StoryGenerator storyGenerator = new StoryGenerator(new LlmClient(), enemyCat);
 			new GameEngine(ui, saveManager, storyGenerator, equipCat, enemyCat).run();
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());

@@ -5,21 +5,21 @@ import java.util.List;
 
 import com.endlessadventure.entity.Player;
 import com.endlessadventure.story.CurrentScene;
-import com.endlessadventure.story.SceneRecord;
+import com.endlessadventure.story.PastScene;
 
 public class GameState {
 	private Player player;
 	private CurrentScene currentScene;
-	private List<SceneRecord> history;
+	private List<PastScene> history;
 	
-	public GameState(Player player, CurrentScene currentScene, List<SceneRecord> history) {
+	public GameState(Player player, CurrentScene currentScene, List<PastScene> history) {
 		setPlayer(player);
 		setCurrentScene(currentScene);
 		setHistory(history);
 	}
 	
 	public GameState() {
-		this(null, null, new ArrayList<SceneRecord>());
+		this(null, null, new ArrayList<PastScene>());
 	}
 
 	public Player getPlayer() {
@@ -38,15 +38,15 @@ public class GameState {
 		this.currentScene = currentScene;
 	}
 
-	public List<SceneRecord> getHistory() {
+	public List<PastScene> getHistory() {
 		return history;
 	}
 
-	public void setHistory(List<SceneRecord> history) {
+	public void setHistory(List<PastScene> history) {
 		this.history = history;
 	}
 	
-	public void addRecord(SceneRecord record) {
-		history.add(record);
+	public void addToHistory(PastScene scene) {
+		history.add(scene);
 	}
 }
