@@ -13,14 +13,14 @@ public class EquipmentCatalog extends Catalog<Equipment> {
 	private static final String ARMOR_FILE = "armor.json";
 	private static final String SHIELD_FILE = "shields.json";
 	
-	private record WeaponRecord(String id, String name, String description, Weapon.Type type, Equipment.Quality quality) {}
-	private record ArmorRecord(String id, String name, String description, Armor.Type type, Equipment.Quality quality) {}
-	private record ShieldRecord(String id, String name, String description, Equipment.Quality quality) {}
+	private record WeaponTemplate(String id, String name, String description, Weapon.Type type, Equipment.Quality quality) {}
+	private record ArmorTemplate(String id, String name, String description, Armor.Type type, Equipment.Quality quality) {}
+	private record ShieldTemplate(String id, String name, String description, Equipment.Quality quality) {}
 		
 	public EquipmentCatalog() throws IOException {
 		super(Equipment::getId);
-		load(WEAPON_FILE, WeaponRecord[].class, r -> new Weapon(r.id(), r.name(), r.description(), r.quality(), r.type()));
-		load(ARMOR_FILE, ArmorRecord[].class, r -> new Armor(r.id(), r.name(), r.description(), r.quality(), r.type()));
-		load(SHIELD_FILE, ShieldRecord[].class, r -> new Shield(r.id(), r.name(), r.description(), r.quality()));
+		load(WEAPON_FILE, WeaponTemplate[].class, r -> new Weapon(r.id(), r.name(), r.description(), r.quality(), r.type()));
+		load(ARMOR_FILE, ArmorTemplate[].class, r -> new Armor(r.id(), r.name(), r.description(), r.quality(), r.type()));
+		load(SHIELD_FILE, ShieldTemplate[].class, r -> new Shield(r.id(), r.name(), r.description(), r.quality()));
 	}
 }

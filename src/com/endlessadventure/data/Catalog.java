@@ -16,18 +16,18 @@ import com.google.gson.JsonParseException;
 public abstract class Catalog<T> {
 	
 	private final Map<String, T> catalog = new LinkedHashMap<>();
-	private final Function<T, String> idOf;
+	private final Function<T, String> idAccessor;
 	
-	public Catalog(Function<T, String> idOf){
-		this.idOf = idOf;
+	public Catalog(Function<T, String> idAccessor){
+		this.idAccessor = idAccessor;
 	}
 
 	/** reads one file's rows and builds each piece; any bad row becomes an IOException naming the file */
 	protected final <R> void load(String file, Class<R[]> type, Function<R, T> build) throws IOException {
-		R[] rows;
+		R[] templates;
 		try (Reader reader = Files.newBufferedReader(Path.of("data", file))) {
-			rows = new Gson().fromJson(reader, type);
-			if (rows == null) {
+			templates = new Gson().fromJson(reader, type);
+			if (templates == null) {
 				throw new IOException(file + ": empty file");
 			}
 		} catch (NoSuchFileException e1) {
@@ -35,12 +35,17 @@ public abstract class Catalog<T> {
 		} catch (JsonParseException e2) {
 			throw new IOException(file + ": " + e2.getMessage(), e2);
 		}
-
-		for (int i = 0; i < rows.length; i++) {
+		
+		for (int i = 0; i < templates.length; i++) {
+			R template = templates[i];
 			try {
-				R row = DataValidation.require(rows[i], "entry." + (i + 1));
-				T entry = build.apply(row);
-				add(entry, file);
+				DataValidation.requireComplete(template, "");
+				T builtEntry = build.apply(template);
+				String id = idAccessor.apply(builtEntry);
+				if(catalog.containsKey(id)) {
+					throw new IOException(file + ": duplicate id: " + id);
+				}
+				catalog.put(id, builtEntry);
 			} catch (IllegalArgumentException | MissingFieldException e) {
 				throw new IOException(file + " load error: entry." + (i + 1) + ": " + e.getMessage(), e);
 			}
@@ -56,11 +61,4 @@ public abstract class Catalog<T> {
     public List<T> getAll() {
         return List.copyOf(catalog.values());
     }
-	
-	private void add(T e, String file) throws IOException {
-		if(catalog.containsKey(idOf.apply(e))) {
-			throw new IOException(file + ": duplicate id: " + idOf.apply(e));
-		}
-		catalog.put(idOf.apply(e), e);
-	}
 }

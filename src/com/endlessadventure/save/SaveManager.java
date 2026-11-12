@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import com.endlessadventure.GameState;
+import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.data.MissingFieldException;
 import com.endlessadventure.entity.Player;
@@ -22,15 +23,17 @@ public class SaveManager {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	
 	private final Path saveDir = Path.of("saves");
-	private final EquipmentCatalog catalog;
+	private final EquipmentCatalog equipCat;
+	private final EnemyCatalog enemyCat;
 
 	public enum SlotStatus { EMPTY, READABLE, CORRUPT }
 	
 	/** Summary record for a save slot containing the slot number, status, player name, level, and turn count. */
 	public record SlotOverview(int slot, SlotStatus status, String name, int level, int turn, String location) {}
 
-	public SaveManager(EquipmentCatalog catalog) {
-		this.catalog = catalog;
+	public SaveManager(EquipmentCatalog equipCat, EnemyCatalog enemyCat) {
+		this.equipCat = equipCat;
+		this.enemyCat = enemyCat;
 	}
 
 	/** get the file path corresponding to the slot number */
@@ -97,7 +100,7 @@ public class SaveManager {
 			if (saveRecord == null || saveRecord.version() != SaveRecord.SAVE_CONTRACT_VERSION) {
 				throw new BadSaveException(slot, "Unsupported save version.");
 			}
-			return saveRecord.toGameState(catalog);
+			return saveRecord.toGameState(equipCat, enemyCat);
 		} catch (JsonParseException | IllegalArgumentException | MissingFieldException e) {
 			throw new BadSaveException(slot, e);
 		}
