@@ -45,9 +45,9 @@ final class PixelImage {
 		return load(ASSETS.resolve("icons").resolve(itemId + "-" + size + ".png"));
 	}
 
-	/** a scene backdrop for the adventure screen, or empty if there is none with this id */
-	static Optional<PixelImage> scene(String sceneId) {
-		return load(ASSETS.resolve("scenes").resolve(sceneId + ".png"));
+	/** a room's backdrop for the adventure screen, the whole canvas, or empty if there is none with this id */
+	static Optional<PixelImage> backdrop(String backdropId) {
+		return load(ASSETS.resolve("backdrops").resolve(backdropId + ".png"));
 	}
 
 	/** a full-body character portrait for the paper doll, standing on transparency, or empty if there is none with this id */
@@ -87,8 +87,8 @@ final class PixelImage {
 	}
 
 	/** a picture for behind a whole menu screen, drawn inside the screen frame, or empty if there is none with this id */
-	static Optional<PixelImage> backdrop(String backdropId) {
-		return load(ASSETS.resolve("backdrops").resolve(backdropId + ".png"));
+	static Optional<PixelImage> menu(String menuId) {
+		return load(ASSETS.resolve("menus").resolve(menuId + ".png"));
 	}
 
 	/** reads a PNG once and keeps it; a missing or unreadable file gives empty, so screens fall back to their placeholder */

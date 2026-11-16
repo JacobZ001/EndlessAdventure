@@ -111,7 +111,7 @@ public final class SaveScreen extends Screen {
 	
 	private void drawFrame() {
 		beginFrame();
-		PixelImage.backdrop(BACKDROP).ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
+		PixelImage.menu(BACKDROP).ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
 
 		int y = START_Y;
 		canvas.drawTextCentered(y, "Choose a slot to " + mode.toString().toLowerCase(), Palette.MUTED);

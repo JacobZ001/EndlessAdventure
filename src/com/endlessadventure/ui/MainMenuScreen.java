@@ -88,7 +88,7 @@ public final class MainMenuScreen extends Screen {
 		beginFrame();
 
 		//draw backdrop
-		PixelImage.backdrop("main_menu").ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
+		PixelImage.menu("main_menu").ifPresent(art -> canvas.drawImage(1, Canvas.HEIGHT * 2 - 2 - art.getHeight(), art));
 		
 		//darken behind screen elements for visibility
 		int x = (Canvas.WIDTH / 2) - 9;

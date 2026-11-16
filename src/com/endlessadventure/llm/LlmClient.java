@@ -140,6 +140,18 @@ public final class LlmClient {
 	 * @throws LlmRequestException If the request fails
 	 */
 	public String generate(String systemInstruction, String userContent) throws LlmRequestException {
+		return generate(systemInstruction, userContent, null);
+	}
+
+	/** Generate a JSON reply that follows a JSON Schema (Gemini structured output)
+	 * @param systemInstruction The system instruction to use for the request
+	 * @param userContent The user content to use for the request
+	 * @param responseSchema The JSON Schema the reply must follow, or null for plain text
+	 * @return The response from the LLM
+	 * @throws LlmRequestException If the request fails
+	 */
+	public String generate(String systemInstruction, String userContent, Map<String, Object> responseSchema)
+			throws LlmRequestException {
 		if (apiKey.isEmpty()) {
 			throw new LlmRequestException(LlmRequestException.Stage.MISSING_KEY,
 					"ENDLESS_ADVENTURE_API_KEY is not set in .env or the process environment");
@@ -150,7 +162,7 @@ public final class LlmClient {
 
 		note("SYSTEM", systemInstruction);
 		note("USER", userContent);
-		String body = requestBody(systemInstruction, userContent);
+		String body = requestBody(systemInstruction, userContent, responseSchema);
 		HttpRequest request = HttpRequest.newBuilder(endpoint())
 				.timeout(REQUEST_TIMEOUT)
 				.header("Content-Type", "application/json")
@@ -203,13 +215,17 @@ public final class LlmClient {
 	/** Generate the request body for the LLM
 	 * @param systemInstruction The system instruction to use for the request
 	 * @param userContent The user content to use for the request
+	 * @param responseSchema The JSON Schema for the reply, or null for plain text
 	 * @return The request body for the LLM
 	 */
-	private static String requestBody(String systemInstruction, String userContent) {
+	private static String requestBody(String systemInstruction, String userContent, Map<String, Object> responseSchema) {
 		Map<String, Object> body = new HashMap<>();
 		body.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", userContent)))));
 		if (systemInstruction != null && !systemInstruction.isBlank()) {
 			body.put("systemInstruction", Map.of("parts", List.of(Map.of("text", systemInstruction))));
+		}
+		if (responseSchema != null) {
+			body.put("generationConfig", Map.of("responseMimeType", "application/json", "responseJsonSchema", responseSchema));
 		}
 		return GSON.toJson(body);
 	}

@@ -1,6 +1,6 @@
 # imagegen
 
-Turns short text prompts into the small PNG images the game draws: item icons and adventure-screen scenes.
+Turns short text prompts into the small PNG images the game draws: item icons, room backdrops for the adventure screen, menu pictures, portraits, battle figures and grounds.
 
 The game draws an image 1:1, two pixels per character cell (the top and bottom half of a `▀`), so every size below is final and the game never scales anything:
 
@@ -8,9 +8,9 @@ The game draws an image 1:1, two pixels per character cell (the top and bottom h
 |---|---|---|---|
 | Icon, inventory grid box | `assets/icons/<id>-12.png` | 12 × 12 | 12 × 6 characters |
 | Icon, item details | `assets/icons/<id>-24.png` | 24 × 24 | 24 × 12 characters |
-| Scene, adventure screen | `assets/scenes/<id>.png` | 209 × 102 | the whole screen, 209 × 51 characters |
+| Backdrop, a room on the adventure screen | `assets/backdrops/<id>.png` | 209 × 102 | the whole screen, 209 × 51 characters |
 | Portrait, paper doll (character column) | `assets/portraits/<id>.png` | at most 32 × 62, standing on the bottom edge | up to 32 × 31 characters |
-| Backdrop, behind a whole menu | `assets/backdrops/<id>.png` | 207 wide, up to 98 high | inside the screen frame, resting on its bottom |
+| Menu, behind a whole menu screen | `assets/menus/<id>.png` | 207 wide, up to 98 high | inside the screen frame, resting on its bottom |
 
 ## Setup
 
@@ -22,9 +22,9 @@ The game draws an image 1:1, two pixels per character cell (the top and bottom h
 
 | Path | Contents | Committed |
 |---|---|---|
-| `tools/imagegen/assets.json` | One entry per image: `id`, `kind` (`icon` or `scene`) and `subject` | yes |
+| `tools/imagegen/assets.json` | One entry per image: `id`, `kind` (`icon`, `backdrop`, `menu`, `portrait`, `figure`, `prop` or `ground`) and `subject` | yes |
 | `tools/imagegen/source/` | One full-size source image per id, `<id>.png` (or `.jpg`, `.jpeg`, `.webp`) | no |
-| `assets/icons/`, `assets/scenes/` | The converted images the game loads | yes |
+| `assets/icons/`, `assets/backdrops/`, `assets/menus/` and the other folders | The converted images the game loads | yes |
 
 Only `source/<id>.*` is read. Alternatives can be kept in a subfolder such as `source/testing/`.
 
@@ -39,7 +39,7 @@ python tools/imagegen/imagegen.py check
 
 - `prompts` prints each id with its full prompt, ready to paste into an image tool. With ids it prints those ids; without, every asset that has no source yet.
 - `generate` asks Cloudflare Workers AI (FLUX.1 schnell) for every missing source and saves it as `source/<id>.png`. It never overwrites a source, and it stops at the first error with the API's message. The free tier allows 10,000 neurons a day and resets at 00:00 UTC.
-- `convert` turns sources into game images: all of them, or only the given ids. Icons lose their background (the flat color around the object, including larger patches of it that the object encloses, such as the inside of a knuckle guard; or the image's own transparency), are cropped to the object, padded to a square and shrunk. Portraits lose their background like icons and are shrunk to fit, standing on the bottom edge. Scenes lose any black bars above and below, then are cropped from the middle to the scene area's proportions and shrunk.
+- `convert` turns sources into game images: all of them, or only the given ids. Icons lose their background (the flat color around the object, including larger patches of it that the object encloses, such as the inside of a knuckle guard; or the image's own transparency), are cropped to the object, padded to a square and shrunk. Portraits lose their background like icons and are shrunk to fit, standing on the bottom edge. Backdrops lose any black bars above and below, then are cropped from the middle to the screen's proportions and shrunk.
 - `check` is an offline self-test of the conversion. It also checks that the icons in `assets.json` match the items in `data/weapons.json`, `data/armor.json` and `data/shields.json` one to one.
 
 ## Adding or redoing an image
@@ -49,12 +49,12 @@ python tools/imagegen/imagegen.py check
    - `generate <id>` (delete or move the old source first when redoing), or
    - `prompts <id>`, paste the prompt into ChatGPT or Gemini, and save the result as `source/<id>.png` (a JPG works too).
 3. `convert <id>` and read any warnings.
-4. Look at it in the game: the inventory grid and the item details for icons, the adventure screen for scenes.
+4. Look at it in the game: the inventory grid and the item details for icons, the adventure screen for backdrops.
 5. Commit the changed files in `assets/` and `assets.json`.
 
 ## Writing a subject
 
-The shared style text (`ICON_STYLE`, `SCENE_STYLE` in `imagegen.py`) comes first; the subject only describes the object.
+The shared style text (`ICON_STYLE`, `BACKDROP_STYLE` and the others in `imagegen.py`) comes first; the subject only describes the object.
 
 - Start with what the item is, by its own name (brigandine, gambeson, scimitar, heater shield), then the visible details. A paraphrase such as "a coat studded with rivets" gets drawn as something else.
 - Keep it short. The models follow a few strong words better than a long list, and "no ..." phrases often backfire.

@@ -39,13 +39,13 @@ public abstract class Catalog<T> {
 		for (int i = 0; i < templates.length; i++) {
 			R template = templates[i];
 			try {
-				DataValidation.requireComplete(template, "");
-				T builtEntry = build.apply(template);
-				String id = idAccessor.apply(builtEntry);
+				DataValidation.checkNotNull(template, "");
+				T entry = build.apply(template);
+				String id = idAccessor.apply(entry);
 				if(catalog.containsKey(id)) {
 					throw new IOException(file + ": duplicate id: " + id);
 				}
-				catalog.put(id, builtEntry);
+				catalog.put(id, entry);
 			} catch (IllegalArgumentException | MissingFieldException e) {
 				throw new IOException(file + " load error: entry." + (i + 1) + ": " + e.getMessage(), e);
 			}

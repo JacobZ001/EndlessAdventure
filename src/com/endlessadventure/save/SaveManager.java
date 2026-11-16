@@ -49,7 +49,7 @@ public class SaveManager {
 		try {
 			GameState state = loadSave(slot);
 			Player player = state.getPlayer();
-			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getCurrentScene().getTurn(), state.getCurrentScene().getLocation());
+			return new SlotOverview(slot, SlotStatus.READABLE, player.getName(), player.getLevel(), state.getCurrentScene().getTurn(), state.getCurrentLocation().name());
 		} catch (NoSuchFileException e) {
 			return new SlotOverview(slot, SlotStatus.EMPTY, null, 0, 0, "");
 		} catch(IOException | BadSaveException e) {

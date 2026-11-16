@@ -34,9 +34,14 @@ public final class AdventureScreen extends Screen {
 	private final String[] options;
 	private final String enemyText;  //e.g. "Bandit x2"; null when no enemy is here
 	private final String lastAction; //the action that led to this scene, null at the opening
+	private final String locationName;
+	private final String roomName;
+	private final double recoveryRatio;
+	private final String backdropId;    //the current room's picture
 	private final int commandRow;      //the Fight/Rest row right after the options;
 	private final int inputRow;      //the inputField row, always last
 	private final TextField inputField;
+	
 	private int focus = 0; //0..options.length - 1: an option; commandRow: Fight/Rest; inputRow: the inputField
 	private boolean waiting = false;
 
@@ -46,6 +51,10 @@ public final class AdventureScreen extends Screen {
 	public AdventureScreen(UIHandler ui, GameState state, String enemyText) {
 		super(ui);
 		scene = state.getCurrentScene();
+		locationName = state.getCurrentLocation().name();
+		roomName = state.getCurrentRoom().name();
+		recoveryRatio = state.getCurrentLocation().kind().restRecoveryRatio;
+		backdropId = state.getCurrentRoom().backdrop();
 		player = state.getPlayer();
 		options = scene.getOptions();
 		this.enemyText = enemyText;
@@ -196,7 +205,7 @@ public final class AdventureScreen extends Screen {
 		int hintX = HINT_RIGHT - labelW - 1 - capW, hintY = Canvas.HEIGHT - 1 - hints.size();
 
 		//draw the scene over the whole screen, then darken it where text goes; every text comes after this
-		PixelImage.scene("grassland_road").ifPresent(art -> canvas.drawImage(0, 0, art)); //TODO the scene id will come from the story
+		PixelImage.backdrop(backdropId).ifPresent(backdrop -> canvas.drawImage(0, 0, backdrop));
 		canvas.fadeLeft(FADE_FROM_X, FADE_TO_X, FADE);
 		canvas.shadeAround(0, 0, Canvas.WIDTH, 2, TOP_SHADE, 4);
 		if (!hints.isEmpty()) {
@@ -221,7 +230,7 @@ public final class AdventureScreen extends Screen {
 			drawToolBar(Canvas.WIDTH - 3, TOP_Y, labels, actions, "  |  ");
 
 			//draw heading: where and when, a rule underneath
-			String location = scene.getLocation().toUpperCase();
+			String location = locationName.toUpperCase() + " · " + roomName.toUpperCase();
 			canvas.drawText(COL_X, HEADING_Y, location, Palette.TAG);
 			canvas.drawText(COL_X + location.length(), HEADING_Y, "  /  TURN %02d".formatted(scene.getTurn()), Palette.SUBTLE);
 			canvas.drawDivider(COL_X, HEADING_Y + 1, COL_W, Palette.MUTED); //Palette.LINE vanishes over the picture
@@ -275,7 +284,8 @@ public final class AdventureScreen extends Screen {
 				color = Palette.colorOf(Combatant.Side.ENEMY);
 			}
 			else {
-				text = "Take a rest (+%d HP)".formatted(Math.min(player.getMaxHp() - player.getHp(), (int) Math.round(player.getMaxHp() * StatRules.REST_RECOVERY))); //the same amount GameEngine restores
+				text = "Take a rest (+%d HP)".formatted(
+						Math.min(player.getMaxHp() - player.getHp(), (int) Math.round(player.getMaxHp() * recoveryRatio))); //the same amount GameEngine restores
 				color = Palette.colorOf(Attribute.CON);
 			}
 			drawListRow(commandRow, COL_X, y, COL_W, String.valueOf(commandRow + 1), text, focused, !waiting);

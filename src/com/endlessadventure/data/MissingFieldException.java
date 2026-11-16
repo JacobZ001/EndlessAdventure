@@ -9,7 +9,7 @@ public class MissingFieldException extends RuntimeException {
 		super("Field not found: " + field);
 		this.field = field;
 	}
-
+	
 	public String getField() {
 		return field;
 	}

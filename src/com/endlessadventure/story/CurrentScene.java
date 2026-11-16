@@ -8,13 +8,13 @@ public class CurrentScene extends Scene {
 	private final String[] options;
 	private final List<String> enemyIds;	//enemy templates present, one entry per enemy; empty when none
 
-	public CurrentScene(String location, String description, int turn, String[] options) {
-		this(location, description, turn, options, List.of());
+	public CurrentScene(String description, int turn, String[] options) {
+		this(description, turn, options, List.of());
 	}
 
 	/** enemyIds are the template ID of the enemies present in the scene, or empty when there is none */
-	public CurrentScene(String location, String description, int turn, String[] options, List<String> enemyIds) {
-		super(location, description, turn);
+	public CurrentScene(String description, int turn, String[] options, List<String> enemyIds) {
+		super(description, turn);
 		if(options.length < MIN_OPTION_COUNT || options.length > MAX_OPTION_COUNT) {
 			throw new IllegalArgumentException("Invalid option number: " + options.length
 					+ ", should be between " + MIN_OPTION_COUNT + " and " + MAX_OPTION_COUNT);
@@ -38,7 +38,8 @@ public class CurrentScene extends Scene {
 		return enemyIds;
 	}
 
-	public PastScene toPastScene(String option) {
-		return new PastScene(getLocation(), getDescription(), getTurn(), option);
+	/** roomId is the room this scene took place in */
+	public PastScene toPastScene(String option, String roomId) {
+		return new PastScene(roomId, getDescription(), getTurn(), option);
 	}
 }

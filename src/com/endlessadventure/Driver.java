@@ -3,6 +3,7 @@ package com.endlessadventure;
 import java.io.IOException;
 
 import com.endlessadventure.audio.Sound;
+import com.endlessadventure.data.BackdropCatalog;
 import com.endlessadventure.data.EnemyCatalog;
 import com.endlessadventure.data.EquipmentCatalog;
 import com.endlessadventure.llm.LlmClient;
@@ -15,10 +16,12 @@ public class Driver {
     public static void main(String[] args) {
     	EquipmentCatalog equipCat;
     	EnemyCatalog enemyCat;
+    	BackdropCatalog backCat;
     	try {
     		// read predefined data from files
 			 equipCat = new EquipmentCatalog();
 			 enemyCat = new EnemyCatalog(equipCat);
+			 backCat = new BackdropCatalog();
     	} catch(IOException e) {
             System.out.println("Cannot load game data: " + e.getMessage());
             return;
@@ -27,7 +30,7 @@ public class Driver {
     	//load game save, LLM client, and start game
 		try(UIHandler ui = new UIHandler()) {
 			SaveManager saveManager = new SaveManager(equipCat, enemyCat);
-			StoryGenerator storyGenerator = new StoryGenerator(new LlmClient(), enemyCat);
+			StoryGenerator storyGenerator = new StoryGenerator(new LlmClient(), backCat, enemyCat);
 			new GameEngine(ui, saveManager, storyGenerator, equipCat, enemyCat).run();
 		} catch (IOException e) {
 			System.out.println("Terminal error: " + e.getMessage());

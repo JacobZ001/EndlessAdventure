@@ -1,7 +1,7 @@
 """Offline asset pipeline for Endless Adventure: text-to-image -> cleanup -> game-sized PNGs.
 
     python tools/imagegen/imagegen.py generate [ids...]   # call the image API for sources that are missing
-    python tools/imagegen/imagegen.py convert  [ids...]   # turn sources into assets/icons, scenes and backdrops
+    python tools/imagegen/imagegen.py convert  [ids...]   # turn sources into assets/icons, backdrops and menus
     python tools/imagegen/imagegen.py prompts  [ids...]   # print the full prompts of missing sources
     python tools/imagegen/imagegen.py check                # self-test of the conversion, no network
 
@@ -33,11 +33,11 @@ SPECS = HERE / "assets.json"
 MODEL = "@cf/black-forest-labs/flux-1-schnell"
 
 ICON_SIZES = (12, 24)          # grid box (12 x 6 characters) and details panel (24 x 12 characters)
-SCENE_SIZE = (209, 102)        # adventure screen, the whole canvas: 209 x 51 characters; the game darkens it at run time
-BACKDROP_SIZE = (207, 98)      # a whole screen inside its frame: 207 x 49 characters
+BACKDROP_SIZE = (209, 102)     # adventure screen, the whole canvas: 209 x 51 characters; the game darkens it at run time
+MENU_SIZE = (207, 98)          # a whole screen inside its frame: 207 x 49 characters
 PORTRAIT_SIZE = (32, 62)       # the paper doll between the equipment slots: at most 32 x 31 characters
-BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a backdrop's sky and the ground under text become it
-DIM = 0.2                      # a "dim" backdrop keeps this share of the picture's contrast against BG
+BG = (0x0C, 0x10, 0x17)        # Palette.BG: text cells carry it, so a menu's sky and the ground under text become it
+DIM = 0.2                      # a "dim" menu keeps this share of the picture's contrast against BG
 ICON_FILL = 0.94               # the object's longer side fills this much of the square before shrinking
 HOLE_MIN = 0.001               # an enclosed background-colored area this share of the picture or larger is a hole;
                                # measured: a knuckle guard's hole 0.7 %, highlights and chainmail gaps under 0.01 %
@@ -46,11 +46,11 @@ HOLE_MIN = 0.001               # an enclosed background-colored area this share 
 # the black outline also walls the object off from the white background, so the matte cannot eat into it
 ICON_STYLE = ("16x16 pixel art RPG item icon, chunky bold shapes, thick black outline, 4 flat colors, "
               "centered on plain white background: ")
-# the scene area is 209:102 (about 2:1); an 8:3 picture loses an eighth on each side, other proportions lose more
-SCENE_STYLE = ("8:3 ultra-wide panorama, medium resolution pixel art RPG background, large simple shapes, "
+# the backdrop area is 209:102 (about 2:1); an 8:3 picture loses an eighth on each side, other proportions lose more
+BACKDROP_STYLE = ("8:3 ultra-wide panorama, medium resolution pixel art RPG background, large simple shapes, "
                "limited muted palette, no people: ")
-# a backdrop's subject also says where it stays empty, because menus are drawn over it
-BACKDROP_STYLE = "Wide pixel art fantasy RPG title screen background at night, no text, no characters. "
+# a menu's subject also says where it stays empty, because menus are drawn over it
+MENU_STYLE = "Wide pixel art fantasy RPG title screen background at night, no text, no characters. "
 # a whole standing figure in the paper doll's proportions (32 x 62 is about 1:2), so it scales straight into place;
 # at this size the face is a few pixels anyway: the silhouette and the large color areas carry the character
 # the pose belongs to each character's subject: "standing straight, front view" here made every figure stand at attention
@@ -63,7 +63,7 @@ FIGURE_STYLE = ("full body pixel art RPG character, standing, three-quarter fron
 # things that stand on the battle map (trees, rocks): side view like the figures, standing on the bottom edge
 PROP_STYLE = "pixel art RPG {}, side view, whole object, flat shaded colors, centered on plain white background"
 GROUND_STYLE = "top-down pixel art texture, {} seen from above, flat even lighting"
-STYLES = {"icon": ICON_STYLE, "scene": SCENE_STYLE, "backdrop": BACKDROP_STYLE, "portrait": PORTRAIT_STYLE,
+STYLES = {"icon": ICON_STYLE, "backdrop": BACKDROP_STYLE, "menu": MENU_STYLE, "portrait": PORTRAIT_STYLE,
           "figure": FIGURE_STYLE}
 FIGURE_HEIGHT = 17                 # battle figures: about 1.4 map cells tall; props give their own "height"
 LARGE_FIGURE_HEIGHT = 26           # the same figure in the battle side panels (the player and the target details)
@@ -236,20 +236,20 @@ def unletterbox(source):
     return rgb.crop((0, content[0], rgb.width, content[-1] + 1)) if content.size else rgb
 
 
-def to_scene(source):
-    """the middle of the picture with the scene area's proportions, shrunk to the scene size"""
+def to_backdrop(source):
+    """the middle of the picture with the backdrop area's proportions, shrunk to the backdrop size"""
     w, h = source.size
-    cw = min(w, round(h * SCENE_SIZE[0] / SCENE_SIZE[1]))   # too wide: cut the sides
-    ch = min(h, round(w * SCENE_SIZE[1] / SCENE_SIZE[0]))   # too tall: cut the top and bottom
+    cw = min(w, round(h * BACKDROP_SIZE[0] / BACKDROP_SIZE[1]))   # too wide: cut the sides
+    ch = min(h, round(w * BACKDROP_SIZE[1] / BACKDROP_SIZE[0]))   # too tall: cut the top and bottom
     left, top = (w - cw) // 2, (h - ch) // 2
-    return source.convert("RGB").crop((left, top, left + cw, top + ch)).resize(SCENE_SIZE, Image.Resampling.BOX)
+    return source.convert("RGB").crop((left, top, left + cw, top + ch)).resize(BACKDROP_SIZE, Image.Resampling.BOX)
 
 
-def to_backdrop(source, text_cells, look=None):
+def to_menu(source, text_cells, look=None):
     """a full-width picture for behind a menu: shrunk to the screen's width and kept from the bottom up, the sky
     recolored to BG, and faded to BG around the text cells [x, row, width, rows] that the menu draws over it.
     look "dim" keeps only a trace of the picture, for screens where it should stay in the background"""
-    w, h = BACKDROP_SIZE
+    w, h = MENU_SIZE
     picture = unletterbox(source)
     height = round(w * picture.height / picture.width)
     a = np.asarray(picture.resize((w, height), Image.Resampling.BOX)).astype(float)[-h:]
@@ -276,7 +276,7 @@ def to_backdrop(source, text_cells, look=None):
 
 
 def convert(ids):
-    for folder in ("icons", "scenes", "backdrops", "portraits", "figures", "grounds"):
+    for folder in ("icons", "backdrops", "menus", "portraits", "figures", "grounds"):
         (ASSETS / folder).mkdir(parents=True, exist_ok=True)
     for spec in selected(load_specs(), ids):
         path = source_of(spec)
@@ -303,14 +303,14 @@ def convert(ids):
                     to_figure(source, LARGE_FIGURE_HEIGHT).save(ASSETS / "figures" / f"{spec['id']}-large.png")
             elif spec["kind"] == "ground":
                 to_ground(source).save(ASSETS / "grounds" / f"{spec['id']}.png")
-            elif spec["kind"] == "backdrop":
-                to_backdrop(source, spec.get("text", []), spec.get("look")).save(ASSETS / "backdrops" / f"{spec['id']}.png")
+            elif spec["kind"] == "menu":
+                to_menu(source, spec.get("text", []), spec.get("look")).save(ASSETS / "menus" / f"{spec['id']}.png")
             else:
                 picture = unletterbox(source)
-                to_scene(picture).save(ASSETS / "scenes" / f"{spec['id']}.png")
-                ratio = picture.width / picture.height / (SCENE_SIZE[0] / SCENE_SIZE[1])
+                to_backdrop(picture).save(ASSETS / "backdrops" / f"{spec['id']}.png")
+                ratio = picture.width / picture.height / (BACKDROP_SIZE[0] / BACKDROP_SIZE[1])
                 if min(ratio, 1 / ratio) < 0.7:
-                    print(f"{spec['id']}: WARNING only {min(ratio, 1 / ratio):.0%} of the picture fits the scene area;"
+                    print(f"{spec['id']}: WARNING only {min(ratio, 1 / ratio):.0%} of the picture fits the backdrop area;"
                           " make an 8:3 picture")
         print(f"{spec['id']}: converted")
 
@@ -335,20 +335,20 @@ def check():
     letterboxed = Image.new("RGB", (1536, 1024), (0, 0, 0))
     letterboxed.paste(Image.new("RGB", (1536, 576), bg), (0, 224))        # an 8:3 picture between black bars
     assert unletterbox(letterboxed).size == (1536, 576), "black bars should be cut off"
-    scene = to_scene(Image.new("RGB", (1024, 1024), bg))
-    assert scene.size == SCENE_SIZE
-    assert to_scene(Image.new("RGB", (2048, 476), bg)).getpixel((75, 55)) == bg, "a too wide picture loses its sides"
+    backdrop = to_backdrop(Image.new("RGB", (1024, 1024), bg))
+    assert backdrop.size == BACKDROP_SIZE
+    assert to_backdrop(Image.new("RGB", (2048, 476), bg)).getpixel((75, 55)) == bg, "a too wide picture loses its sides"
     night = Image.new("RGB", (2048, 768), (6, 17, 37))
     ImageDraw.Draw(night).rectangle((0, 560, 2047, 767), fill=(40, 70, 40))   # the land along the bottom
-    backdrop = to_backdrop(night, [[100, 40, 10, 1]])                           # one line of text at row 40
-    assert backdrop.width == BACKDROP_SIZE[0] and backdrop.height <= BACKDROP_SIZE[1]
-    assert backdrop.getpixel((5, 0)) == BG, "the sky becomes BG"
-    assert backdrop.getpixel((104, 80 - (100 - backdrop.height))) == BG, "the picture fades to BG under text"
-    dim = np.asarray(to_backdrop(night, [], "dim")).astype(int)
-    full = np.asarray(to_backdrop(night, [])).astype(int)
-    assert np.abs((dim - BG) - (full - BG) * DIM).max() <= 1, "a dim backdrop keeps DIM of the contrast against BG"
+    menu = to_menu(night, [[100, 40, 10, 1]])                           # one line of text at row 40
+    assert menu.width == MENU_SIZE[0] and menu.height <= MENU_SIZE[1]
+    assert menu.getpixel((5, 0)) == BG, "the sky becomes BG"
+    assert menu.getpixel((104, 80 - (100 - menu.height))) == BG, "the picture fades to BG under text"
+    dim = np.asarray(to_menu(night, [], "dim")).astype(int)
+    full = np.asarray(to_menu(night, [])).astype(int)
+    assert np.abs((dim - BG) - (full - BG) * DIM).max() <= 1, "a dim menu keeps DIM of the contrast against BG"
     shift = tuple(b - s for b, s in zip(BG, (6, 17, 37)))
-    assert backdrop.getpixel((5, backdrop.height - 1)) == tuple(c + d for c, d in zip((40, 70, 40), shift)), \
+    assert menu.getpixel((5, menu.height - 1)) == tuple(c + d for c, d in zip((40, 70, 40), shift)), \
         "land away from the text moves with the sky, keeping its contrast"
     tall = Image.new("RGB", (400, 1000), (255, 255, 255))
     ImageDraw.Draw(tall).rectangle((150, 100, 250, 900), fill=(40, 40, 40))       # a standing figure

@@ -15,6 +15,7 @@ import com.endlessadventure.llm.LlmRequestException;
 import com.endlessadventure.save.BadSaveException;
 import com.endlessadventure.save.SaveManager;
 import com.endlessadventure.story.CurrentScene;
+import com.endlessadventure.story.Move;
 import com.endlessadventure.story.StoryGenerator;
 import com.endlessadventure.ui.AdventureScreen;
 import com.endlessadventure.ui.CombatScreen;
@@ -34,7 +35,7 @@ public class GameEngine {
 	/** defined a custom supplier interface as jdk vanilla supplier cannot throw a checked exception */
 	@FunctionalInterface
 	private interface StoryRequester {
-		CurrentScene request() throws LlmRequestException; 
+		StoryGenerator.StoryResult request() throws LlmRequestException; 
 	} 
 
 	private final UIHandler ui;
@@ -174,11 +175,24 @@ public class GameEngine {
 			case REST -> {
 				Player p = gameState.getPlayer();
 				int before = p.getHp();
-				p.restoreHP( (int) Math.round(p.getMaxHp() * StatRules.REST_RECOVERY));
-
-				if(!advanceStory(() -> storyGenerator.generateAfterRest(gameState, before), 
+				int amount =  (int) Math.round(p.getMaxHp() * gameState.getCurrentLocation().kind().restRecoveryRatio);
+				boolean interrupted = gameState.isProtected()? false : 
+					RandomGenerator.getDefault().nextDouble() < gameState.getCurrentLocation().kind().restInterruptChance;
+				
+				p.restoreHP(interrupted? amount / 2 : amount); //heals half of original amount if interrupted
+				//if LLM request failed, then the rest and healing is reverted
+				if(interrupted) {
+					if(!advanceStory(() -> storyGenerator.generateAfterInterruptedRest(gameState, before),
+							storyGenerator.interruptedRestSummary(before, p))) {
+						p.setHp(before);
+					}
+				}
+				else if(!advanceStory(() -> storyGenerator.generateAfterRest(gameState, before), 
 						storyGenerator.restSummary(before, p))){
-					p.setHp(before); //if LLM request failed and the rest did not happen, revert healing so no heal for free
+					p.setHp(before); 
+				}
+				else {
+					gameState.setProtected(false);
 				}
 				yield GameScreen.ADVENTURE;
 			}
@@ -191,9 +205,29 @@ public class GameEngine {
 	private boolean advanceStory(StoryRequester requester, String action) {
 		CurrentScene previous = gameState.getCurrentScene();
 		try {
-			gameState.setCurrentScene(requester.request());
+			StoryGenerator.StoryResult result = requester.request();
 			if(previous != null) {
-				gameState.addToHistory(previous.toPastScene(action));
+				gameState.addToHistory(previous.toPastScene(action, gameState.getCurrentRoom().id()));
+			}
+			gameState.setCurrentScene(result.scene());
+			switch(result.move()) {
+				case Move.Stay s -> {}
+				case Move.ToRoom(String id) -> gameState.moveTo(id);
+				case Move.NewRoom(String name, String backdrop) -> {
+					WorldMap map = gameState.getWorldMap();
+					WorldMap.Room newRoom = map.addRoom(gameState.getCurrentLocation().id(), name, backdrop);
+					map.connect(gameState.getCurrentRoom().id(), newRoom.id());
+					gameState.moveTo(newRoom.id());
+				}
+				case Move.NewLocation(String name, WorldMap.LocationKind kind, String theme, int danger, String room, String backdrop) -> {
+					WorldMap map = gameState.getWorldMap();
+					WorldMap.Location newLocation = map.addLocation(name, kind, theme, danger);
+					WorldMap.Room newRoom = map.addRoom(newLocation.id(), room, backdrop);
+					if(gameState.getCurrentRoom() != null) {
+						map.connect(gameState.getCurrentRoom().id(), newRoom.id());
+					}
+					gameState.moveTo(newRoom.id());
+				}
 			}
 			ui.clearStatusMsg();
 			return true;
@@ -235,10 +269,11 @@ public class GameEngine {
 		}
 		Battle battle = Battle.onRandomMap(gameState.getPlayer(), enemies, RandomGenerator.getDefault());
 		
-		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentScene().getLocation()).run(); 
+		Battle.Outcome outcome = new CombatScreen(ui, battle, gameState.getCurrentLocation().name()).run(); 
 		if(outcome == Battle.Outcome.DEFEATED) {
 			//a downed player comes to with 1 HP for story progression purpose, the story then tells where they wake
 			gameState.getPlayer().setHp(1);
+			gameState.setProtected(true);
 		}
 		
 		
