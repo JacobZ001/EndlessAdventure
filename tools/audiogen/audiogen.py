@@ -19,13 +19,12 @@ SYNTH_RATE = 44100
 RATES = {"sfx": 22050, "music": 32000}   # mono 16-bit; music costs about 3.7 MB a minute
 SOURCE_TYPES = (".wav", ".mp3", ".ogg", ".flac")
 LOOP_FADE = 0.02       # seconds of crossfade where a cut music loop wraps around: only enough to avoid a click
-SFX_PEAK = 0.7         # -3 dBFS
+SFX_PEAK = 0.3         # about -10 dBFS: the synthesized effects are harsh next to the Suno music
 MUSIC_RMS = 0.05       # about -26 dBFS, well under the effects
 MUSIC_PEAK = 0.5
 
 # shared style text that comes before each subject in `prompts`, as in imagegen
-MUSIC_STYLE = ("Modern fantasy RPG soundtrack, hybrid folk and electronic, moody and cool, "
-               "loopable arrangement, instrumental presentation; ")
+MUSIC_STYLE = "Fantasy RPG soundtrack, western medieval fantasy, instrumental presentation, loopable arrangement; "
 SFX_STYLE = "short dry game sound effect, single sound, no music, no reverb tail: "
 
 
@@ -251,6 +250,16 @@ def cut_loop(x, rate, start, end, fade=LOOP_FADE):
     return y
 
 
+def fade_ends(x, rate, fade_in, fade_out):
+    """the whole track without silence at its ends, fading in and out, for music that restarts instead of looping"""
+    loud = np.nonzero(np.abs(x) > np.max(np.abs(x)) * 0.003)[0]   # silence below -50 dB
+    x = x[loud[0]:loud[-1] + 1].copy()
+    i, o = min(int(fade_in * rate), len(x) // 2), min(int(fade_out * rate), len(x) // 2)
+    x[:i] *= np.sin(np.linspace(0, np.pi / 2, i)) ** 2
+    x[len(x) - o:] *= np.cos(np.linspace(0, np.pi / 2, o)) ** 2
+    return x
+
+
 def resample(x, rate, target, loop):
     if rate == target:
         return x
@@ -327,6 +336,8 @@ def cmd_convert(ids):
         rate, x = read_source(src)
         if "loop" in e:
             x = cut_loop(x, rate, *e["loop"])
+        elif "fade" in e:
+            x = fade_ends(x, rate, *e["fade"])
         y = finish(x, rate, e["kind"])
         write_wav(OUT / f"{e['id']}.wav", y, RATES[e["kind"]])
         print(f"{e['id']}: {src.name} -> {len(y) / RATES[e['kind']]:.2f}s, {len(y) * 2 // 1024} KB")
@@ -355,6 +366,9 @@ def cmd_check(_ids):
         raise AssertionError("a loop with no room for the crossfade was accepted")
     except ValueError:
         pass
+    # a restarting track loses its silent ends, then starts and ends at zero
+    y = fade_ends(np.concatenate([np.zeros(50), np.ones(1000), np.zeros(50)]), 100, 1, 2)
+    assert len(y) == 1000 and y[0] == 0 and abs(y[-1]) < 1e-9 and y[150] == 1 and y[790] == 1 and 0 < y[850] < 1
     # effects lose their silence and hit the shared peak
     padded = np.concatenate([np.zeros(1000), sfx_ui_confirm(), np.zeros(1000)])
     y = finish(padded, SYNTH_RATE, "sfx")
