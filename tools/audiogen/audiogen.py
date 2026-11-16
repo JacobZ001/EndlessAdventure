@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from scipy.io import wavfile
+import soundfile
 from scipy.signal import butter, resample_poly, sosfilt
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,10 +16,17 @@ SOURCE = HERE / "source"
 OUT = ROOT / "assets" / "sounds"
 
 SYNTH_RATE = 44100
-GAME_RATE = 22050      # mono 16-bit: about 44 KB per second of music
+RATES = {"sfx": 22050, "music": 32000}   # mono 16-bit; music costs about 3.7 MB a minute
+SOURCE_TYPES = (".wav", ".mp3", ".ogg", ".flac")
+LOOP_FADE = 0.5        # seconds of crossfade where a cut music loop wraps around
 SFX_PEAK = 0.7         # -3 dBFS
 MUSIC_RMS = 0.05       # about -26 dBFS, well under the effects
 MUSIC_PEAK = 0.5
+
+# shared style text that comes before each subject in `prompts`, as in imagegen
+MUSIC_STYLE = ("instrumental, no vocals, dark fantasy RPG soundtrack, restrained cinematic, "
+               "steady tempo and mood throughout, loopable: ")
+SFX_STYLE = "short dry game sound effect, single sound, no music, no reverb tail: "
 
 
 def manifest():
@@ -213,32 +220,50 @@ def synth(entry):
     return recipe() if recipe else None
 
 
-# ---------- conversion: any WAV source -> the game's format ----------
+# ---------- conversion: any source file -> the game's format ----------
 
-def read_wav(path):
-    rate, data = wavfile.read(path)
-    if data.dtype.kind in "iu":
-        bits = data.dtype.itemsize * 8
-        data = (data.astype(np.float64) - (2 ** (bits - 1) if data.dtype.kind == "u" else 0)) / 2 ** (bits - 1)
-    data = data.astype(np.float64)
-    return rate, data.mean(axis=1) if data.ndim == 2 else data
+def source_of(entry):
+    """the entry's source file in any readable type, or None"""
+    found = [SOURCE / (entry["id"] + t) for t in SOURCE_TYPES if (SOURCE / (entry["id"] + t)).exists()]
+    if len(found) > 1:
+        sys.exit(f"{entry['id']}: several sources ({', '.join(f.name for f in found)}); keep one")
+    return found[0] if found else None
 
 
-def resample(x, rate, loop):
-    if rate == GAME_RATE:
+def read_source(path):
+    """any WAV, MP3, OGG or FLAC -> rate and mono float samples"""
+    data, rate = soundfile.read(path, dtype="float64", always_2d=True)
+    return rate, data.mean(axis=1)
+
+
+def cut_loop(x, rate, start, end):
+    """the part from start to end seconds, made to loop: its first LOOP_FADE seconds fade in
+    while the music just after end fades out, so the wrap from its last sample to its first is continuous"""
+    a, b, f = (int(round(v * rate)) for v in (start, end, LOOP_FADE))
+    if not 0 <= a < a + f <= b <= len(x) - f:
+        raise ValueError(f"loop {start}-{end}s does not fit: the source is {len(x) / rate:.2f}s "
+                         f"and needs {LOOP_FADE}s after the end for the crossfade")
+    y = x[a:b].copy()
+    w = np.linspace(0, np.pi / 2, f)
+    y[:f] = x[a:a + f] * np.sin(w) + x[b:b + f] * np.cos(w)   # equal power: no dip in loudness
+    return y
+
+
+def resample(x, rate, target, loop):
+    if rate == target:
         return x
-    g = math.gcd(GAME_RATE, rate)
+    g = math.gcd(target, rate)
     if not loop:
-        return resample_poly(x, GAME_RATE // g, rate // g)
+        return resample_poly(x, target // g, rate // g)
     # a loop is resampled between copies of itself so its seam stays smooth
-    y = resample_poly(np.tile(x, 3), GAME_RATE // g, rate // g)
+    y = resample_poly(np.tile(x, 3), target // g, rate // g)
     n = len(y) // 3
     return y[n:2 * n]
 
 
 def finish(x, rate, kind):
     """mono float samples at any rate -> game samples, with levels shared by every sound of the kind"""
-    x = resample(np.asarray(x, dtype=np.float64), rate, kind == "music")
+    x = resample(np.asarray(x, dtype=np.float64), rate, RATES[kind], kind == "music")
     if kind == "music":
         rms = math.sqrt(np.mean(x ** 2)) or 1
         x = x * MUSIC_RMS / rms
@@ -248,16 +273,16 @@ def finish(x, rate, kind):
     if len(loud) == 0:
         raise ValueError("silent")
     x = x[loud[0]:loud[-1] + 1]
-    fade = min(len(x) // 2, int(0.003 * GAME_RATE))
+    fade = min(len(x) // 2, int(0.003 * RATES[kind]))
     if fade:
         x[:fade] *= np.linspace(0, 1, fade)
         x[-fade:] *= np.linspace(1, 0, fade)
     return x * SFX_PEAK / np.max(np.abs(x))
 
 
-def write_game(path, x):
+def write_wav(path, x, rate):
     path.parent.mkdir(parents=True, exist_ok=True)
-    wavfile.write(path, GAME_RATE, np.round(np.clip(x, -1, 1) * 32767).astype(np.int16))
+    soundfile.write(path, np.clip(x, -1, 1), rate, subtype="PCM_16")
 
 
 # ---------- commands ----------
@@ -270,32 +295,39 @@ def pick(ids):
     return [e for e in entries if not ids or e["id"] in ids]
 
 
+def cmd_prompts(ids):
+    """prints the full prompt of every chosen sound, ready to paste into Suno (music) or a sound effect generator"""
+    for e in pick(ids):
+        style = MUSIC_STYLE if e["kind"] == "music" else SFX_STYLE
+        print(f"{e['id']} ({e['kind']}, {e['use']}):\n  {style}{e['subject']}\n")
+
+
 def cmd_synth(ids):
     """writes a synthesized source for every chosen sound that has no source yet"""
     for e in pick(ids):
-        path = SOURCE / f"{e['id']}.wav"
-        if path.exists():
+        if source_of(e):
             print(f"{e['id']}: has a source, kept")
             continue
         x = synth(e)
         if x is None:
-            print(f"{e['id']}: no recipe; put a WAV at {path.relative_to(ROOT)}")
+            print(f"{e['id']}: no recipe; put a source at {(SOURCE / e['id']).relative_to(ROOT)}.wav (or .mp3, .ogg, .flac)")
             continue
-        path.parent.mkdir(parents=True, exist_ok=True)
-        wavfile.write(path, SYNTH_RATE, np.round(np.clip(x / np.max(np.abs(x)), -1, 1) * 32767).astype(np.int16))
+        write_wav(SOURCE / f"{e['id']}.wav", x / np.max(np.abs(x)), SYNTH_RATE)
         print(f"{e['id']}: synthesized {len(x) / SYNTH_RATE:.2f}s")
 
 
 def cmd_convert(ids):
     for e in pick(ids):
-        src = SOURCE / f"{e['id']}.wav"
-        if not src.exists():
+        src = source_of(e)
+        if not src:
             print(f"{e['id']}: no source, skipped")
             continue
-        rate, x = read_wav(src)
+        rate, x = read_source(src)
+        if "loop" in e:
+            x = cut_loop(x, rate, *e["loop"])
         y = finish(x, rate, e["kind"])
-        write_game(OUT / f"{e['id']}.wav", y)
-        print(f"{e['id']}: {len(y) / GAME_RATE:.2f}s, {len(y) * 2 // 1024} KB")
+        write_wav(OUT / f"{e['id']}.wav", y, RATES[e["kind"]])
+        print(f"{e['id']}: {src.name} -> {len(y) / RATES[e['kind']]:.2f}s, {len(y) * 2 // 1024} KB")
 
 
 def cmd_check(_ids):
@@ -304,42 +336,53 @@ def cmd_check(_ids):
         x = song(name)
         assert len(x) == int(round(64 * 30 / spec["bpm"] * SYNTH_RATE)), name
     # a looping sine stays continuous across the seam after resampling
-    n = SYNTH_RATE
-    sine = np.sin(2 * np.pi * 441 * np.arange(n) / SYNTH_RATE)
+    sine = np.sin(2 * np.pi * 441 * np.arange(SYNTH_RATE) / SYNTH_RATE)
     y = finish(sine, SYNTH_RATE, "music")
-    assert len(y) == GAME_RATE
+    assert len(y) == RATES["music"]
     assert abs(y[0] - y[-1]) < np.max(np.abs(np.diff(y))) * 1.5, "seam jumps"
     assert abs(math.sqrt(np.mean(y ** 2)) - MUSIC_RMS) < 1e-3
+    # a cut loop wraps around without a jump: its first sample continues its last
+    ramp = np.arange(10 * 100) / 100.0                 # 10 s at 100 Hz, rising 1 per second
+    y = cut_loop(ramp, 100, 2, 6)
+    assert len(y) == 400 and abs(y[0] - 6.0) < 1e-9 and abs(y[-1] - 5.99) < 1e-9
+    assert abs(y[60] - ramp[260]) < 1e-9                # after the crossfade it is the source again
+    try:
+        cut_loop(ramp, 100, 2, 9.8)
+        raise AssertionError("a loop with no room for the crossfade was accepted")
+    except ValueError:
+        pass
     # effects lose their silence and hit the shared peak
     padded = np.concatenate([np.zeros(1000), sfx_ui_confirm(), np.zeros(1000)])
     y = finish(padded, SYNTH_RATE, "sfx")
     assert abs(np.max(np.abs(y)) - SFX_PEAK) < 1e-9
     assert len(y) < len(sfx_ui_confirm()) / 2 + 10
-    # 8-bit and stereo sources read as mono floats
-    rate, x = read_wav_bytes(np.array([[0, 255], [128, 128]], dtype=np.uint8))
-    assert rate == 8000 and x.shape == (2,) and abs(x[1]) < 1e-9
-    # every manifest entry has a recipe and a converted file
+    # 8-bit stereo and MP3 sources read as mono floats
+    buf = io.BytesIO()
+    soundfile.write(buf, np.array([[-1.0, 1.0], [0.5, 0.5]]), 8000, format="WAV", subtype="PCM_U8")
+    buf.seek(0)
+    rate, x = read_source(buf)
+    assert rate == 8000 and x.shape == (2,) and abs(x[0]) < 0.01 and abs(x[1] - 0.5) < 0.01
+    buf = io.BytesIO()
+    soundfile.write(buf, sine[:SYNTH_RATE // 2], SYNTH_RATE, format="MP3")
+    buf.seek(0)
+    rate, x = read_source(buf)
+    assert rate == SYNTH_RATE and abs(len(x) - SYNTH_RATE // 2) < 3000
+    # every manifest entry has a recipe, a subject and a converted file
     for e in manifest():
         assert synth_exists(e), f"{e['id']}: no recipe"
+        assert e.get("subject"), f"{e['id']}: no subject"
         if not (OUT / f"{e['id']}.wav").exists():
             print(f"warning: {e['id']} has no file in assets/sounds")
     print("check passed")
-
-
-def read_wav_bytes(data):
-    buf = io.BytesIO()
-    wavfile.write(buf, 8000, data)
-    buf.seek(0)
-    return read_wav(buf)
 
 
 def synth_exists(e):
     return e["id"] in SONGS if e["kind"] == "music" else "sfx_" + e["id"] in globals()
 
 
-COMMANDS = {"synth": cmd_synth, "convert": cmd_convert, "check": cmd_check}
+COMMANDS = {"prompts": cmd_prompts, "synth": cmd_synth, "convert": cmd_convert, "check": cmd_check}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
-        sys.exit("usage: python tools/audiogen/audiogen.py synth|convert|check [ids...]")
+        sys.exit("usage: python tools/audiogen/audiogen.py prompts|synth|convert|check [ids...]")
     COMMANDS[sys.argv[1]](sys.argv[2:])

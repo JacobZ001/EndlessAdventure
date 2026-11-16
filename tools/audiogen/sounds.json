@@ -1,13 +1,23 @@
 [
-  {"id": "ui_move",    "kind": "sfx",   "use": "focus moves to another entry (arrow keys, hover)"},
-  {"id": "ui_confirm", "kind": "sfx",   "use": "an entry or button is chosen (ENTER, click)"},
-  {"id": "ui_back",    "kind": "sfx",   "use": "leaving a screen or mode (ESC, BACK)"},
-  {"id": "ui_error",   "kind": "sfx",   "use": "the action is not allowed (NEXT disabled, empty slot)"},
-  {"id": "hit",        "kind": "sfx",   "use": "an attack deals damage"},
-  {"id": "block",      "kind": "sfx",   "use": "an attack deals no damage, or a unit takes a defense action"},
-  {"id": "miss",       "kind": "sfx",   "use": "an attack misses or is dodged"},
+  {"id": "ui_move",    "kind": "sfx",   "use": "focus moves to another entry (arrow keys, hover)",
+   "subject": "very soft muted wooden tick, like a fingertip on a wooden table"},
+  {"id": "ui_confirm", "kind": "sfx",   "use": "an entry or button is chosen (ENTER, click)",
+   "subject": "small silver bell tapped once, clear and short"},
+  {"id": "ui_back",    "kind": "sfx",   "use": "leaving a screen or mode (ESC, BACK)",
+   "subject": "soft low thud of a leather-bound book closing"},
+  {"id": "ui_error",   "kind": "sfx",   "use": "the action is not allowed (NEXT disabled, empty slot)",
+   "subject": "dull low wooden knock, two quick knocks, muted"},
+  {"id": "hit",        "kind": "sfx",   "use": "an attack deals damage",
+   "subject": "sword slash cutting into leather armor, heavy flesh impact"},
+  {"id": "block",      "kind": "sfx",   "use": "an attack deals no damage, or a unit takes a defense action",
+   "subject": "sword striking a wooden shield, heavy thud with a short metal clang"},
+  {"id": "miss",       "kind": "sfx",   "use": "an attack misses or is dodged",
+   "subject": "fast sword whoosh through the air"},
 
-  {"id": "menu",       "kind": "music", "use": "main menu, character creation, save screens"},
-  {"id": "adventure",  "kind": "music", "use": "adventure screen and inventory"},
-  {"id": "combat",     "kind": "music", "use": "combat screen"}
+  {"id": "menu",       "kind": "music", "use": "main menu, character creation, save screens",
+   "subject": "solemn mysterious night theme, low strings, harp, soft choir pad, a distant bell, slow"},
+  {"id": "adventure",  "kind": "music", "use": "adventure screen and inventory",
+   "subject": "wandering travel theme, acoustic guitar, low strings, light hand drums, warm but uncertain, medium tempo"},
+  {"id": "combat",     "kind": "music", "use": "combat screen",
+   "subject": "tense battle theme, frame drums and taiko, staccato strings, brass stabs, fast"}
 ]
