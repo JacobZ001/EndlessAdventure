@@ -17,7 +17,8 @@ As of November 12, 2026, the minimal playable version (v0) is complete: characte
 
 ### Known gaps
 
-- Not implemented: experience and leveling, loot, usable skills and checks, potions and special actions, locations, inventory categories and paging.
+- Not implemented: experience and leveling, loot, usable skills and checks, potions and special actions, inventory categories and paging.
+- Returning to a known room that is not next to the current one creates a second room with the same name.
 - History is sent in full with each continuation; there is no summary or context-size limit yet. If the opening scene cannot be generated, the game returns to the main menu with an error; a failed continuation keeps the current scene. If the story after a battle cannot be generated, the scene before the battle stays, so its enemies can be fought again (as new enemies); a failed rest request undoes the healing. There is no automatic retry or offline story fallback.
 
 ## Requirements
@@ -42,7 +43,16 @@ The game must be launched with `lib` on the module path. Narrative generation re
 4. Create the local `.env` file described below.
 5. Build the project, then launch it in Windows Terminal through **External Tools** as described below. The game needs an interactive terminal; if it cannot open one, it prints a terminal error and exits, so launch it in Windows Terminal rather than the IDE console.
 
-The final course submission will include updated run instructions and any known limitations; the requirement mapping is below.
+## Run without Eclipse
+
+From the project root in Windows Terminal (maximized), with JDK 21 on the path:
+
+```powershell
+javac --release 21 -encoding UTF-8 --module-path lib -d bin (Get-ChildItem -Recurse src -Filter *.java).FullName
+java --module-path "bin;lib" --module EndlessAdventure/com.endlessadventure.Driver
+```
+
+The first command is only needed after the source changes (Eclipse's build writes the same `bin`). Story requests need the `.env` file described below.
 
 `references/` holds static design reference images (AI-generated prototype renders, not game assets). Game images and sounds are in `assets/`; the game reads `assets/` and `data/` relative to the project root, so launch it from there.
 
@@ -103,7 +113,7 @@ Core gameplay is checked manually in Windows Terminal; automated core checks can
 - The full source compiles with JDK 21 using `lib` as the module path (checked October 30, 2026).
 - The offline story-generation check, including the enemy list, after-combat narration and resting, passed on November 12, 2026. The offline configuration check passed on November 12, 2026.
 - The battle screen, inventory, character creation with starting equipment, audio, and save/load were tested by the author in Windows Terminal between October 22 and October 31, 2026.
-- The offline story-generation check (JSON request and response schema, moves, encounters, interrupted rests) passed on November 16, 2026, and the full source compiles with `lib` as the module path. A scratch save check (not kept in the repository) round-tripped a version 5 save with its map and rejected nine kinds of corrupt files with errors the save manager reports as corrupt (November 16, 2026). Saving and loading the map has not yet been played in the game.
+- The offline story-generation check (JSON request and response schema, moves, encounters, interrupted rests) passed on November 16, 2026, and the full source compiles with `lib` as the module path. A scratch save check (not kept in the repository) round-tripped a version 5 save with its map and rejected nine kinds of corrupt files with errors the save manager reports as corrupt (November 16, 2026). The author saved and loaded a game with its world map in Windows Terminal on November 17, 2026.
 - Moves with the JSON protocol (staying, a new room, a known room, a new location) were tried with the real model on November 14, 2026; the author's playtest that day confirmed moves.
 - The v0 path (encounters with one and two bandits, battle, after-combat story, resting, saving and loading a scene with enemies) was played with the real model by the author in Windows Terminal on November 12, 2026.
 
@@ -129,35 +139,35 @@ if ($LASTEXITCODE -ne 0) { throw 'Story check failed' }
 
 ## Course requirement mapping
 
-Status as of November 12, 2026. File and line references will be added for the final submission. Only code written by the author is cited as evidence; code implemented by the GenAI agent (the LLM module, listed under Development assistance) does not count toward a requirement. Requirements that are not met yet will be covered by a feature that needs them, not added for their own sake.
+Status as of November 17, 2026. Paths are relative to `src/com/endlessadventure/`; line numbers refer to the submitted commit. Only code written by the author is cited as evidence; code implemented by the GenAI agent (the LLM module, listed under Development assistance) does not count toward a requirement. Requirements that are not met yet will be covered by a feature that needs them, not added for their own sake.
 
 | Requirement | Status | Where |
 |---|---|---|
 | At least 8 classes | Met | More than 50 author-written classes across `entity`, `item`, `data`, `combat`, `save`, `audio`, `ui` |
-| Fields private or protected; invalid values rejected | Met | Setters and constructors validate, e.g. `Entity.setHp`, `Player.setExp`, `Player.PlayerBuilder`, item, equipment and enemy constructors |
-| Overloaded constructors, one delegating with `this(...)` | Met | `GameState`, `Player`, `Button` |
-| Meaningful static members | Met | `StatRules` (growth and combat rules), `SaveManager.SLOT_COUNT` |
-| `toString()` overridden in at least 3 classes | Met | `Item` and `Entity` (their names, used in log lines and error messages), `Position` (`(x, y)`, used in map errors), and the display names of enums such as `Equipment.Quality` and `Weapon.Type` |
-| `equals()` and `hashCode()` overridden together | Met | `Item`, equal by catalog definition ID |
-| Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` / `Enemy`; `Item` → `Equipment` → `Weapon` |
-| Abstract class with at least 2 abstract methods | Met | `Item` (`getCategoryLabel`, `getDetails`); `Equipment` (`fits`, `addStats`) |
-| At least 3 concrete subclasses of that abstract class | Met | `Weapon`, `Armor`, `Shield` (via `Equipment`) |
+| Fields private or protected; invalid values rejected | Met | `Entity.setHp` (`entity/Entity.java:61`), `Player.setExp` (`entity/Player.java:37`), `Player.PlayerBuilder` (`entity/Player.java:98`), item, equipment and enemy constructors |
+| Overloaded constructors, one delegating with `this(...)` | Met | `GameState` (`GameState.java:20`, `:25`, `:42`), `Player` (`entity/Player.java:14`, `:22`), `Button` (`ui/Button.java:12`, `:17`) |
+| Meaningful static members | Met | `StatRules` growth and combat rules (`StatRules.java:8`), `SaveManager.SLOT_COUNT` (`save/SaveManager.java:22`) |
+| `toString()` overridden in at least 3 classes | Met | `Item` (`item/Item.java:60`) and `Entity` (`entity/Entity.java:103`), their names, used in log lines and error messages; `Position` (`combat/Position.java:9`), `(x, y)`, used in map errors; display names of enums such as `Equipment.Quality` (`item/Equipment.java:85`) and `Weapon.Type` (`item/Weapon.java:110`) |
+| `equals()` and `hashCode()` overridden together | Met | `Item`, equal by catalog definition ID (`item/Item.java:43`, `:55`) |
+| Inheritance at least two levels deep | Met | `Entity` → `GameCharacter` → `Player` / `Enemy` (`entity/GameCharacter.java:14`, `entity/Player.java:8`, `entity/Enemy.java:9`); `Item` → `Equipment` → `Weapon` (`item/Equipment.java:8`, `item/Weapon.java:10`) |
+| Abstract class with at least 2 abstract methods | Met | `Item` (`getCategoryLabel`, `getDetails`: `item/Item.java:36`, `:40`); `Equipment` (`fits`, `addStats`: `item/Equipment.java:22`, `:54`) |
+| At least 3 concrete subclasses of that abstract class | Met | `Weapon`, `Armor`, `Shield` (`item/Weapon.java:10`, `item/Armor.java:7`, `item/Shield.java:5`) |
 | `@Override` on every override | Met | All current overrides |
-| Loop over a supertype collection with type-dependent behavior | Met | `GameCharacter` sums armor, shield value and speed penalty, and checks dodging, over its equipped `Equipment`, each subclass answering differently |
-| At least 2 interfaces, one implemented by unrelated classes | Met | `Displayable` (implemented by `Item` and `Entity`, which share no parent); `Battle.CombatEvent` and `Displayable.Detail` (sealed interfaces implemented by records) |
-| An interface with a default method | Met | `Displayable.getNameMeaning()` |
-| Behavior passed as a parameter and invoked later | Met | `Catalog.load` takes a `Function` that builds each entry from a file row; `BattleMap.searchPaths` takes a `Predicate` for occupied cells; battle actions in `CombatScreen` hold their check and execution as functions |
-| A class implementing `Comparable`, and a `Comparator` in use | Met | `Position` is `Comparable` (top to bottom, then left to right), the drawing order of the battle map in `CombatScreen`; `Comparator`: initiative order in `Battle` (`comparingInt`, `reversed`, `thenComparing`), nearest target in `EnemyAI` |
-| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException` (checked), `MissingFieldException` (unchecked) |
-| Each custom exception carries data beyond the message | Met | Slot number (`BadSaveException`); missing field name (`MissingFieldException`) |
-| At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` in `SaveManager` |
+| Loop over a supertype collection with type-dependent behavior | Met | `GameCharacter` sums armor, shield value and speed penalty, and checks dodging, over its equipped `Equipment`, each subclass answering differently (`entity/GameCharacter.java:212`–`240`) |
+| At least 2 interfaces, one implemented by unrelated classes | Met | `Displayable` (`Displayable.java:6`), implemented by `Item` and `Entity`, which share no parent (`item/Item.java:9`, `entity/Entity.java:8`); `Battle.CombatEvent` (`combat/Battle.java:20`) and `Displayable.Detail` (`Displayable.java:32`), sealed interfaces implemented by records |
+| An interface with a default method | Met | `Displayable.getNameMeaning()` (`Displayable.java:91`) |
+| Behavior passed as a parameter and invoked later | Met | `Catalog.load` takes a `Function` that builds each entry from a file row (`data/Catalog.java:26`); `BattleMap.searchPaths` takes a `Predicate` for occupied cells (`combat/BattleMap.java:128`); battle actions in `CombatScreen` hold their check and execution as functions (`ui/CombatScreen.java:142`) |
+| A class implementing `Comparable`, and a `Comparator` in use | Met | `Position` is `Comparable`, top to bottom, then left to right (`combat/Position.java:15`), the drawing order of the battle map (`ui/CombatScreen.java:914`); `Comparator`: initiative order in `Battle` with `comparingInt`, `reversed`, `thenComparing` (`combat/Battle.java:83`), nearest target in `EnemyAI` (`combat/EnemyAI.java:34`, `:58`) |
+| Two custom exceptions, one checked and one unchecked | Met | `BadSaveException`, checked (`save/BadSaveException.java:3`); `MissingFieldException`, unchecked (`data/MissingFieldException.java:3`) |
+| Each custom exception carries data beyond the message | Met | Slot number (`save/BadSaveException.java:6`); missing field name (`data/MissingFieldException.java:6`) |
+| At least one exception chain preserving the cause | Met | `BadSaveException(slot, cause)` (`save/BadSaveException.java:8`), thrown in `SaveManager` (`save/SaveManager.java:84`, `:105`); `Catalog` wraps parse errors in `IOException` with the cause (`data/Catalog.java:34`–`50`) |
 | No empty catch blocks | Met | — |
-| `List` and `Map` used where appropriate | Met | Story history and battle participants (`List`); attributes, skills and equipment slots (`EnumMap`); catalog index by ID (`LinkedHashMap` in `Catalog`) |
-| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager` (missing file = empty slot, unreadable file = corrupt slot); `Catalog` (missing or malformed data stops startup with the file name and entry) |
-| Writing a file | Met | `SaveManager.writeSave` (temporary file, then atomic replace) |
-| A design pattern from Lab 9, used deliberately | Met | Factory: `EnemyCatalog.createFromId` builds a fresh `Enemy` from a template for every battle, since enemies carry their own HP and names (confirmed with the instructor, November 10). Also `Player.PlayerBuilder` (Builder) and `Equipment.getDetails` (template method) |
-| Composition chosen over inheritance at least once | Met | `GameCharacter` holds its equipment in slots instead of subclasses per loadout; `Combatant` wraps a `GameCharacter` with battle-only state |
-| A class depending only on abstractions | Met | `Catalog.load` reads any row type and builds entries through a `Function`, without knowing the concrete catalog (confirmed with the instructor, November 10) |
+| `List` and `Map` used where appropriate | Met | Story history (`GameState.java:15`) and battle participants (`combat/Battle.java:58`) as `List`; attributes, skills and equipment slots as `EnumMap` (`entity/GameCharacter.java:15`–`17`); catalog index by ID as `LinkedHashMap` (`data/Catalog.java:18`) |
+| Reading a file with try-with-resources; missing or malformed files handled | Met | `SaveManager.loadSave` (`save/SaveManager.java:98`; missing file = empty slot, unreadable file = corrupt slot, `:53`–`56`); `Catalog.load` (`data/Catalog.java:28`; missing or malformed data stops startup with the file name and entry) |
+| Writing a file | Met | `SaveManager.writeSave` (`save/SaveManager.java:72`): temporary file, then atomic replace |
+| A design pattern from Lab 9, used deliberately | Met | Factory: `EnemyCatalog.createFromId` (`data/EnemyCatalog.java:43`, called at `GameEngine.java:260`) builds a fresh `Enemy` from a template for every battle, since enemies carry their own HP and names (confirmed with the instructor, November 10). Also `Player.PlayerBuilder` (Builder, `entity/Player.java:98`) and `Equipment.getDetails` (template method, `item/Equipment.java:37`) |
+| Composition chosen over inheritance at least once | Met | `GameCharacter` holds its equipment in slots instead of subclasses per loadout (`entity/GameCharacter.java:17`); `Combatant` wraps a `GameCharacter` with battle-only state (`combat/Combatant.java:34`) |
+| A class depending only on abstractions | Met | `Catalog.load` (`data/Catalog.java:26`) reads any row type and builds entries through a `Function`, without knowing the concrete catalog (confirmed with the instructor, November 10) |
 
 ## Development assistance
 
