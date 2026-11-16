@@ -14,10 +14,10 @@
   {"id": "miss",       "kind": "sfx",   "use": "an attack misses or is dodged",
    "subject": "fast sword whoosh through the air"},
 
-  {"id": "menu",       "kind": "music", "use": "main menu, character creation, save screens",
-   "subject": "solemn mysterious night theme, low strings, harp, soft choir pad, a distant bell, slow"},
+  {"id": "menu",       "kind": "music", "use": "main menu, character creation, save screens", "loop": [13.80, 182.37],
+   "subject": "slow 70 BPM pulse, warm analog synth pads underpin a repeating lute and cello motif, deep sub bass, and sparse trap hi-hats; low male choir texture"},
   {"id": "adventure",  "kind": "music", "use": "adventure screen and inventory",
-   "subject": "wandering travel theme, acoustic guitar, low strings, light hand drums, warm but uncertain, medium tempo"},
+   "subject": "chill downtempo travel theme at 90 BPM, plucked lute and harp over soft lo-fi drums, mellow synth pad, gentle and unobtrusive"},
   {"id": "combat",     "kind": "music", "use": "combat screen",
-   "subject": "tense battle theme, frame drums and taiko, staccato strings, brass stabs, fast"}
+   "subject": "intense 140 BPM battle theme, hybrid orchestral trap, 808 sub bass, rapid trap hi-hats, aggressive cello ostinato, war drums, heavy half-time dubstep bass drop"}
 ]

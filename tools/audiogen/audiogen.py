@@ -18,14 +18,14 @@ OUT = ROOT / "assets" / "sounds"
 SYNTH_RATE = 44100
 RATES = {"sfx": 22050, "music": 32000}   # mono 16-bit; music costs about 3.7 MB a minute
 SOURCE_TYPES = (".wav", ".mp3", ".ogg", ".flac")
-LOOP_FADE = 0.5        # seconds of crossfade where a cut music loop wraps around
+LOOP_FADE = 0.02       # seconds of crossfade where a cut music loop wraps around: only enough to avoid a click
 SFX_PEAK = 0.7         # -3 dBFS
 MUSIC_RMS = 0.05       # about -26 dBFS, well under the effects
 MUSIC_PEAK = 0.5
 
 # shared style text that comes before each subject in `prompts`, as in imagegen
-MUSIC_STYLE = ("instrumental, no vocals, dark fantasy RPG soundtrack, restrained cinematic, "
-               "steady tempo and mood throughout, loopable: ")
+MUSIC_STYLE = ("Modern fantasy RPG soundtrack, hybrid folk and electronic, moody and cool, "
+               "loopable arrangement, instrumental presentation; ")
 SFX_STYLE = "short dry game sound effect, single sound, no music, no reverb tail: "
 
 
@@ -236,13 +236,15 @@ def read_source(path):
     return rate, data.mean(axis=1)
 
 
-def cut_loop(x, rate, start, end):
-    """the part from start to end seconds, made to loop: its first LOOP_FADE seconds fade in
-    while the music just after end fades out, so the wrap from its last sample to its first is continuous"""
-    a, b, f = (int(round(v * rate)) for v in (start, end, LOOP_FADE))
+def cut_loop(x, rate, start, end, fade=LOOP_FADE):
+    """the part from start to end seconds, made to loop: its first fade seconds fade in
+    while the music just after end fades out, so the wrap from its last sample to its first is continuous.
+    the default fade only removes the click of a hard cut; a longer one smooths a seam that does not quite match"""
+    a, b, f = (int(round(v * rate)) for v in (start, end, fade))
+    f = max(f, 1)
     if not 0 <= a < a + f <= b <= len(x) - f:
         raise ValueError(f"loop {start}-{end}s does not fit: the source is {len(x) / rate:.2f}s "
-                         f"and needs {LOOP_FADE}s after the end for the crossfade")
+                         f"and needs {fade}s after the end for the crossfade")
     y = x[a:b].copy()
     w = np.linspace(0, np.pi / 2, f)
     y[:f] = x[a:a + f] * np.sin(w) + x[b:b + f] * np.cos(w)   # equal power: no dip in loudness
@@ -343,11 +345,13 @@ def cmd_check(_ids):
     assert abs(math.sqrt(np.mean(y ** 2)) - MUSIC_RMS) < 1e-3
     # a cut loop wraps around without a jump: its first sample continues its last
     ramp = np.arange(10 * 100) / 100.0                 # 10 s at 100 Hz, rising 1 per second
-    y = cut_loop(ramp, 100, 2, 6)
+    y = cut_loop(ramp, 100, 2, 6, 0.5)
     assert len(y) == 400 and abs(y[0] - 6.0) < 1e-9 and abs(y[-1] - 5.99) < 1e-9
     assert abs(y[60] - ramp[260]) < 1e-9                # after the crossfade it is the source again
+    y = cut_loop(ramp, 100, 2, 6)                      # the default fade is only a few samples long
+    assert abs(y[0] - 6.0) < 1e-9 and abs(y[5] - ramp[205]) < 1e-9
     try:
-        cut_loop(ramp, 100, 2, 9.8)
+        cut_loop(ramp, 100, 2, 9.8, 0.5)
         raise AssertionError("a loop with no room for the crossfade was accepted")
     except ValueError:
         pass
