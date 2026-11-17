@@ -2,6 +2,8 @@
 
 A console-based Java RPG course project for CMP 358L at the American University of Sharjah.
 
+Repository: https://github.com/JacobZ001/EndlessAdventure
+
 ## Current status
 
 As of November 12, 2026, the minimal playable version (v0) is complete: character creation with starting equipment, an inventory and character screen, the narrative adventure loop, encounters started by the story, grid battles against one or two enemies whose result returns to the story, resting, and saves.
@@ -168,6 +170,13 @@ Status as of November 17, 2026. Paths are relative to `src/com/endlessadventure/
 | A design pattern from Lab 9, used deliberately | Met | Factory: `EnemyCatalog.createFromId` (`data/EnemyCatalog.java:43`, called at `GameEngine.java:260`) builds a fresh `Enemy` from a template for every battle, since enemies carry their own HP and names (confirmed with the instructor, November 10). Also `Player.PlayerBuilder` (Builder, `entity/Player.java:98`) and `Equipment.getDetails` (template method, `item/Equipment.java:37`) |
 | Composition chosen over inheritance at least once | Met | `GameCharacter` holds its equipment in slots instead of subclasses per loadout (`entity/GameCharacter.java:17`); `Combatant` wraps a `GameCharacter` with battle-only state (`combat/Combatant.java:34`) |
 | A class depending only on abstractions | Met | `Catalog.load` (`data/Catalog.java:26`) reads any row type and builds entries through a `Function`, without knowing the concrete catalog (confirmed with the instructor, November 10) |
+
+## Design pattern
+
+**Factory** (Lab 9): `EnemyCatalog.createFromId` (`src/com/endlessadventure/data/EnemyCatalog.java:43`), called when a battle starts (`src/com/endlessadventure/GameEngine.java:260`).
+
+- **What it solved:** a battle needs its own `Enemy` objects, because each enemy carries its own HP and name while it fights. The story only names enemy template IDs, so callers ask the catalog for an enemy by ID and never construct `Enemy` themselves or look up its equipment. Each call builds a fresh enemy from the template, so two bandits in one battle, or the same bandit in a later battle, never share state.
+- **Also present:** `Player.PlayerBuilder` (Builder, `src/com/endlessadventure/entity/Player.java:98`) collects the points spent during character creation and only builds a `Player` when every point is spent; `Equipment.getDetails` (template method, `src/com/endlessadventure/item/Equipment.java:37`) fixes the order of the detail lines and lets each subclass add its own stats.
 
 ## Development assistance
 
