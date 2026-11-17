@@ -64,7 +64,8 @@ public class StoryGenerator {
 			- A different location (leaving the town, reaching a ruin or the wilds): add newLocation, and give its
 			first room a new name.
 			Options that would lead elsewhere do not move the player; only where the description ends counts.
-			room.backdrop is the picture of that room, from the backdrops of its location's kind (ignored for a known room):
+			room.backdrop is the picture of that room (ignored for a known room). Prefer its location's kind; another kind's
+			picture is fine when it shows the room better, e.g. a bandit camp in the woods:
 			%s""";
 
 	private static final String OPENING_INSTRUCTION = """
@@ -448,7 +449,8 @@ public class StoryGenerator {
 	/** where the scene ends: newLocation makes a new location; otherwise room.name is matched by name against the
 	 *  current room (stay) and its exits (a known room), or else names a new room in this location.
 	 *  names, not ids: a model asked for an exit id wrote one for an option it offered while staying put.
-	 *  a new room's backdrop must belong to its location's kind; a known room keeps its own */
+	 *  a new room's backdrop may be of any kind: rejecting the whole scene over a picture lost a playtest's encounter;
+	 *  a known room keeps its own */
 	private Move parseMove(JsonObject reply, GameState state, MoveRule rule) {
 		if (rule == MoveRule.NONE) {
 			return new Move.Stay();
@@ -470,7 +472,7 @@ public class StoryGenerator {
 				throw new IllegalArgumentException("newLocation.danger must be 1-" + StatRules.MAX_LEVEL);
 			}
 			return new Move.NewLocation(limitText(text(location, "name"), WorldMap.MAX_LOCATION_LENGTH), kind,
-					limitText(text(location, "theme"), WorldMap.MAX_THEME_LENGTH), danger, name, checkBackdrop(backdrop, kind));
+					limitText(text(location, "theme"), WorldMap.MAX_THEME_LENGTH), danger, name, checkBackdrop(backdrop));
 		}
 		if (rule == MoveRule.NEW_LOCATION) {
 			throw new IllegalArgumentException("The opening must move to a new location");
@@ -482,14 +484,13 @@ public class StoryGenerator {
 		if (known != null) {
 			return known == here ? new Move.Stay() : new Move.ToRoom(known.id());
 		}
-		return new Move.NewRoom(name, checkBackdrop(backdrop, state.getCurrentLocation().kind()));
+		return new Move.NewRoom(name, checkBackdrop(backdrop));
 	}
 
-	/** a backdrop id from the library of this location kind */
-	private String checkBackdrop(String id, LocationKind kind) {
-		BackdropCatalog.Backdrop backdrop = backdrops.get(id);
-		if (backdrop == null || backdrop.kind() != kind) {
-			throw new IllegalArgumentException("room.backdrop is not a " + kind + " backdrop: " + limitText(id, 30));
+	/** a backdrop id from the library */
+	private String checkBackdrop(String id) {
+		if (backdrops.get(id) == null) {
+			throw new IllegalArgumentException("room.backdrop is not a known backdrop: " + limitText(id, 30));
 		}
 		return id;
 	}

@@ -36,6 +36,7 @@ public final class LlmClient {
 	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 	private static final Gson GSON = new Gson();
 	private static final int BRIEF_LENGTH = 80; //error details shown to the player end up on one status line
+	private static final int RETRIES_ON_503 = 2; //waits 2 s then 4 s before giving up
 
 	private final HttpClient http;
 	private final String apiKey;
@@ -172,7 +173,13 @@ public final class LlmClient {
 		HttpResponse<String> response;
 		long start = System.nanoTime();
 		try {
+			// 503 means Gemini is overloaded for a moment; a demo lost a turn to one, so wait and ask again
 			response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			for (int retry = 1; retry <= RETRIES_ON_503 && response.statusCode() == 503; retry++) {
+				note("HTTP 503, retry " + retry + " of " + RETRIES_ON_503, brief(response.body()));
+				Thread.sleep(retry * 2000L);
+				response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			}
 		} catch (HttpTimeoutException e) {
 			note("FAILED", "timed out: " + e);
 			throw new LlmRequestException(LlmRequestException.Stage.TIMEOUT, "Gemini request timed out", e);

@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,8 +49,14 @@ public final class StoryGeneratorCheck {
 		AtomicReference<String> raw = new AtomicReference<>(); //the whole request body
 		AtomicInteger calls = new AtomicInteger();
 		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		AtomicBoolean overloadOnce = new AtomicBoolean(); //the next request gets a bare 503
 		server.createContext("/", exchange -> {
 			calls.incrementAndGet();
+			if (overloadOnce.getAndSet(false)) {
+				exchange.sendResponseHeaders(503, -1);
+				exchange.close();
+				return;
+			}
 			raw.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
 			byte[] body = ("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
 					+ GSON.toJson(reply.get()) + "}]}}]}").getBytes(StandardCharsets.UTF_8);
@@ -58,7 +65,9 @@ public final class StoryGeneratorCheck {
 				output.write(body);
 			}
 		});
+		AtomicInteger overloaded = new AtomicInteger();
 		server.createContext("/overloaded", exchange -> { //a Gemini-style error with a long body
+			overloaded.incrementAndGet();
 			byte[] body = ("{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\","
 					+ "\"status\":\"UNAVAILABLE\",\"details\":\"" + "x".repeat(400) + "\"}}").getBytes(StandardCharsets.UTF_8);
 			exchange.sendResponseHeaders(503, body.length);
@@ -85,7 +94,7 @@ public final class StoryGeneratorCheck {
 			JsonObject config = JsonParser.parseString(raw.get()).getAsJsonObject().getAsJsonObject("generationConfig");
 			check(config.get("responseMimeType").getAsString().equals("application/json")
 					&& schema(raw).getAsJsonArray("required").contains(JsonParser.parseString("\"newLocation\""))
-					&& system(raw).contains("RUIN: ruins, bandit_camp") && system(raw).contains("always starts at a new location"),
+					&& system(raw).contains("RUIN: ruins, ") && system(raw).contains("always starts at a new location"),
 					"The opening asks for JSON with a required new location, and lists the backdrops by kind");
 			check(state.getCurrentScene() == null && state.getHistory().isEmpty() && state.getPlayer().getHp() == 40
 					&& state.getCurrentRoom() == null && state.getWorldMap().getRoom("R1") == null,
@@ -171,14 +180,12 @@ public final class StoryGeneratorCheck {
 					edit(STAY, "room", null),
 					edit(STAY, "room", "{\"name\":\"Cellar\"}"),
 					edit(STAY, "room", "{\"name\":\"\",\"backdrop\":\"cave\"}"),
-					edit(STAY, "room", "{\"name\":\"Cellar\",\"backdrop\":\"village\"}"),
 					edit(STAY, "room", "{\"name\":\"Cellar\",\"backdrop\":\"nowhere\"}"),
 					edit(STAY, "newLocation", NEW_LOCATION.replace("RUIN", "FOREST")),
 					edit(STAY, "newLocation", NEW_LOCATION.replace("\"danger\":1", "\"danger\":0")),
 					edit(STAY, "newLocation", NEW_LOCATION.replace("\"danger\":1", "\"danger\":21")),
 					edit(STAY, "newLocation", NEW_LOCATION.replace("\"danger\":1", "\"danger\":\"two\"")),
 					edit(STAY, "newLocation", "{\"name\":\"Old Gate\",\"kind\":\"RUIN\",\"danger\":1}"),
-					edit(edit(STAY, "newLocation", NEW_LOCATION), "room", "{\"name\":\"Glade\",\"backdrop\":\"forest_path\"}"),
 					edit(STAY, "room", cellar).replace("\"room\"", "\"rooms\"")}) {
 				reply.set(invalid);
 				int before = calls.get();
@@ -209,6 +216,13 @@ public final class StoryGeneratorCheck {
 			reply.set(edit(STAY, "room", "{\"name\":\"Flooded Cellar\",\"backdrop\":\"cave\"}"));
 			check(generator.generateNext(state, "Go down").move().equals(new Move.NewRoom("Flooded Cellar", "cave")),
 					"A new name takes a backdrop of the current location's kind");
+			// real reply: a bandit camp in the woods took a picture of another kind, and rejecting it lost the encounter
+			reply.set(edit(STAY, "room", "{\"name\":\"Bandit Camp\",\"backdrop\":\"village\"}"));
+			check(generator.generateNext(state, "Find the bandits").move().equals(new Move.NewRoom("Bandit Camp", "village")),
+					"A new room may take a backdrop of another kind");
+			reply.set(edit(edit(STAY, "newLocation", NEW_LOCATION), "room", "{\"name\":\"Glade\",\"backdrop\":\"forest_path\"}"));
+			check(generator.generateNext(state, "Leave").move() instanceof Move.NewLocation l && l.backdrop().equals("forest_path"),
+					"A new location's first room may take a backdrop of another kind");
 			reply.set(edit(STAY, "room", "{\"name\":\"" + "z".repeat(40) + "\",\"backdrop\":\"cave\"}"));
 			check(generator.generateNext(state, "Go down").move() instanceof Move.NewRoom r && r.roomName().length() == 30,
 					"A long room name is cut to its limit");
@@ -326,6 +340,12 @@ public final class StoryGeneratorCheck {
 				check(e.getMessage().equals("Gemini returned HTTP 503: The model is overloaded. Please try again later."),
 						"An HTTP error keeps only the short error message: " + e.getMessage());
 			}
+			check(overloaded.get() == 3, "A 503 is retried twice before failing: " + overloaded.get() + " calls");
+			reply.set(OPENING);
+			overloadOnce.set(true);
+			int before503 = calls.get();
+			generator.generateOpening(state);
+			check(calls.get() == before503 + 2, "A passing 503 is retried and the next reply is used");
 
 			// debug log: the whole exchange, the parse result and full error bodies, never the key
 			Path log = Files.createTempDirectory("endless-llm-log").resolve("logs").resolve("llm.log");
